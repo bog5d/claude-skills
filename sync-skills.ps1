@@ -95,31 +95,58 @@ function Sync-ToCursor {
 
 # ── 4. STATUS ────────────────────────────────────────────────────────────────
 function Show-Status {
-    Write-Host "`n=== Skills 同步状态 ===" -ForegroundColor Cyan
-    Write-Host "Claude skills: $CLAUDE_SKILLS"
-    Write-Host "Cursor skills: $CURSOR_SKILLS"
-    
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
     Set-Location $CLAUDE_SKILLS
-    $branch = git branch --show-current 2>$null
-    $remote = git log --oneline -1 2>$null
-    Write-Host "GitHub (master): $remote"
+    $lastCommit = git log --oneline -1 2>$null
+    $lastCommitTime = git log -1 --format="%ci" 2>$null
 
-    Write-Host "`n[Claude skills]" -ForegroundColor Yellow
-    Get-ChildItem $CLAUDE_SKILLS -Directory | Where-Object { $_.Name -notmatch "^\." } |
-        ForEach-Object { Write-Host "  ✓ $($_.Name)" }
+    # 统计 skills：每个含 SKILL.md 的目录算一个 skill
+    $allSkillDirs = Get-ChildItem $CLAUDE_SKILLS -Recurse -Filter "SKILL.md" |
+        Select-Object -ExpandProperty DirectoryName | Sort-Object -Unique
+    $topSkills = Get-ChildItem $CLAUDE_SKILLS -Directory | Where-Object { $_.Name -notmatch "^\." -and $_.Name -ne ".git" }
 
-    Write-Host "`n[Cursor skills]" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host "   Skills Library Dashboard" -ForegroundColor Cyan
+    Write-Host "   https://github.com/bog5d/claude-skills" -ForegroundColor DarkCyan
+    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Top-level skill packages : $($topSkills.Count)" -ForegroundColor Green
+    Write-Host "  Total SKILL.md files     : $($allSkillDirs.Count)" -ForegroundColor Green
+    Write-Host "  Last sync to GitHub      : $lastCommitTime" -ForegroundColor Green
+    Write-Host "  Latest commit            : $lastCommit" -ForegroundColor DarkGray
+    Write-Host ""
+
+    Write-Host "  [Skill Packages]" -ForegroundColor Yellow
+    $topSkills | ForEach-Object {
+        $name = $_.Name
+        # 统计该 package 内的 sub-skills
+        $subCount = (Get-ChildItem $_.FullName -Recurse -Filter "SKILL.md" | Measure-Object).Count
+        if ($subCount -le 1) {
+            Write-Host "    + $name" -ForegroundColor White
+        } else {
+            Write-Host "    + $name  ($subCount sub-skills inside)" -ForegroundColor White
+        }
+    }
+
+    Write-Host ""
+    Write-Host "  [Cursor sync]" -ForegroundColor Yellow
     if (Test-Path $CURSOR_SKILLS) {
-        Get-ChildItem $CURSOR_SKILLS -Directory |
-            ForEach-Object { Write-Host "  ✓ $($_.Name)" }
+        $cursorCount = (Get-ChildItem $CURSOR_SKILLS -Directory | Measure-Object).Count
+        Write-Host "    ~/.cursor/skills/  ($cursorCount packages synced)" -ForegroundColor White
     } else {
-        Write-Host "  (目录不存在，尚未同步)"
+        Write-Host "    Not synced yet  (run: .\sync-skills.ps1 pull)" -ForegroundColor Red
     }
 
-    Write-Host "`n最近同步日志（最后10行）:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  [Last 5 sync events]" -ForegroundColor Yellow
     if (Test-Path $LOG_FILE) {
-        Get-Content $LOG_FILE -Tail 10
+        Get-Content $LOG_FILE | Where-Object { $_ -match "===" } | Select-Object -Last 5 |
+            ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
     }
+    Write-Host ""
+    Write-Host "============================================" -ForegroundColor Cyan
 }
 
 # ── 主流程 ───────────────────────────────────────────────────────────────────
