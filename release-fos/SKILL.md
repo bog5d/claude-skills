@@ -82,6 +82,16 @@ git commit -m "release: vX.Y.Z + 更新发版文档"
 git push origin master
 ```
 
+### 阶段 4.5 — 生成交接文档（强制，不可跳过）
+
+> **铁律**：每次 git push 到 GitHub，必须同步生成一份 fos-handoff 交接文档。
+> 发版时也不例外——push 完立刻执行，不能因为"都发版了"就跳过。
+
+执行 `fos-handoff` skill（Skill 工具，skill: "fos-handoff"），完成以下动作：
+- 更新 `CLAUDE.md` 的「接手速览」和「改动文件清单」
+- 输出「直接粘给下一个 AI」的交接 Prompt
+- 将 CLAUDE.md 更新 commit 并 push（如有变动）
+
 ### 阶段 5 — 发版报告
 
 向用户报告（格式如下）：
