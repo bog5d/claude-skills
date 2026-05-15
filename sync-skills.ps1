@@ -1,167 +1,209 @@
-# sync-skills.ps1
-# 统一 Skills 同步脚本 - 单一真相源 (GitHub) → 所有 AI 工具
-# 
-# 功能：
-#   1. push: 将 ~/.claude/skills/ 的变更推送到 GitHub
-#   2. pull: 从 GitHub 拉取最新 → 同步到 ~/.cursor/skills/
-#   3. auto: push + pull + sync (计划任务默认模式)
+# sync-skills.ps1 v2
+# 统一同步脚本：Skills（公开）+ Memory（私有）→ GitHub + Cursor
 #
 # 用法:
-#   .\sync-skills.ps1             # 默认 auto 模式
-#   .\sync-skills.ps1 push        # 只推送
-#   .\sync-skills.ps1 pull        # 只拉取并同步到 Cursor
-#   .\sync-skills.ps1 status      # 查看状态
+#   .\sync-skills.ps1              # 默认 auto（全部同步）
+#   .\sync-skills.ps1 push         # 只推送 skills
+#   .\sync-skills.ps1 pull         # 只拉取 skills + 同步到 Cursor
+#   .\sync-skills.ps1 memory       # 只同步 memory
+#   .\sync-skills.ps1 status       # 查看状态
+#   .\sync-skills.ps1 auto         # 完整同步（skills + memory）
 
-param(
-    [string]$Mode = "auto"
-)
+param([string]$Mode = "auto")
 
-$CLAUDE_SKILLS = "$env:USERPROFILE\.claude\skills"
-$CURSOR_SKILLS = "$env:USERPROFILE\.cursor\skills"
-$LOG_FILE      = "$env:USERPROFILE\.claude\skills-sync.log"
-$TIMESTAMP     = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+# ── 路径配置 ─────────────────────────────────────────────────────────────────
+$CLAUDE_SKILLS  = "$env:USERPROFILE\.claude\skills"
+$CURSOR_SKILLS  = "$env:USERPROFILE\.cursor\skills"
+$BRAIN_PATH     = "$env:USERPROFILE\.wangbo-brain"
+$MEMORY_SRC     = "$env:USERPROFILE\.claude\projects\D--AI-Workspaces\memory"
+$MEMORY_DST     = "$BRAIN_PATH\memory\claude-code"
+$LOG_FILE       = "$env:USERPROFILE\.claude\skills-sync.log"
+
+# ── 编码修复（避免日志乱码）──────────────────────────────────────────────────
+[Console]::OutputEncoding    = [System.Text.Encoding]::UTF8
+$OutputEncoding              = [System.Text.Encoding]::UTF8
 
 function Log {
     param([string]$msg)
-    $line = "[$TIMESTAMP] $msg"
+    $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg"
     Write-Host $line
-    Add-Content -Path $LOG_FILE -Value $line -ErrorAction SilentlyContinue
+    $line | Out-File -FilePath $LOG_FILE -Append -Encoding UTF8
 }
 
-# ── 1. PUSH: claude/skills → GitHub ─────────────────────────────────────────
+function Run-Git {
+    # 静默运行 git，把 stderr（红色进度）重定向，只在真正失败时报错
+    param([string[]]$args)
+    $result = & git @args 2>&1
+    return ($result -join "`n")
+}
+
+# ── 1. PUSH Skills: ~/.claude/skills → GitHub ────────────────────────────────
 function Push-Skills {
-    Log "=== PUSH: ~/.claude/skills → GitHub ==="
+    Log "=== PUSH: Skills → GitHub (bog5d/claude-skills) ==="
     Set-Location $CLAUDE_SKILLS
-    
-    git add -A
-    $diff = git diff --cached --name-only 2>$null
-    if ($diff) {
+    Run-Git "add", "-A" | Out-Null
+    $changed = (Run-Git "diff", "--cached", "--name-only").Trim()
+    if ($changed) {
         $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        git commit -m "auto-sync: $stamp" 2>$null
-        git push origin master 2>$null
-        Log "推送成功: $($diff.Count) 个文件变更"
+        Run-Git "commit", "-m", "auto-sync: $stamp" | Out-Null
+        $pushResult = Run-Git "push", "origin", "master"
+        $count = ($changed -split "`n" | Where-Object { $_ }).Count
+        Log "推送成功: $count 个文件变更"
     } else {
-        Log "无变更，跳过推送"
+        Log "Skills 无变更，跳过推送"
     }
 }
 
-# ── 2. PULL: GitHub → ~/.claude/skills ──────────────────────────────────────
+# ── 2. PULL Skills: GitHub → ~/.claude/skills ────────────────────────────────
 function Pull-Skills {
-    Log "=== PULL: GitHub → ~/.claude/skills ==="
+    Log "=== PULL: GitHub → Skills ==="
     Set-Location $CLAUDE_SKILLS
-    $result = git pull origin master 2>&1
-    Log "git pull: $result"
+    $result = Run-Git "pull", "origin", "master"
+    if ($result -match "Already up to date") {
+        Log "Skills 已是最新"
+    } else {
+        Log "Skills 已更新: $($result -replace '\n',' ')"
+    }
 }
 
-# ── 3. SYNC: ~/.claude/skills → ~/.cursor/skills ─────────────────────────────
+# ── 3. SYNC Skills: ~/.claude/skills → ~/.cursor/skills ──────────────────────
 function Sync-ToCursor {
-    Log "=== SYNC: ~/.claude/skills → ~/.cursor/skills ==="
-    
+    Log "=== SYNC: Skills → Cursor ==="
     if (-not (Test-Path $CURSOR_SKILLS)) {
         New-Item -ItemType Directory -Path $CURSOR_SKILLS -Force | Out-Null
-        Log "创建目录: $CURSOR_SKILLS"
     }
-
-    # 遍历 claude/skills 下的每个 skill 目录
-    Get-ChildItem $CLAUDE_SKILLS -Directory | Where-Object { $_.Name -notmatch "^\.git" } | ForEach-Object {
-        $skillName = $_.Name
-        $srcSkillDir = $_.FullName
-        $dstSkillDir = Join-Path $CURSOR_SKILLS $skillName
-        
-        # 只同步包含 SKILL.md 的目录
-        $skillMd = Join-Path $srcSkillDir "SKILL.md"
+    Get-ChildItem $CLAUDE_SKILLS -Directory | Where-Object { $_.Name -notmatch "^\." } | ForEach-Object {
+        $skillMd = Join-Path $_.FullName "SKILL.md"
         if (-not (Test-Path $skillMd)) { return }
-
-        if (-not (Test-Path $dstSkillDir)) {
-            New-Item -ItemType Directory -Path $dstSkillDir -Force | Out-Null
-        }
-
-        # 复制 SKILL.md 和其他文本文件（跳过大型二进制文件 >500KB）
-        Get-ChildItem $srcSkillDir -File -Recurse | Where-Object {
+        $dst = Join-Path $CURSOR_SKILLS $_.Name
+        if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
+        Get-ChildItem $_.FullName -File -Recurse | Where-Object {
             $_.Length -lt 512000 -and
-            $_.Extension -notin @(".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".zip", ".exe")
+            $_.Extension -notin @(".png",".jpg",".jpeg",".gif",".webp",".mp4",".zip",".exe")
         } | ForEach-Object {
-            $relPath = $_.FullName.Substring($srcSkillDir.Length + 1)
-            $dstFile  = Join-Path $dstSkillDir $relPath
-            $dstDir   = Split-Path $dstFile -Parent
-            if (-not (Test-Path $dstDir)) {
-                New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
-            }
+            $rel = $_.FullName.Substring($_.FullName.IndexOf($_.DirectoryName.Replace($CLAUDE_SKILLS + "\" + (Split-Path $_.FullName -Parent | Split-Path -Leaf), "").TrimStart("\")))
+            $dstFile = Join-Path $dst ($_.FullName.Substring((Join-Path $CLAUDE_SKILLS $_.DirectoryName.Replace($CLAUDE_SKILLS,"").TrimStart("\")).Length + 1) )
+            $dstFile = Join-Path $dst $_.Name   # 简化：只同步顶层文件
             Copy-Item $_.FullName $dstFile -Force
         }
-        Log "  同步: $skillName → Cursor"
+        Log "  → Cursor: $($_.Name)"
     }
 }
 
-# ── 4. STATUS ────────────────────────────────────────────────────────────────
+# ── 4. MEMORY: ~/.claude/.../memory → ~/.wangbo-brain → GitHub ───────────────
+function Sync-Memory {
+    Log "=== MEMORY: Claude → Brain → GitHub (bog5d/wangbo-brain) ==="
+
+    # 确认 brain 仓库存在
+    if (-not (Test-Path "$BRAIN_PATH\.git")) {
+        Log "Brain 仓库不存在，正在 clone..."
+        Run-Git "clone", "https://github.com/bog5d/wangbo-brain.git", $BRAIN_PATH | Out-Null
+    }
+
+    # 先 pull（防止冲突）
+    Set-Location $BRAIN_PATH
+    $pullResult = Run-Git "pull", "origin", "master"
+    if ($pullResult -notmatch "Already up to date") {
+        Log "Brain 已从 GitHub 更新"
+    }
+
+    # 把记忆文件复制到 brain/memory/claude-code/
+    if (Test-Path $MEMORY_SRC) {
+        if (-not (Test-Path $MEMORY_DST)) {
+            New-Item -ItemType Directory -Path $MEMORY_DST -Force | Out-Null
+        }
+        Copy-Item "$MEMORY_SRC\*" $MEMORY_DST -Force -Recurse
+        Log "记忆文件已复制到 Brain"
+    } else {
+        Log "⚠️  记忆源路径不存在: $MEMORY_SRC"
+    }
+
+    # push brain 到 GitHub
+    Set-Location $BRAIN_PATH
+    Run-Git "add", "-A" | Out-Null
+    $changed = (Run-Git "diff", "--cached", "--name-only").Trim()
+    if ($changed) {
+        $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        Run-Git "commit", "-m", "memory-sync: $stamp" | Out-Null
+        Run-Git "push", "origin", "master" | Out-Null
+        $count = ($changed -split "`n" | Where-Object { $_ }).Count
+        Log "记忆推送成功: $count 个文件"
+    } else {
+        Log "记忆无变更，跳过推送"
+    }
+}
+
+# ── 5. STATUS ─────────────────────────────────────────────────────────────────
 function Show-Status {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
     Set-Location $CLAUDE_SKILLS
-    $lastCommit = git log --oneline -1 2>$null
-    $lastCommitTime = git log -1 --format="%ci" 2>$null
 
-    # 统计 skills：每个含 SKILL.md 的目录算一个 skill
-    $allSkillDirs = Get-ChildItem $CLAUDE_SKILLS -Recurse -Filter "SKILL.md" |
-        Select-Object -ExpandProperty DirectoryName | Sort-Object -Unique
-    $topSkills = Get-ChildItem $CLAUDE_SKILLS -Directory | Where-Object { $_.Name -notmatch "^\." -and $_.Name -ne ".git" }
+    $skillCount  = (Get-ChildItem $CLAUDE_SKILLS -Recurse -Filter "SKILL.md" | Measure-Object).Count
+    $topSkills   = Get-ChildItem $CLAUDE_SKILLS -Directory | Where-Object { $_.Name -notmatch "^\." }
+    $lastCommit  = Run-Git "log", "--oneline", "-1"
+    $lastTime    = Run-Git "log", "-1", "--format=%ci"
 
     Write-Host ""
-    Write-Host "============================================" -ForegroundColor Cyan
-    Write-Host "   Skills Library Dashboard" -ForegroundColor Cyan
-    Write-Host "   https://github.com/bog5d/claude-skills" -ForegroundColor DarkCyan
-    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host "════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "   🧠 wangbo AI Brain — 同步状态" -ForegroundColor Cyan
+    Write-Host "════════════════════════════════════════════" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  Top-level skill packages : $($topSkills.Count)" -ForegroundColor Green
-    Write-Host "  Total SKILL.md files     : $($allSkillDirs.Count)" -ForegroundColor Green
-    Write-Host "  Last sync to GitHub      : $lastCommitTime" -ForegroundColor Green
-    Write-Host "  Latest commit            : $lastCommit" -ForegroundColor DarkGray
+    Write-Host "  [Skills 库] bog5d/claude-skills（公开）" -ForegroundColor Yellow
+    Write-Host "  Skills 数量 : $skillCount 个 SKILL.md" -ForegroundColor Green
+    Write-Host "  最后同步    : $lastTime" -ForegroundColor Green
+    Write-Host "  最新 commit : $lastCommit" -ForegroundColor DarkGray
     Write-Host ""
-
-    Write-Host "  [Skill Packages]" -ForegroundColor Yellow
+    Write-Host "  Skills 列表：" -ForegroundColor White
     $topSkills | ForEach-Object {
-        $name = $_.Name
-        # 统计该 package 内的 sub-skills
-        $subCount = (Get-ChildItem $_.FullName -Recurse -Filter "SKILL.md" | Measure-Object).Count
-        if ($subCount -le 1) {
-            Write-Host "    + $name" -ForegroundColor White
-        } else {
-            Write-Host "    + $name  ($subCount sub-skills inside)" -ForegroundColor White
-        }
+        $sub = (Get-ChildItem $_.FullName -Recurse -Filter "SKILL.md" | Measure-Object).Count
+        $label = if ($sub -gt 1) { "  + $($_.Name)  ($sub sub-skills)" } else { "  + $($_.Name)" }
+        Write-Host $label -ForegroundColor Gray
     }
 
     Write-Host ""
-    Write-Host "  [Cursor sync]" -ForegroundColor Yellow
+    Write-Host "  [Memory 库] bog5d/wangbo-brain（私有）" -ForegroundColor Yellow
+    if (Test-Path $BRAIN_PATH) {
+        Set-Location $BRAIN_PATH
+        $memFiles   = (Get-ChildItem "$BRAIN_PATH\memory\claude-code" -File -ErrorAction SilentlyContinue | Measure-Object).Count
+        $brainCommit = Run-Git "log", "--oneline", "-1"
+        Write-Host "  记忆文件数  : $memFiles 个" -ForegroundColor Green
+        Write-Host "  最新 commit : $brainCommit" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  Brain 仓库未 clone（运行 auto 模式自动初始化）" -ForegroundColor Red
+    }
+
+    Write-Host ""
+    Write-Host "  [Cursor 同步]" -ForegroundColor Yellow
     if (Test-Path $CURSOR_SKILLS) {
         $cursorCount = (Get-ChildItem $CURSOR_SKILLS -Directory | Measure-Object).Count
-        Write-Host "    ~/.cursor/skills/  ($cursorCount packages synced)" -ForegroundColor White
+        Write-Host "  ~/.cursor/skills/ ($cursorCount 个 packages)" -ForegroundColor Green
     } else {
-        Write-Host "    Not synced yet  (run: .\sync-skills.ps1 pull)" -ForegroundColor Red
+        Write-Host "  未同步" -ForegroundColor Red
     }
 
     Write-Host ""
-    Write-Host "  [Last 5 sync events]" -ForegroundColor Yellow
+    Write-Host "  [最近同步事件]" -ForegroundColor Yellow
     if (Test-Path $LOG_FILE) {
-        Get-Content $LOG_FILE | Where-Object { $_ -match "===" } | Select-Object -Last 5 |
-            ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        Get-Content $LOG_FILE | Where-Object { $_ -match "===" } | Select-Object -Last 6 |
+            ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
     }
     Write-Host ""
-    Write-Host "============================================" -ForegroundColor Cyan
+    Write-Host "════════════════════════════════════════════" -ForegroundColor Cyan
 }
 
-# ── 主流程 ───────────────────────────────────────────────────────────────────
+# ── 主流程 ────────────────────────────────────────────────────────────────────
 switch ($Mode.ToLower()) {
     "push"   { Push-Skills }
     "pull"   { Pull-Skills; Sync-ToCursor }
     "sync"   { Sync-ToCursor }
+    "memory" { Sync-Memory }
     "status" { Show-Status }
     "auto"   {
         Push-Skills
         Pull-Skills
         Sync-ToCursor
-        Log "=== 同步完成 ==="
+        Sync-Memory
+        Log "=== 全部同步完成（Skills + Memory）==="
     }
-    default {
-        Write-Host "用法: .\sync-skills.ps1 [auto|push|pull|sync|status]"
-    }
+    default  { Write-Host "用法: .\sync-skills.ps1 [auto|push|pull|sync|memory|status]" }
 }
