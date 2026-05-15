@@ -81,7 +81,7 @@ function Sync-ToCursor {
             $_.Length -lt 512000 -and
             $_.Extension -notin @(".png",".jpg",".jpeg",".gif",".webp",".mp4",".zip",".exe")
         } | ForEach-Object {
-            Copy-Item $_.FullName (Join-Path $dst $_.Name) -Force
+            Copy-Item $_.FullName (Join-Path $dst $_.Name) -Force -ErrorAction SilentlyContinue
         }
         Log "  -> Cursor: $($_.Name)"
     }
