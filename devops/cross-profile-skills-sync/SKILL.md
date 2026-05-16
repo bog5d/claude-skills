@@ -78,6 +78,12 @@ curl -s "https://api.github.com/repos/bog5d/claude-skills/commits/master" | pyth
 ### ⚠️ default profile 路径特殊
 default profile 的 skills 不在 `~/.hermes/profiles/default/skills/`，而在 `~/.hermes/hermes-agent/skills/`（hermes-agent 源码内的 skills 目录）。必须在同步链中显式加入 SRC3。
 
+### ⚠️ rsync --delete 会删 GitHub 仓库根文档
+Phase 3 的 `rsync -a --delete "$SRC1/" ./` 会将仓库根目录所有不在 SRC1 里的文件删除——包括 README.md、AGENTS.md、SKILLS_SYNC_GUIDE.md。必须加 exclude：
+```bash
+rsync -a --delete --exclude='.git' --exclude='README.md' --exclude='AGENTS.md' --exclude='SKILLS_SYNC_GUIDE.md' "$SRC1/" ./
+```
+
 ### ⚠️ rsync 不传 `--exclude='.git'` 会误删 .git 目录
 如果从 non-git 源 rsync 到 git repo 目标，不加 `--exclude='.git'` 会删除目标的 .git 目录，后续 git push 无法工作。
 
