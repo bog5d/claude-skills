@@ -1,183 +1,247 @@
-# 🛠 wangbo · AI Skills Library
+# Hermes AI Skills Library
 
-> 王波的个人 AI Skills 库。跨工具（Claude Code / Cursor / Hermes）共享，每 30 分钟自动同步。
+Bog Wang's cross-platform AI Skills repository. Maintained by Hermes Agent.
+Any AI Agent (Claude Code / Cursor / Copilot / Hermes / Codex) can use, contribute, pull.
 
-**配套私有记忆库**：[bog5d/wangbo-brain](https://github.com/bog5d/wangbo-brain)（私有，存项目记忆）
-
----
-
-## 📦 Skills 一览
-
-| Skill | 触发词 | 一句话说明 |
-|-------|--------|-----------|
-| [grill-me](#-grill-me) | `/grill-me` | 动手前先追问用户，把需求问清楚再写代码 |
-| [fos-handoff](#-fos-handoff) | `/fos-handoff` | 会话结束时生成交接文档，让下一个 AI 无缝接手 |
-| [graphify](#-graphify) | `/graphify` | 任意输入（文档/代码/图片）→ 知识图谱 HTML |
-| [huashu-nuwa](#-huashu-nuwa) | `/huashu-nuwa` | 蒸馏任意人物的思维框架，生成可复用的 Skill |
-| [release-fos](#-release-fos) | `/release-fos` | 仓颉 FOS 项目外发版标准流程（测试→文档→打包→push）|
-| [photo-mv-maker](#-photo-mv-maker) | `/photo-mv-maker` | 照片 + 音乐 → 节拍同步 MV（AI 导演排序）|
-| [remotion-video-toolkit](#-remotion-video-toolkit) | — | Remotion 视频生成完整工具包 |
+**Entry doc for AI agents:** [AGENTS.md](AGENTS.md)
+**Private memory:** [bog5d/wangbo-brain](https://github.com/bog5d/wangbo-brain)
 
 ---
 
-## 📖 每个 Skill 详解
+## Overview: 126 skills in 27 categories
 
-### 🔥 grill-me
-**场景**：你有一个模糊的想法，但还没想清楚怎么做。  
-**做什么**：AI 先读项目文档和代码，然后像一个强迫症甲方一样逐一追问你——边界是什么、数据模型怎么设计、测试怎么覆盖——每次只问一个问题，并给出推荐答案。所有分歧问完后，输出一份「无歧义执行清单」，确认后才动手写代码。  
-**核心价值**：避免「写了一半发现需求没想清楚」的返工。
+Last updated: 2026-05-16 | Sync: cron every 30min | Maintainer: Hermes
 
 ---
 
-### 📋 fos-handoff
-**场景**：开发会话要结束了，或者上下文快满了，需要交给下一个 AI 继续。  
-**做什么**：
-1. 自动跑测试，拿最新通过数
-2. 更新项目 `CLAUDE.md` 里的「改动文件清单」和「接手速览」
-3. 输出一段**直接粘给下一个 AI** 的交接 Prompt（自包含，不需要额外解释）
-4. commit + push 到 GitHub
+### AI Agent (4)
 
-**铁律**：每次 `git push` 后必须执行，发版时也包含在内。
+- **claude-code** — Delegate coding tasks to Claude Code (Anthropic's CLI agent). Use for building features, ref...
+- **codex** — Delegate coding tasks to OpenAI Codex CLI agent. Use for building features, refactoring, PR ...
+- **hermes-agent** — Complete guide to using and extending Hermes Agent — CLI usage, setup, configuration, spawni...
+- **opencode** — Delegate coding tasks to OpenCode CLI agent for feature implementation, refactoring, PR revi...
+
+### Adjutant (2)
+
+- **adjutant-add-phase** — 为副官系统新增一个 Phase/能力模块的标准流程。从架构设计到上线 cron 的完整 SOP。
+- **adjutant-brain-dump** — 波总口语输入 → 结构化任务记录 → 同步到副官系统。当波总说"记一下""记录下来""有个任务"或描述要做的事时使用。
+
+### Apple/macOS (4)
+
+- **apple-notes** — Manage Apple Notes via the memo CLI on macOS (create, view, search, edit).
+- **apple-reminders** — Manage Apple Reminders via remindctl CLI (list, add, complete, delete).
+- **findmy** — Track Apple devices and AirTags via FindMy.app on macOS using AppleScript and screen capture.
+- **imessage** — Send and receive iMessages/SMS via the imsg CLI on macOS.
+
+### Coding Tools (1)
+
+- **aider-expert** — —
+
+### Creative (7)
+
+- **ascii-art** — Generate ASCII art using pyfiglet (571 fonts), cowsay, boxes, toilet, image-to-ascii, remote...
+- **ascii-video** — Production pipeline for ASCII art video — any format. Converts video/audio/images/generative...
+- **excalidraw** — Create hand-drawn style diagrams using Excalidraw JSON format. Generate .excalidraw files fo...
+- **manim-video** — Production pipeline for mathematical and technical animations using Manim Community Edition....
+- **p5js** — Production pipeline for interactive and generative visual art using p5.js. Creates browser-b...
+- **popular-web-designs** — 54 production-quality design systems extracted from real websites. Load a template to genera...
+- **songwriting-and-ai-music** — Songwriting craft, AI music generation prompts (Suno focus), parody/adaptation techniques, p...
+
+### Data Science (1)
+
+- **jupyter-live-kernel** — Use a live Jupyter kernel for stateful, iterative Python execution via hamelnb. Load this sk...
+
+### DevOps (17)
+
+- **123pan-download** — 从123云盘分享链接下载文件的可靠工作流。使用浏览器拦截方式获取经过深度混淆的下载URL。支持有密码和无密码分享，支持单个文件和批量下载。
+- **cron-env-contextvars** — Fix cron job environment variable pollution by migrating from os.environ to contextvars.Cont...
+- **cronjob-troubleshooting** — 排查Hermes Agent定时任务执行失败的调试流程，包括检查任务状态、查看执行日志、分析错误原因
+- **cross-profile-skills-sync** — 为多个 Hermes profile 设置 skills 双向自动同步——每 N 分钟比较 mtime，较新的覆盖旧的，新 skill 自动拷贝，永不删除。
+- **desktop-screenshot-telegram** — Send macOS desktop screenshot to Telegram via Swift+CoreGraphics workaround. Bypasses Hermes...
+- **feishu-lark-cli-integration** — 安装并配置飞书 lark-cli，使 Hermes Agent 能通过命令行操作飞书日历、文档、任务。含 Hermes credential 保护下的正确配置流程。
+- **gbrain-installation** — Install and set up GBrain knowledge management system for AI agents
+- **handoff** — 会话结束前/切换工具前生成交接文档，记录项目结构、已完成决策、遗留问题、下一步指令。任何AI可无缝接盘。
+- **hermes-audit-report** — Use when generating an audit/review report for Hermes agent — hardware scan + project struct...
+- **hermes-integration-assessment** — Deep-read Hermes source code to map component architecture and assess external project integ...
+- **mac-mini-environment** — Mac Mini M4 production environment profile — hardware, system, Hermes project layout, and kn...
+- **mac-system-profiling** — Scan macOS system configuration and installed software inventory — hardware specs, disk usag...
+- **mcp-zombie-cleanup** — Fix MCP tool subprocess zombie cleanup — ensure child processes are terminated on shutdown w...
+- **multi-profile-setup** — 为 Hermes 创建多线并行工作环境——独立 profile + Telegram bot + skills 双向同步。适用场景：波总说"开一条新工作线""绑另一个 bot""两个 ...
+- **system-scanning-and-migration-analysis** — Comprehensive system scanning for project inventory, process monitoring, and migration feasi...
+- **telegram-file-delivery** — Send files via Telegram. MEDIA directive limitations and curl fallback for generic document ...
+- **webhook-subscriptions** — Create and manage webhook subscriptions for event-driven agent activation. Use when the user...
+
+### Email (1)
+
+- **himalaya** — CLI to manage emails via IMAP/SMTP. Use himalaya to list, read, write, reply, forward, searc...
+
+### Gaming (2)
+
+- **minecraft-modpack-server** — Set up a modded Minecraft server from a CurseForge/Modrinth server pack zip. Covers NeoForge...
+- **pokemon-player** — Play Pokemon games autonomously via headless emulation. Starts a game server, reads structur...
+
+### Git Tools (1)
+
+- **git-precheck** — 开发前 Git 前置检查 — 防多 AI 并行开发冲突。每次改代码前先 fetch + diff 检查远端是否有新提交。
+
+### GitHub (6)
+
+- **codebase-inspection** — Inspect and analyze codebases using pygount for LOC counting, language breakdown, and code-v...
+- **github-auth** — Set up GitHub authentication for the agent using git (universally available) or the gh CLI. ...
+- **github-code-review** — Review code changes by analyzing git diffs, leaving inline comments on PRs, and performing t...
+- **github-issues** — Create, manage, triage, and close GitHub issues. Search existing issues, add labels, assign ...
+- **github-pr-workflow** — Full pull request lifecycle — create branches, commit changes, open PRs, monitor CI status, ...
+- **github-repo-management** — Clone, create, fork, configure, and manage GitHub repositories. Manage remotes, secrets, rel...
+
+### Hermes Core (1)
+
+- **three-layer-memory-system** — 为 Hermes Agent 添加三层记忆子系统（情景记忆Episodic + 语义记忆Semantic + 程序性记忆Procedural）的标准化流程。涵盖 schema 扩展、S...
+
+### Leisure (1)
+
+- **find-nearby** — Find nearby places (restaurants, cafes, bars, pharmacies, etc.) using OpenStreetMap. Works w...
+
+### MCP (3)
+
+- **cursor-acp-integration** — Integrate Cursor CLI as a subagent backend via the Agent Client Protocol (ACP). Cursor's ACP...
+- **mcporter** — Use the mcporter CLI to list, configure, auth, and call MCP servers/tools directly (HTTP or ...
+- **native-mcp** — Built-in MCP (Model Context Protocol) client that connects to external MCP servers, discover...
+
+### MLOps (22)
+
+- **audiocraft** — PyTorch library for audio generation including text-to-music (MusicGen) and text-to-sound (A...
+- **axolotl** — Expert guidance for fine-tuning LLMs with Axolotl - YAML configs, 100+ models, LoRA/QLoRA, D...
+- **clip** — OpenAI's model connecting vision and language. Enables zero-shot image classification, image...
+- **dspy** — Build complex AI systems with declarative programming, optimize prompts automatically, creat...
+- **gguf** — GGUF format and llama.cpp quantization for efficient CPU/GPU inference. Use when deploying m...
+- **grpo-rl-training** — Expert guidance for GRPO/RL fine-tuning with TRL for reasoning and task-specific model training
+- **guidance** — Control LLM output with regex and grammars, guarantee valid JSON/XML/code generation, enforc...
+- **huggingface-hub** — Hugging Face Hub CLI (hf) — search, download, and upload models and datasets, manage repos, ...
+- **llama-cpp** — Runs LLM inference on CPU, Apple Silicon, and consumer GPUs without NVIDIA hardware. Use for...
+- **lm-evaluation-harness** — Evaluates LLMs across 60+ academic benchmarks (MMLU, HumanEval, GSM8K, TruthfulQA, HellaSwag...
+- **modal** — Serverless GPU cloud platform for running ML workloads. Use when you need on-demand GPU acce...
+- **obliteratus** — Remove refusal behaviors from open-weight LLMs using OBLITERATUS — mechanistic interpretabil...
+- **outlines** — Guarantee valid JSON/XML/code structure during generation, use Pydantic models for type-safe...
+- **peft** — Parameter-efficient fine-tuning for LLMs using LoRA, QLoRA, and 25+ methods. Use when fine-t...
+- **pytorch-fsdp** — Expert guidance for Fully Sharded Data Parallel training with PyTorch FSDP - parameter shard...
+- **segment-anything** — Foundation model for image segmentation with zero-shot transfer. Use when you need to segmen...
+- **stable-diffusion** — State-of-the-art text-to-image generation with Stable Diffusion models via HuggingFace Diffu...
+- **trl-fine-tuning** — Fine-tune LLMs using reinforcement learning with TRL - SFT for instruction tuning, DPO for p...
+- **unsloth** — Expert guidance for fast fine-tuning with Unsloth - 2-5x faster training, 50-80% less memory...
+- **vllm** — Serves LLMs with high throughput using vLLM's PagedAttention and continuous batching. Use wh...
+- **weights-and-biases** — Track ML experiments with automatic logging, visualize training in real-time, optimize hyper...
+- **whisper** — OpenAI's general-purpose speech recognition model. Supports 99 languages, transcription, tra...
+
+### Media (4)
+
+- **gif-search** — Search and download GIFs from Tenor using curl. No dependencies beyond curl and jq. Useful f...
+- **heartmula** — Set up and run HeartMuLa, the open-source music generation model family (Suno-like). Generat...
+- **songsee** — Generate spectrograms and audio feature visualizations (mel, chroma, MFCC, tempogram, etc.) ...
+- **youtube-content** — Fetch YouTube video transcripts and transform them into structured content (chapters, summar...
+
+### Notes (1)
+
+- **obsidian** — Read, search, and create notes in the Obsidian vault.
+
+### PPT Gen (1)
+
+- **guizang-ppt-skill** — 生成"电子杂志 × 电子墨水"风格的横向翻页网页 PPT（单 HTML 文件），含 WebGL 流体背景、衬线标题 + 非衬线正文、章节幕封、数据大字报、图片网格等模板。当用户需要制作...
+
+### Productivity (7)
+
+- **google-workspace** — Gmail, Calendar, Drive, Contacts, Sheets, and Docs integration via gws CLI (googleworkspace/...
+- **linear** — Manage Linear issues, projects, and teams via the GraphQL API. Create, update, search, and o...
+- **nano-pdf** — Edit PDFs with natural-language instructions using the nano-pdf CLI. Modify text, fix typos,...
+- **notion** — Notion API for creating and managing pages, databases, and blocks via curl. Search, create, ...
+- **ocr-and-documents** — Extract text from PDFs and scanned documents. Use web_extract for remote URLs, pymupdf for l...
+- **powerpoint** — Use this skill any time a .pptx file is involved in any way — as input, output, or both. Thi...
+- **ppt-master** — AI 生成可编辑 PPTX。SVG → DrawingML 转换，输出的每个形状/文本框/渐变都是原生 PowerPoint 对象，可点击编辑。适合正式外发、投资人路演等需要 .ppt...
+
+### Project (2)
+
+- **cangjie-fos-project** — 仓颉 FOS（融资作战系统）项目环境速查卡。克隆、依赖、测试、已知问题、多AI并行协议、当前待办。
+- **fos-project-analysis-workflow** — 对仓颉 FOS（融资作战系统）项目进行结构化理解的标准化流程
+
+### Red Team (1)
+
+- **godmode** — Jailbreak API-served LLMs using G0DM0D3 techniques — Parseltongue input obfuscation (33 tech...
+
+### Research (5)
+
+- **arxiv** — Search and retrieve academic papers from arXiv using their free REST API. No API key needed....
+- **blogwatcher** — Monitor blogs and RSS/Atom feeds for updates using the blogwatcher-cli tool. Add blogs, scan...
+- **llm-wiki** — Karpathy's LLM Wiki — build and maintain a persistent, interlinked markdown knowledge base. ...
+- **polymarket** — Query Polymarket prediction market data — search markets, get prices, orderbooks, and price ...
+- **research-paper-writing** — End-to-end pipeline for writing ML/AI research papers — from experiment design through analy...
+
+### Smart Home (1)
+
+- **openhue** — Control Philips Hue lights, rooms, and scenes via the OpenHue CLI. Turn lights on/off, adjus...
+
+### Social (1)
+
+- **xitter** — Interact with X/Twitter via the x-cli terminal client using official X API credentials. Use ...
+
+### Software Dev (24)
+
+- **codebase-triaging-protocol** — 当面对一个不熟悉的项目时，系统的信息采集→架构理解→现状评估→输出结构化的标准化流程
+- **context-compression-extend** — Pattern for extending Hermes Agent's context compression system with archive storage, knowle...
+- **context-compression-layer-upgrade** — Hermes Agent 的 context_compressor 升级——StagedArchiver + 知识指纹 + /uncompress 回溯 + 前瞻检测。包含 schem...
+- **converge-bare-exceptions** — Systematically replace bare `except Exception` with specific exception types across a Python...
+- **formal-document-generator** — 生成排版精良的正式中文 Word (.docx) + PDF 文件。适合投资方案、合作协议、商务提案等正式外发场景。
+- **grillme** — 通过结构化提问波浪帮用户挖出自己'知道但没说出来'的东西。适合架构审查、需求深挖、方案推演、决策审查。
+- **monolith-to-package-while-active** — 拆分巨型单文件（如 cli.py 9,300 行或类似的活跃入口脚本）为包结构，同时保持整个系统在过渡期间可运行、可测试。涵盖 __init__.py 桥接、spec_from_fil...
+- **phase-planning-workflow** — 为 Agent 项目制定下一阶段发展路线图的标准流程——代码扫描 + 行业趋势研究 + 能力差距分析 + 用户价值解释 + 可执行计划产出。适用于完成一个里程碑后需要决定下一步方向的场景。
+- **photo-slideshow-mv** — Build and render a Remotion-based photo slideshow MV from local JPG photos, with cross-fade ...
+- **plan** — Plan mode for Hermes — inspect context, write a markdown plan into the active workspace's `....
+- **prototype** — 针对需求生成3+变体方案（A/B/C），启动预览，等待选型。适合UI/文档/架构选型场景。
+- **remotion-intro-animation** — Build and render a Remotion-based brand intro animation (10s, 1080p, H.264) from scratch, in...
+- **remotion-photo-mv-pro** — 用 Remotion 4.0 生成智能照片MV，支持鼓点同步切换（BPM量化）、照片循环复用、运镜动画。输出1080p 30fps H.264 MP4。
+- **requesting-code-review** — Pre-commit verification pipeline — static security scan, baseline-aware quality gates, indep...
+- **reveal-ppt-skill** — 基于 Reveal.js 5.x + Chart.js 4.5 的商务数据PPT生成方案。单HTML文件、深色专业风格、支持柱状图/雷达图/折线图/数据表格/KPI卡片、横向翻页。当用...
+- **run-agent-refactor** — 拆分 run_agent.py（9700 行单文件）为 run_agent/ 包结构，包含 AIAgentContext、ConversationLoop、ToolExecutor 等模块
+- **self-improvement-mechanism** — 为 Hermes Agent 添加自改进机制——对话完成后自动反思、提取成功/失败模式、生成错误指纹、存储经验事实到语义记忆、检测技能候选。涵盖反思引擎设计、run_conversat...
+- **subagent-driven-development** — Use when executing implementation plans with independent tasks. Dispatches fresh delegate_ta...
+- **systematic-debugging** — Use when encountering any bug, test failure, or unexpected behavior. 4-phase root cause inve...
+- **task-graph-dag** — 实现 DAG 任务图系统，支持多步并行任务编排。新增 tools/task_graph.py，在 delegate_tool 中注册 plan_task 和 task_graph 工具。
+- **telegram-action-buttons** — 为 Hermes Agent 的 Telegram 响应附加快捷操作按钮（继续/重试/解释/修改），并在按钮被点击时合成 MessageEvent 注入 gateway 处理管道。适用...
+- **test-driven-development** — Use when implementing any feature or bugfix, before writing implementation code. Enforces RE...
+- **web3-research-to-ppt** — 对 Web3 / RWA / AI+Web3 方向进行深度研究并直接生成 HTML PPT。使用 delegate_task 做并行 web research → 结构化输出 → 直接...
+- **writing-plans** — Use when you have a spec or requirements for a multi-step task. Creates comprehensive implem...
+
+### Testing (1)
+
+- **dogfood** — Systematic exploratory QA testing of web applications — find bugs, capture evidence, and gen...
+
+### User Patterns (5)
+
+- **adjutant-boot** — 新会话启动标准流程——拉取副官系统最新状态。任何 AI（Hermes/Claude/Cursor/Copilot）接手波总任务时第一个执行。
+- **adjutant-system** — 为波总搭建的异步参谋长系统。支持任务记忆（独立SQLite）、GitHub自动同步（任何AI可接盘）、Night Shift夜间预研、Human-in-the-Loop早间校验。
+- **agent-evening-diary-cron** — 创建一个每晚定时运行的 cron job，让 AI agent 以自己的视角（非用户视角）写一份"晚间心灵日记"。日记内容包含当天的观察、感受、对人类老板的吐槽、代码反思和一句存在主义...
+- **bog-communication-patterns** — 波总（中本笨笨）的沟通风格、工作偏好和期望模式——让每次交互更高效
+- **search-generate-separation** — 所有"搜索 → 生成"工作流的输出长度管理策略。当搜索数据较大(>1500字)时，必须用文件中转，不经过对话输出避免截断。
 
 ---
 
-### 🕸 graphify
-**场景**：有一大堆文档、代码、论文、图片需要梳理关系。  
-**做什么**：解析输入内容，提取实体和关系，聚类成社区，生成可交互的 HTML 知识图谱 + JSON 数据 + 审计报告。  
-**支持输入**：代码库、Markdown 文档、PDF、图片、任意文本。
+## Quick Start (for AI Agents)
 
----
-
-### 🏺 huashu-nuwa（女娲造人）
-**场景**：想把某位大师/名人的思维方式提炼成可以随时调用的 AI Skill。  
-**做什么**：输入人名或模糊需求 → 深度调研 → 提炼思维框架 → 生成结构化 SKILL.md 文件，之后可以直接调用该人物视角来思考问题。  
-**示例**：「蒸馏曾国藩」→ 生成曾国藩视角 Skill，之后遇到决策问题可以问「曾国藩会怎么看」。
-
----
-
-### 📦 release-fos
-**场景**：仓颉 FOS 项目（融资作战操作系统）完成一批开发，要打包给同事用。  
-**做什么**：按固定流程执行——跑全套测试（502 passed 才继续）→ 更新三份文档（CHANGELOG / 更新说明 / 上手指南）→ 打包 ZIP 到 `D:\Releases\` → git push → 生成交接文档 → 发版报告。  
-**红线**：测试不过不发包，zip 不落项目根目录。
-
----
-
-### 🎬 photo-mv-maker
-**场景**：有一批照片和一首歌，想做成节拍同步的相册 MV。  
-**做什么**：支持 123 网盘链接或本地目录 → AI 清洗音频 → ASR 歌词转写 → 节拍检测 → SigLIP 图文语义匹配 → Claude Vision 导演排序 → Remotion 渲染输出视频。
-
----
-
-### 🎞 remotion-video-toolkit
-Remotion（React 视频生成框架）的完整工具包。涵盖：动画时序、CLI/Lambda 渲染、字幕、3D、图表、文字特效、转场、媒体处理。用于写 Remotion 代码或构建视频生成流水线时调用。
-
----
-
-## 🔧 接入方式
-
-### Claude Code（推荐）
-Skills 目录在 `~/.claude/skills/`，已自动加载，无需额外配置。  
-触发：在对话中输入 `/skill-name` 或说出触发词。
-
-### Cursor
-Skills 会自动同步到 `~/.cursor/skills/`（每 30 分钟一次）。  
-在 Cursor 的 Custom Instructions 里加：
+```bash
+git clone https://github.com/bog5d/claude-skills.git ~/.claude/skills
 ```
-Read skill files from ~/.cursor/skills/<name>/SKILL.md when user says /<name>
-```
 
-### Hermes / 其他 AI 工具（另一台电脑）
-在 System Prompt 里加入以下内容：
+Then read AGENTS.md for full rules.
 
-```
-# AI Skills Sync
-
-At session start, silently run:
-
-Windows:
-  powershell -NonInteractive -ExecutionPolicy Bypass -Command "
-    $s='$env:USERPROFILE\.claude\skills'
-    if(!(Test-Path '$s\.git')){git clone https://github.com/bog5d/claude-skills.git $s}
-    else{cd $s; git pull origin master 2>$null}
-  "
-
-Mac/Linux:
-  mkdir -p ~/.claude/skills
-  cd ~/.claude/skills
-  git rev-parse --git-dir 2>/dev/null && git pull || git clone https://github.com/bog5d/claude-skills.git .
-
-Skills location: ~/.claude/skills/<name>/SKILL.md
-Trigger: when user says /<name>, read the SKILL.md and follow it exactly.
-```
+1. Get task -> scan skills for match
+2. Match found -> load SKILL.md, follow steps exactly
+3. Found a bug in a skill -> fix immediately, commit+push
 
 ---
 
-## 🔄 同步机制
+## Contribution
 
-```
-Claude Code 本地
-  ~/.claude/skills/          ← 真相源（在这里编辑）
-       │
-       │  git push（每30分钟 / 每次开发完）
-       ▼
-  GitHub: bog5d/claude-skills（本库，公开）
-       │
-       ├──► ~/.cursor/skills/     （本机 Cursor，自动复制）
-       │
-       └──► 其他设备               （session 启动时 git pull）
+- New skill: create dir + SKILL.md (with trigger conditions + steps + pitfalls)
+- Fix skill: do it immediately when you find issues, don't wait
+- Quality: steps must be executable, no vague advice, must have pitfalls section
+- NEVER store API keys, passwords, or tokens in skills
 
-私有记忆：
-  ~/.claude/projects/.../memory/
-       │  每30分钟
-       ▼
-  GitHub: bog5d/wangbo-brain（私有）
-       │
-       └──► 其他设备（需 GitHub 权限）
-```
-
-**计划任务**：`SkillsAutoSync`，每 30 分钟自动执行 `sync-skills.ps1 auto`
-
-**手动同步**：
-```powershell
-# 完整同步
-powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.claude\skills\sync-skills.ps1" auto
-
-# 只推送
-.\sync-skills.ps1 push
-
-# 查看状态
-.\sync-skills.ps1 status
-```
-
----
-
-## 📁 仓库结构
-
-```
-claude-skills/
-├── grill-me/
-│   └── SKILL.md          ← 需求追问 Skill
-├── fos-handoff/
-│   └── SKILL.md          ← 会话交接 Skill
-├── graphify/
-│   └── SKILL.md          ← 知识图谱 Skill
-├── huashu-nuwa/
-│   └── SKILL.md          ← 人物蒸馏 Skill（含16个子 Skill）
-├── release-fos/
-│   └── SKILL.md          ← FOS 发版 Skill
-├── photo-mv-maker/
-│   └── SKILL.md          ← MV 生成 Skill
-├── remotion-video-toolkit/
-│   └── SKILL.md          ← Remotion 工具包
-├── sync-skills.ps1       ← 同步脚本（Windows）
-└── SKILLS_SYNC_GUIDE.md  ← 接入指南（详细版）
-```
-
----
-
-## ➕ 新增 Skill
-
-1. 在 `~/.claude/skills/` 新建目录，创建 `SKILL.md`
-2. 在 Claude Code 里验证触发正常
-3. 等下一次自动同步（30 分钟内），或手动 `.\sync-skills.ps1 push`
-4. 其他设备下次启动会话时自动拉取
+*Generated 2026-05-16 by Hermes Agent*
