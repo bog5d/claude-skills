@@ -83,15 +83,19 @@ $PY ~/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py <project>
 svn_to_pptx.py 会因 XML 解析错误（`not well-formed (invalid token)`）失败。
 **修复：** `grep -n ' & ' svg_output/*.svg | grep -v '&amp;'` 查找后逐一替换。
 
-### 2. Pillow C 扩展不兼容
+### 3. Emoji 文字排版陷阱
+Emoji（如 ⭐⭐⭐）在 PowerPoint 里的渲染宽度和浏览器不一样。如果拆成两个 `<text>` 元素（一个放 emoji，一个放标题文字），人工估算的坐标必定出错，PowerPoint 中会重叠。
+**铁律：** 含 emoji 的行，emoji + 文字必须放在**同一个 `<text>` 元素**内，让 SVG 引擎自己处理间距，禁止人工估算拆分。
+
+### 4. Pillow C 扩展不兼容
 `cannot import name '_imaging' from 'PIL'`
 **修复：** `pip uninstall -y Pillow && pip install --no-cache-dir Pillow`
 
-### 3. 系统 Python 3.9 无法编译 cairosvg
+### 5. 系统 Python 3.9 无法编译 cairosvg
 Meson 需要 3.10+。必须用 venv Python 3.11。
 **同步 cron job 时也记得切 Python 路径。**
 
-### 4. finalize_svg 必须先于 svg_to_pptx
+### 6. finalize_svg 必须先于 svg_to_pptx
 否则圆角矩形不会被转换为 Path 元素，PowerPoint 渲染异常。
 
 ## AI 生图配置（硅基流动）

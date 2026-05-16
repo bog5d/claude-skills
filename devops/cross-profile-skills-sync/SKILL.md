@@ -12,95 +12,78 @@ triggers:
 
 ## 场景
 
-用户有多个 Hermes profile（如 `default` 和 `her-m2`），每个 profile 有独立的 `skills/` 目录。希望两边的 skills 自动互相学习——任何一个 profile 中学到的 skill，另一个也能用上。
+用户有多个 Hermes profile（`default` 和 `her-m2`），每个 profile 有独立的 `skills/` 目录。希望所有 profile 的 skills 自动互相学习，且增量推送到 GitHub 供跨 AI 工具使用。
+
+**三端同步路径（波总环境）：**
+- SRC1: `~/.hermes/skills/` （当前 active profile her-m2）
+- SRC2: `~/.hermes/profiles/her-m2/skills/` （her-m2 profile 冗余副本）
+- SRC3: `~/.hermes/hermes-agent/skills/` （default profile 的技能目录）
 
 ## 步骤
 
-### 1. 创建同步脚本
+### 1. 创建三端同步脚本
 
 脚本位置: `~/.hermes/scripts/sync_skills_cross_profile.sh`
 
-脚本逻辑：
-- 遍历两个目录的所有 SKILL.md
-- 两边都有的：比较 mtime，较新的用 `rsync -a --delete` 覆盖旧的
-- 只在一边的：rsync 到另一边
+**三阶段架构：**
+- Phase 1: Tysk pull — 从 GitHub 拉最新 claude-skills + wangbo-brain
+- Phase 2: 三端 mtime 比对 — 找最新版本，覆盖所有滞后端
+- Phase 3: Tysk push — 本地 skills → rsync 进 claude-skills repo → git push GitHub
+
+Phase 2 核心逻辑（三端比对）：
+- 遍历三个目录的所有 SKILL.md
+- 比较 mtime，找 newest（最晚修改的作为权威源）
+- newest → 覆盖其余两端的旧版本
 - 不删除任何 skill，只增加和更新
-- 日志写 `~/.hermes/logs/sync_skills.log`
 
-关键实现细节：
-- `stat -f %m` (macOS) / `stat -c %Y` (Linux) 兼容
-- `find ... -not -path '*/.git/*' -not -path '*/.hub/*'` 排除 git 和 hub 目录
-- 用 `rsync` 保证目录完整性（以 `/` 结尾拷贝目录内容）
+### 2. GitHub Push 关键配置
 
-### 2. 首次运行验证
+**⚠️ HTTPS push 必挂：** 大 repo（32MB, 468文件）用普通 HTTPS URL push 必超时。必须用 Token 认证 URL：
+```bash
+git remote set-url origin https://<token>@github.com/bog5d/claude-skills.git
+```
+SSH 未配置时此方案是唯一可行路径。
+
+### 3. 首次运行验证
 
 ```bash
 bash ~/.hermes/scripts/sync_skills_cross_profile.sh
-cat ~/.hermes/logs/sync_skills.log
-# 确认两边数量一致
-find ~/.hermes/skills -name SKILL.md -not -path '*/.git/*' | wc -l
-find ~/.hermes/profiles/her-m2/skills -name SKILL.md -not -path '*/.git/*' | wc -l
+# 确认三端数量一致
+echo "her-m2: $(find ~/.hermes/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
+echo "her-m2 profile: $(find ~/.hermes/profiles/her-m2/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
+echo "default: $(find ~/.hermes/hermes-agent/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
 ```
 
-### 3. 挂 cron job
-
-使用 `cronjob` tool，`deliver=local` 避免每 30 分钟推送一条到聊天。
-
-## 脚本模板
+### 4. 挂 cron job
 
 ```bash
-#!/bin/bash
-set -euo pipefail
-
-SRC1="$HOME/.hermes/skills"
-SRC2="$HOME/.hermes/profiles/<profile-name>/skills"
-LOG="$HOME/.hermes/logs/sync_skills.log"
-
-mkdir -p "$(dirname "$LOG")"
-
-log() { echo "[$(date)] $*" >> "$LOG"; }
-
-find_skills() {
-    find "$1" -name "SKILL.md" -not -path "*/.git/*" -not -path "*/.hub/*" 2>/dev/null \
-        | sed "s|/SKILL.md$||" | sed "s|^$1/||" | sort -u
-}
-
-log "=== Sync started ==="
-
-updated=0; copied=0
-
-while IFS= read -r skill; do
-    d1="$SRC1/$skill"; d2="$SRC2/$skill"
-
-    if [ -d "$d1" ] && [ -d "$d2" ]; then
-        t1=$(stat -f %m "$d1/SKILL.md" 2>/dev/null || stat -c %Y "$d1/SKILL.md" 2>/dev/null || echo 0)
-        t2=$(stat -f %m "$d2/SKILL.md" 2>/dev/null || stat -c %Y "$d2/SKILL.md" 2>/dev/null || echo 0)
-
-        if [ "$t1" -gt "$t2" ]; then
-            rsync -a --delete "$d1/" "$d2/"
-            log "  <- SRC1 -> SRC2: $skill"
-            updated=$((updated + 1))
-        elif [ "$t2" -gt "$t1" ]; then
-            rsync -a --delete "$d2/" "$d1/"
-            log "  <- SRC2 -> SRC1: $skill"
-            updated=$((updated + 1))
-        fi
-    elif [ -d "$d1" ]; then
-        rsync -a "$d1/" "$d2/"
-        log "  + SRC1 -> SRC2: $skill"
-        copied=$((copied + 1))
-    elif [ -d "$d2" ]; then
-        rsync -a "$d2/" "$d1/"
-        log "  + SRC2 -> SRC1: $skill"
-        copied=$((copied + 1))
-    fi
-done < <( { find_skills "$SRC1"; find_skills "$SRC2"; } | sort -u )
-
-log "Done — updated: $updated, copied: $copied"
+cronjob create \
+  --name "skills-sync-三端" \
+  --schedule "every 30m" \
+  --prompt "Execute bash ~/.hermes/scripts/sync_skills_cross_profile.sh. Report results." \
+  --deliver local
 ```
+⚠️ `deliver=local` 关键——避免每 30 分钟往 Telegram 推送同步日志。
+
+## 实战教训
+
+### ⚠️ GitHub push 卡了 32 天未发现
+**根因：** 原脚本只有 Phase 1(Pull) + Phase 2(本地同步)，缺 Phase 3(Push)。另外 HTTPS push 在 32MB repo 上必定超时，需 Token URL。
+
+**修复后验证：**
+```bash
+curl -s "https://api.github.com/repos/bog5d/claude-skills/commits/master" | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'][:80])"
+```
+
+### ⚠️ default profile 路径特殊
+default profile 的 skills 不在 `~/.hermes/profiles/default/skills/`，而在 `~/.hermes/hermes-agent/skills/`（hermes-agent 源码内的 skills 目录）。必须在同步链中显式加入 SRC3。
+
+### ⚠️ rsync 不传 `--exclude='.git'` 会误删 .git 目录
+如果从 non-git 源 rsync 到 git repo 目标，不加 `--exclude='.git'` 会删除目标的 .git 目录，后续 git push 无法工作。
 
 ## 限制
 
-- 只在同一台机器上的两个 profile 间同步
+- 只在同一台机器上的 profile 间同步
 - 不跨机器、不跨设备
-- 如需跨设备同步，改用 GitHub 仓库中转（参见 Tysk 协议）
+- 跨设备同步通过 GitHub 仓库中转（Tysk 协议）
+- HTTPS push 需要 Token URL，SSH 需提前配置好
