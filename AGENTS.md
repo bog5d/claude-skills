@@ -166,4 +166,4 @@ cd ~/.claude/skills && git add -A && git commit -m "add skill: <skill-name>" && 
 
 ---
 
-*最后更新：2026-05-16 · 当值：Claude Code*
+*最后更新：2026-05-17 · 当值：Hermes · 四端同步（her-m2 / default / english-tutor / GitHub）*
