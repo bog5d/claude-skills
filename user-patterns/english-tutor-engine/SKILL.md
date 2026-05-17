@@ -116,11 +116,29 @@ config.json.streak_chest 定义：
 答错 → ef -= 0.2 (min 1.3), interval = 1, next_review = tomorrow
 ```
 
-## 估分公式
+## 分阶段多维预测模型 (config.json.prediction.multi_phase)
 
-```
-est = 25 + (coverage_pct/100 × 0.4 + avg_mastery × 0.6) × 75
-```
+### Phase 1 (当前 — 覆盖率<30% 或 掌握率<40%)
+- 输出：词汇预测分
+- 公式：`25 + (覆盖率×0.4 + 掌握率×0.6) × 75`
+- 标注：`score_type: "词汇预测分"`（告知只反映词汇基础，不含阅读/翻译/写作）
+- 设计依据：Nation 2006 98%覆盖率理论（<80%前阅读分极低）
+
+### Phase 2 (解锁条件：覆盖率≥30% 且 掌握率≥40%)
+- 增加：阅读分 = `掌握率 × 覆盖率因子 × 40`
+- 输出：词汇分 + 阅读分
+- 设计依据：Laufer 1992 词族研究 + Qian 2002 词汇深度理论
+
+### Phase 3 (解锁条件：覆盖率≥50% 且 掌握率≥55%)
+- 增加：翻译分 = `掌握率 × 15`，写作分 = `掌握率 × 25`
+- 输出：完整四维分表（词汇+阅读+翻译+写作）
+- 设计依据：Schmitt 2010 刻意学习路径
+
+### 达标预测
+- 需要 ≥10 词复习记录才激活
+- 早期：用已复习词均值（不稀释到全量 1328 词）
+- 速率：`avg_m × 0.10` 为每 session 掌握率增幅
+- 输出 `days_to_65` 和 `target_date_65`
 
 ## Anki 导入流水线
 
@@ -178,6 +196,13 @@ est = 25 + (coverage_pct/100 × 0.4 + avg_mastery × 0.6) × 75
 ### D: 知识晶体导出
 - `scripts/wordcloud_gen.py` — HTML词云 + 音标速查表
 - 每掌握50词自动建议生成
+
+## 全量设计文档（仓库内）
+
+- `EXPERT_SYSTEM.md` — AI 接手第一读本（完整协议）
+- `docs/WORD_TEMPLATE.md` — 单词讲解模板 + 全球记忆大师工具箱
+- `docs/GAME_DESIGN.md` — 游戏化设计依据（Octalysis/SDT/Flow）+ 优化路线图
+- 换 AI 只需：clone → 读 EXPERT_SYSTEM.md → 继续闯关
 
 ## 铁律
 

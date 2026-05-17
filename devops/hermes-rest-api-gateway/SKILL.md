@@ -75,6 +75,33 @@ Access-Control-Allow-Headers: Authorization, Content-Type
 ### 5. `registry.dispatch` vs `registry.get_handler`
 dispatch 会自动处理 JSON 包装和错误，get_handler 返回原始函数。API 层用 dispatch 更安全。
 
+### 6. 代码热更新陷阱（2026-05-17验证）
+**importlib.reload 对已启动的 HTTP server 无效！** 因为 HTTPServer 已经持有了旧的 Handler 类引用。必须：
+```bash
+lsof -ti:18765 | xargs kill -9
+# 然后重新启动整个 Python 进程
+```
+
+### 7. 公网穿透方案对比
+| 方案 | 是否需要账号 | 稳定性 | 当前状态 |
+|------|------------|--------|---------|
+| ngrok | 需要（免费注册） | 高 | 无 authtoken |
+| cloudflared quick tunnel | 不需要 | 低（频繁500） | 已试，不可用 |
+| bore-cli | 不需要 | 中 | 未安装 |
+
+推荐：注册 ngrok 免费账号 → `ngrok config add-authtoken` → `ngrok http 18765`
+
+### 8. AnyGen 接入反馈（2026-05-17）
+另一个 AI 智能体对网关的评估：
+- 架构方向正确，接口设计合理
+- **阻塞点**：localhost 不可达（对方在远程沙箱）
+- **建议补充**：
+  - `GET /tools/{name}` 返回完整参数 schema
+  - 统一错误码（TOOL_NOT_FOUND / MISSING_PARAMETER / UNAUTHORIZED）
+  - 统一返回格式 `{"success":bool, "tool":"...", "data":..., "error":{...}, "duration_ms":N, "request_id":"..."}`
+  - OpenAPI 3.0 规范文档
+- **协作模式建议**：Hermes 做执行层，对方做理解与编排层
+
 ## 验证方式
 
 ```bash
