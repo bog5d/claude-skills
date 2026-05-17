@@ -1,6 +1,6 @@
 ---
 name: english-tutor-engine
-description: 考研英语 AI 伴学引擎。SM-2 间隔重复词库 + 闪卡测试 + 词汇量追踪。当波总在 @Engcjd_bot 发送英语单词或要求英语测试时使用。
+description: 考研英语 AI 伴学引擎。SM-2 间隔重复词库 + 5 模式闪卡测试 + 词汇量追踪 + 游戏化闯关。当波总要求英语测试、问进度或讨论英语学习体系时使用。
 category: user-patterns
 trigger:
   - 英语单词
@@ -8,144 +8,134 @@ trigger:
   - 词汇测试
   - 英语学习
   - 考研英语
-  - 闪卡
-  - flashcard
+  - 闪卡 / flashcard
+  - 来一局 / 闯关
+  - 进度 / 段位 / 估分
+  - 导入Anki / 导出Anki
 ---
 
 # English Tutor Engine — 考研英语 AI 伴学引擎
 
-## 两套系统
-
-| 系统 | 存储 | 入口 | 适用 |
-|------|------|------|------|
-| **Hermes 对话引擎** (本 skill 主) | GitHub `bog5d/bog-vocab-tracker` | 直接对话 | 游戏化伴学 |
-| **Engcjd_bot 引擎** (旧) | SQLite `vocab.db` | @Engcjd_bot | Telegram bot 快速录入 |
-
-## Hermes 对话引擎架构
+## 架构
 
 ```
-波总 ↔ Hermes (直接对话)
+波总 ↔ Hermes (Telegram 对话)
          ↓
-  GitHub: bog5d/bog-vocab-tracker
-  ├── data/words.json      (词库主表)
-  ├── data/progress.json   (进度/段位/估分)
-  ├── data/sessions.json   (学习记录)
-  └── data/config.json     (游戏规则)
+  GitHub: bog5d/bog-vocab-tracker (私有仓库)
+  ├── data/words.json        (词库主表, 1331 词 / 1328 核心)
+  ├── data/progress.json     (进度/段位/积分/里程碑)
+  ├── data/sessions.json     (学习会话记录)
+  ├── data/config.json       (游戏规则 + 模式 + 能力树 + 宝箱)
+  ├── data/anki_export/      (回导 Anki CSV 存档)
+  └── scripts/
+      ├── game_master.py     (多模式闯关引擎)
+      ├── sm2_engine.py      (SM-2 选题 + 更新)
+      └── anki_bridge.py     (Anki 双向导入/导出)
 ```
 
-## 词库预设流程（从零搭建 1500 核心词）
+## 六件事（按出现频率）
 
-1. **建立 GitHub 仓库**：`gh repo create bog-vocab-tracker --private`
-2. **初始化数据文件**：`words.json`(空词库) + `progress.json`(快照) + `sessions.json`(记录) + `config.json`(规则引擎)
-3. **批量生成核心词表**：分成 A-C / D-H / I-M / N-P / Q-S / T-Z 六大块，每块用 `execute_code` 内联生成
-4. **合并与去重**：读取已有 `words.json`，用 `lower()` 统一 key 去重，新增词追加
-5. **分类分级**：Lv.1 超高频(>50 次) ~400 词，Lv.2 高频(20-50) ~500 词，Lv.3+ 中低频 ~600 词
-6. **Git push**：合并后立即推送，覆盖 ~1300+ 词后继续补充到 1500
+### 1. 开一局闯关 — 最高频
 
-批量生成技巧：`execute_code` 沙箱中若代码超长，分段写入临时 JSON 文件 `_part_*.json`，最后读入合并。
+用户说「来一局」/「开战」/「测试」→ `game_master.pick_quiz_pool(5, "review")`
+- SM-2 到期词优先 → 错题优先 → 未练词补位
+- 从 `words.json` 的 `next_review` 字段筛选
+- 每题答完调用 `game_master.apply_answer()` 更新 SM-2 状态
 
-## 核心能力
+### 2. 多模式切换
 
-### 0. 段位系统（游戏化主驱动力）
+模式一览（配置在 `config.json.game_modes`）：
 
-| 段位 | 覆盖率门槛 | 掌握率门槛 |
-|------|-----------|-----------|
-| 青铜 | 0% | 0% |
-| 白银 | 10% | 30% |
-| 黄金 | 25% | 45% |
-| 铂金 | 40% | 55% |
-| 钻石 | 60% | 70% |
-| 王者 | 80% | 85% |
-| 考研战神 | 100% | 90%+ |
+| 模式 | 对应技能 | 触发方法 |
+|------|---------|---------|
+| `review` | 阅读理解 (EN→CN) | 默认「来一局」 |
+| `reverse` | 写作翻译 (CN→EN) | 「反向测试」 |
+| `synonym` | 同义词辨析 | 「来个同义词」 |
+| `listen` | 听力理解 | 「测个听力」（配合 text_to_speech） |
+| `spell` | 拼写测试 | 👷 待实现 |
 
-积分规则：
-- 答对 +10 / 新词发现 +20
-- 连击 3 次 ×1.5, 5 次 ×2, 10 次 ×3
-- 估分公式：`25 + (核心词覆盖率 × 0.4 + 掌握率 × 0.6) × 75`
+调用：`game_master.gen_quiz(word, mode="synonym", all_words=...)`
 
-每 5 天或覆盖率每涨 10% 触发抽样测试（抽 30 词）重新估分。
+### 3. 查进度 / 段位 / 估分
 
-### 0.5 Grillme 适配 (Telegram 无 clarify 工具时)
+「当前状态」→ `game_master.calc_prediction()` 返回：
+- coverage_pct, avg_mastery, estimated_score, rank, days_to_65
 
-用 A/B/C/D/E 内联选项代替 clarify 工具：
+段位表（config.json.ranks）：
+青铜 → 白银(10%/30%) → 黄金(25%/45%) → 铂金(40%/55%) → 钻石(60%/70%) → 王者(80%/85%) → 考研战神(100%/90%)
+
+### 4. 词根能力树
+
+「能力树」/「词根」→ `game_master.gen_skill_tree_panel()`
+10 个词根家族：-tend, -spect, -mit, -pose, -dict, -duce, -cess, -tain, -form, -port
+每个家族统计：unlocked / total + avg_mastery%
+
+### 5. Anki 双向桥
+
+**导入：** 用户传 Anki txt → `anki_bridge.import_anki_txt(path)`
+- 自动解析 tab-separated，跳过语法卡
+- 提取单词 + 中文释义
+- 增量合并到 `words.json`
+- 核心词自动标记 is_core=True
+
+**导出：** 「导出Anki」→ `anki_bridge.export_anki_csv(path)`
+- 字段：Word / Phonetic / Meaning / Mastery / NextReview / ErrorTypes
+
+### 6. 连击宝箱
+
+config.json.streak_chest 定义：
+- 连击 3/5/7/10 → 额外 +5/15/25/50 分
+- 3 连中触发 bonus round（超纲词，答对 +30，不答不扣）
+
+## 数据字段 (words.json 每词)
+
+```json
+{
+  "word": "abstract",
+  "phonetic": "/ˈæbstrækt/",
+  "meaning": "抽象的；摘要",
+  "is_core": true,
+  "core_level": 1,
+  "source": "anki_import" | "preset_1500",
+  "mastery": 0.0,
+  "review_count": 0,
+  "correct_count": 0,
+  "error_types": ["近义混淆"],
+  "ef": 2.5,
+  "interval": 1,
+  "next_review": "2026-05-17",
+  "last_reviewed": null,
+  "first_seen": "2026-05-17"
+}
 ```
-A. xxx
-B. xxx
-C. xxx
-D. xxx
-E. 其他，你说
+
+## SM-2 公式
+
 ```
-每波之间输出"中间总结"结构（已确认事实 + 假设 + 风险→下一波问题），最终输出"完整画像"。
-
-### 1. 单词入库
-用户发送单词 → 自动存入词库：
-```bash
-python3 ~/.hermes/scripts/english_tutor/engine.py add <word> <meaning>
+答对 → ef += 0.1, interval = int(interval × ef), next_review = today + interval
+答错 → ef -= 0.2 (min 1.3), interval = 1, next_review = tomorrow
 ```
-支持批量：多行输入，每行一个单词
 
-### 2. 词汇量统计
-```bash
-python3 ~/.hermes/scripts/english_tutor/engine.py stats
+## 估分公式
+
 ```
-返回：总词数、已掌握、学习中、待复习、今日复习数、考研覆盖率、预估分数区间
-
-### 3. 闪卡测试
-```bash
-python3 ~/.hermes/scripts/english_tutor/engine.py quiz
+est = 25 + (coverage_pct/100 × 0.4 + avg_mastery × 0.6) × 75
 ```
-返回 5 个待复习单词。用户回答后调用：
-```bash
-python3 ~/.hermes/scripts/english_tutor/engine.py review <word_id> <quality>
-```
-quality: 0=全忘 1=看答案才想起 2=犹豫后对 3=难但对 4=犹豫后对 5=秒答
 
-### 4. SM-2 遗忘曲线
-- quality≥3 → 间隔增长（1→6→15→38→...）
-- quality<3 → 重置间隔为 1 天
-- 5 次连续正确 → 标记 mastered
-
-## 交互协议
-
-当用户在 @Engcjd_bot 发送以下内容时：
-
-| 用户输入 | AI 动作 |
-|---------|--------|
-| 单个英文单词 | 添加到词库，回复确认 + 当前统计 |
-| "测试" / "quiz" / "闪卡" | 出 5 个待复习单词 |
-| "A" / "B" / "C" / "D" / "F" | 提交评分（A=5,B=4,C=3,D=2,F=1） |
-| "进度" / "stats" / "统计" | 返回完整词汇量报告 |
-| "预估" / "估分" | 返回考研分数估算 |
-
-## 评分标准
-
-- A (5): 秒答，完美
-- B (4): 犹豫后答对
-- C (3): 答对但有困难
-- D (2): 答错，但看到答案觉得简单
-- F (1): 答错，看到答案都没印象
-
-## 数据文件
-
-- 词库: `~/.hermes/scripts/english_tutor/vocab.db`
-- 引擎: `~/.hermes/scripts/english_tutor/engine.py`
-- 已预置 20 个考研高频词作为种子
-
-## Anki txt 导入流水线
-
-当用户发送 Anki 导出的 `.txt` 文件时：
+## Anki 导入流水线
 
 1. **解析**：手动 tab-split（不用 csv.reader，引号会炸），跳过 `#` 开头行
-2. **分类**：跳过中文开头卡片（`（真题原句` / `骨架解析`）和语法卡片（含 `Kaoyan Syntax`/`同位语`/`公式`）
+2. **分类**：跳过中文开头卡片（`（真题原句`）和语法卡片（含 `Kaoyan Syntax`/`同位语`/`公式`）
 3. **提取单词**：regex `^([a-zA-Z][a-zA-Z\s\-/()]+?)(?:\s*(?:/\S+?/)?\s*(?:Kaoyan|考研|<br>|$))`
-4. **去重小写**：统一 lower
-5. **核心词匹配**：内置 1500 考研高频词表做命中判定，分 Lv.1(>50次)/2(20-50)/3(<20)
-6. **写入** words.json + progress.json → git push
+4. **去重**：统一 lower → 与现有 words.json 比对
+5. **写入**：words.json + progress.json → git push
 
 ## 铁律
 
-- 单词统一小写存储
-- 重复单词不报错，merge 历史数据
-- GitHub 是单一事实源，每次数据变更后立即 git push
-- 统计包含考研 1500 核心词覆盖率估算
-- 游戏化元素：段位(A.青铜→B.白银→C.黄金→D.铂金→E.钻石→F.王者→G.考研战神)、积分、连击翻倍
+- 词库最终格式统一小写
+- GitHub 是单一事实源，每次数据变更立即 git push
+- 不主动处理副官/融资/企业治理任务 — 英语专属
+- 单词释义每题必带音标；词根词源拆解采用「前缀+词根+后缀+演化链」格式
+- Grillme 访谈在 Telegram 用 A/B/C/D/E 内联选项代替 clarify 工具
+- 表格/对比/多维度数据生成截图图片发送，不用 Markdown 源码
+- PPT = PPT Master .pptx (亮色/白底专业风)，不用暗黑主题

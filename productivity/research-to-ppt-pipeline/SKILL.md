@@ -111,6 +111,7 @@ def R(x, y, w, h, fill=None, stroke=None, rx=0):
 
 1. **execute_code + 中文 = 编码错误** → 用write_file+terminal执行
 2. **~ 路径在profile下重定向** → 用绝对路径`/Users/mac/`
-3. **SVG中`&`未转义** → 全部用`&amp;`
+3. **SVG中`&`未转义** → 全部用`&amp;`。用 `grep -n ' & ' svg_output/*.svg | grep -v '&amp;'` 检查
 4. **finalize_svg必须跑在svg_to_pptx之前** → 否则圆角矩形渲染异常
-5. **子Agent需要web工具集** → 搜索类任务必须加`"web"`
+5. **子Agent需要web工具集** → 搜索类任务必须加`\"web\"`
+6. **Python函数名与常量冲突** → 批量生成SVG时，`H`/`W`/`F`/`D` 等单字母大写函数名会覆盖画布常量（`W=1280, H=720`），导致SVG出现 `<function H at 0x...>`。函数改用全小写（`hdr()`/`ftr()`/`tbar()`/`dv()`）。当svg_to_pptx报 `not well-formed: line 1, column 58` 时，打开SVG检查viewBox是否被函数对象污染。
