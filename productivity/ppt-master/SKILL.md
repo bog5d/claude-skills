@@ -80,8 +80,12 @@ $PY ~/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py <project>
 - 图文的 y 间距至少留 40px（>卡片内部行间距），不能靠 10px 缝隙
 
 ### 2. SVG 中 `&` 必须转义为 `&amp;`
-svn_to_pptx.py 会因 XML 解析错误（`not well-formed (invalid token)`）失败。
+svg_to_pptx.py 会因 XML 解析错误（`not well-formed (invalid token)`）失败。中文标题中"总结 & 行动建议"的`&`是高频触发点。
 **修复：** `grep -n ' & ' svg_output/*.svg | grep -v '&amp;'` 查找后逐一替换。
+
+### 2b. Python生成SVG时禁止单字母变量名
+**踩坑实录**：用Python脚本批量生成SVG时，如果定义了`H()`函数但变量`H=720`也在作用域内，`f'viewBox="0 0 {W} {H}"'`会输出`<function H at 0x...>`而非`720`。
+**铁律**：生成SVG的Python代码中，辅助函数用`hdr()`/`tbar()`/`ftr()`多字母命名，禁止`H()`/`T()`/`F()`等单字母。
 
 ### 3. Emoji 文字排版陷阱
 Emoji（如 ⭐⭐⭐）在 PowerPoint 里的渲染宽度和浏览器不一样。如果拆成两个 `<text>` 元素（一个放 emoji，一个放标题文字），人工估算的坐标必定出错，PowerPoint 中会重叠。
