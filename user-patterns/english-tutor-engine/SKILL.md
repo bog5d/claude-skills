@@ -14,18 +14,23 @@ trigger:
 
 # English Tutor Engine — 考研英语 AI 伴学引擎
 
-## 系统架构
+## 两套系统
+
+| 系统 | 存储 | 入口 | 适用 |
+|------|------|------|------|
+| **Hermes 对话引擎** (本 skill 主) | GitHub `bog5d/bog-vocab-tracker` | 直接对话 | 游戏化伴学 |
+| **Engcjd_bot 引擎** (旧) | SQLite `vocab.db` | @Engcjd_bot | Telegram bot 快速录入 |
+
+## Hermes 对话引擎架构
 
 ```
-Telegram @Engcjd_bot
-        ↓
-  接收单词/指令
-        ↓
-  ~/.hermes/scripts/english_tutor/engine.py
-        ↓
-  SQLite 词库 (vocab.db) + SM-2 遗忘曲线
-        ↓
-  反馈 ← 词汇量/进度/测试
+波总 ↔ Hermes (直接对话)
+         ↓
+  GitHub: bog5d/bog-vocab-tracker
+  ├── data/words.json      (词库主表)
+  ├── data/progress.json   (进度/段位/估分)
+  ├── data/sessions.json   (学习记录)
+  └── data/config.json     (游戏规则)
 ```
 
 ## 核心能力
@@ -84,9 +89,33 @@ quality: 0=全忘 1=看答案才想起 2=犹豫后对 3=难但对 4=犹豫后对
 - 引擎: `~/.hermes/scripts/english_tutor/engine.py`
 - 已预置 20 个考研高频词作为种子
 
+## Anki txt 导入流水线
+
+当用户发送 Anki 导出的 `.txt` 文件时：
+
+1. **解析**：手动 tab-split（不用 csv.reader，引号会炸），跳过 `#` 开头行
+2. **分类**：跳过中文开头卡片（`（真题原句` / `骨架解析`）和语法卡片（含 `Kaoyan Syntax`/`同位语`/`公式`）
+3. **提取单词**：regex `^([a-zA-Z][a-zA-Z\s\-/()]+?)(?:\s*(?:/\S+?/)?\s*(?:Kaoyan|考研|<br>|$))`
+4. **去重小写**：统一 lower
+5. **核心词匹配**：内置 1500 考研高频词表做命中判定，分 Lv.1(>50次)/2(20-50)/3(<20)
+6. **写入** words.json + progress.json → git push
+
+## Grillme 适配 (Telegram 无 clarify 工具时)
+
+用 A/B/C/D/E 内联选项代替 clarify 工具：
+```
+A. xxx
+B. xxx
+C. xxx
+D. xxx
+E. 其他，你说
+```
+每波之间输出"中间总结"结构，最终输出"完整画像"。
+
 ## 铁律
 
 - 单词统一小写存储
-- 重复单词不报错，提示"已在词库"
-- 每次测试后自动更新间隔和熟练度
-- 统计包含考研 5500 词覆盖率估算
+- 重复单词不报错，merge 历史数据
+- GitHub 是单一事实源，每次数据变更后立即 git push
+- 统计包含考研 1500 核心词覆盖率估算
+- 游戏化元素：段位(A.青铜→B.白银→C.黄金→D.铂金→E.钻石→F.王者→G.考研战神)、积分、连击翻倍
