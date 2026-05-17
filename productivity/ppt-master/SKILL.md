@@ -175,6 +175,13 @@ $PY skills/ppt-master/scripts/image_search.py "关键词" \
 5. **验证图片是否嵌入 PPTX**：`from pptx import Presentation; [s.shape_type for s in slide.shapes]` — PICTURE=13 表示图在文件里
 6. **文件大小验证**：纯矢量 PPTX ~60KB，嵌入 2 张 AI 图后 ~3MB，说明图确实打进去了
 
+## ⚠️ Hermes Profile 环境注意事项
+
+在 Hermes Agent profile 环境下（`~` 被重定向到 profile home）：
+- **必须用绝对路径**：`/Users/mac/ppt-master/` 而非 `~/ppt-master/`
+- venv Python：`/Users/mac/.hermes/hermes-agent/venv/bin/python3`
+- 批量生成SVG时，避免用 execute_code 写含中文的脚本（编码问题），改用 write_file + terminal 执行
+
 ## 已知限制
 
 - 逐页串行生成，10页≈15分钟（手写SVG部分）
