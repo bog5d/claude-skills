@@ -14,10 +14,11 @@ triggers:
 
 用户有多个 Hermes profile（`default` 和 `her-m2`），每个 profile 有独立的 `skills/` 目录。希望所有 profile 的 skills 自动互相学习，且增量推送到 GitHub 供跨 AI 工具使用。
 
-**三端同步路径（波总环境）：**
+**四端同步路径（波总环境）：**
 - SRC1: `~/.hermes/skills/` （当前 active profile her-m2）
 - SRC2: `~/.hermes/profiles/her-m2/skills/` （her-m2 profile 冗余副本）
 - SRC3: `~/.hermes/hermes-agent/skills/` （default profile 的技能目录）
+- SRC4: `~/.hermes/profiles/english-tutor/skills/` （@Engcjd_bot 英语伴学 profile）
 
 ## 步骤
 
@@ -31,7 +32,7 @@ triggers:
 - Phase 3: Tysk push — 本地 skills → rsync 进 claude-skills repo → git push GitHub
 
 Phase 2 核心逻辑（三端比对）：
-- 遍历三个目录的所有 SKILL.md
+- 遍历四个目录的所有 SKILL.md
 - 比较 mtime，找 newest（最晚修改的作为权威源）
 - newest → 覆盖其余两端的旧版本
 - 不删除任何 skill，只增加和更新
@@ -52,13 +53,14 @@ bash ~/.hermes/scripts/sync_skills_cross_profile.sh
 echo "her-m2: $(find ~/.hermes/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
 echo "her-m2 profile: $(find ~/.hermes/profiles/her-m2/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
 echo "default: $(find ~/.hermes/hermes-agent/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
+echo "english-tutor: $(find ~/.hermes/profiles/english-tutor/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
 ```
 
 ### 4. 挂 cron job
 
 ```bash
 cronjob create \
-  --name "skills-sync-三端" \
+  --name "skills-sync-四端" \
   --schedule "every 30m" \
   --prompt "Execute bash ~/.hermes/scripts/sync_skills_cross_profile.sh. Report results." \
   --deliver local
