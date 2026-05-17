@@ -296,14 +296,45 @@ night_shift.py 行为：
 
 ---
 
+## ⚠️ 数据源架构铁律（2026-05-17 确立）
+
+**GitHub status.json = 单一事实源。SQLite adjutant.db = 可淘汰的遗留缓存。**
+
+### 血的教训
+
+Q3 审计引擎连续多天报 T021/T011-T013 假阳性，根因是 **两个数据源各说各话**：
+
+| 数据源 | 我们更新它？ | Q3 审计读它？ | 结果 |
+|--------|------------|-------------|------|
+| status.json | ✅ 每次口头更新 | ❌ advisor.py 不读 | 白改 |
+| adjutant.db | ❌ 只改过 status.json | ✅ advisor.py 读 | 永远过时 |
+
+**为什么 SQLite 不能做主源：**
+- SQLite 是本地文件，不在 Git 里，其他 AI 克隆不到
+- 每次 status.json 变更后需手动 sync，漏一次就裂
+- 双重写入（改 status.json + 改 SQLite）必然不同步
+
+**正确处理方式：**
+1. **所有脚本直接读 `status.json`**（`open+json.load`），零 SQLite 依赖
+2. 如果真需要 SQLite（查询性能），它是**只读缓存**，由 status.json 单向同步
+3. 任何任务状态变更 → 改 status.json → git push — 一条线
+
+### 已修复（2026-05-17）
+- `advisor.py`：完全重写，移除 SQLite 依赖，直接读 status.json
+- `perception.py`：移除 SQLite import + DB_PATH + sync_status_to_sqlite
+- 待修复：morning_brief.py, night_shift.py, query.py, executor.py, handoff.py, sync.py
+
+---
+
 ## 关键教训
 
 ### 架构教训
-1. **内存不能存实际数据** — adjutant.db 才是真相源，对话记忆只是索引
-2. **同步要立即触发** — 每次写入后自动 push，不等到 cron 定时
-3. **人形回路不可少** — 早8点推送必须先问确认，再执行
-4. **格式要严格但人类输入要宽松** — 波总口语即可，不要让他学格式
-5. **GitHub 作为单一事实源** — 别的AI只要 clone 仓库就能无缝接盘
+1. **GitHub status.json 是根** — 一切数据由此派生，不做反向同步
+2. **杜绝双写** — 一次变更只写一个地方。多数据源 = 多点故障
+3. **内存不能存实际数据** — adjutant.db 是缓存不是真相源
+4. **同步要立即触发** — 每次写入后自动 push，不等到 cron 定时
+5. **人形回路不可少** — 早8点推送必须先问确认，再执行
+6. **格式要严格但人类输入要宽松** — 波总口语即可，不要让他学格式
 6. **路线图 [x] 必须代码跟上** — 标记完成前必须验证代码存在且跑通。先写脚本再标状态。
 7. **脚本放在 repo/scripts/ 不在 adjutant/scripts/** — 脚本属于仓库（可被其他AI克隆），数据库属于本地（不进git）
 8. **Cron 是最后一步不是第一步** — 先让脚本能跑通（手动验证），再挂 cron。这样 cron 失败时你知道是脚本问题还是调度问题
