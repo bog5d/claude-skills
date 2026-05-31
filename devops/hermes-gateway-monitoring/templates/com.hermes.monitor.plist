@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.hermes.monitor</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/mac/.hermes/profiles/her-m2/bin/hermes-monitor.sh</string>
+        <string>report</string>
+    </array>
+    
+    <!-- 每4小时发送一次状态报告 (14400秒) -->
+    <key>StartInterval</key>
+    <integer>14400</integer>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/mac/.hermes/profiles/her-m2/logs/monitor-launchd.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/mac/.hermes/profiles/her-m2/logs/monitor-launchd.error.log</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>/Users/mac</string>
+    </dict>
+</dict>
+</plist>

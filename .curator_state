@@ -1,0 +1,9 @@
+{
+  "last_report_path": "/Users/mac/.hermes/profiles/her-m2/logs/curator/20260529-122340",
+  "last_run_at": "2026-05-29T12:23:40.240959+00:00",
+  "last_run_duration_seconds": 0.458935,
+  "last_run_summary": "auto: no changes; llm: skipped (no candidates)",
+  "last_run_summary_shown_at": null,
+  "paused": false,
+  "run_count": 1
+}

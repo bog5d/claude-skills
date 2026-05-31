@@ -270,10 +270,26 @@ python3 scripts/executor.py --confirm <N>        # 确认并执行
 **规则配置**：`~/.hermes/adjutant/config/executor_rules.yaml`（不存在时用内置默认规则）
 
 **环境变量**（`~/.hermes/adjutant/.env`）：
-- `TELEGRAM_BOT_TOKEN` — Telegram Bot token
+- `TELEGRAM_BOT_TOKEN` — Telegram Bot bot token
 - `TELEGRAM_CHAT_ID` — 波总 DM chat_id
 
 **集成点**：每次 adjutant-brain-dump 写完任务后，sync → executor
+
+### 财务子模块 ✅ 已上线（2026-05-31）
+
+波总第二个职能模块：个人财务中枢。独立于任务系统，专注债务债权管理 + 游戏化还款。
+
+- **Skill**: `personal-finance`（操作手册）
+- **数据路径**: `~/.hermes/adjutant/finance/`
+  - `debts.json` — 全部债务（20笔活跃 + 10笔已清）
+  - `config.json` — 里程碑 + 成就系统定义
+  - `transactions.json` — 还款流水
+  - `snapshots/` — 月度快照
+  - `reports/` — 周报生成区
+- **交互模型**: NL 一句话（`还了花呗2000`）→ 自动更新 debts.json + transactions.json
+- **反馈节奏**: 每周日晚自动推送全景大盘（进度条 + 同期对比 + 里程碑 + 预测）
+- **当前基线**: 总负债 ¥525,262（亲友 ¥460,650 / 平台 ¥64,612），已清 ¥210,000+
+- **游戏化**: 12级里程碑（¥52万→¥0）+ 8种成就徽章
 
 | 时间 | 名称 | 脚本 | 功能 |
 |------|------|------|------|
@@ -356,3 +372,4 @@ Q3 审计引擎连续多天报 T021/T011-T013 假阳性，根因是 **两个数�
 17. **不要用 `python3 -c` 写含中文多行字符串** — shell 会把中文标点（如 `。`、`：`）解释为命令分隔符导致 SyntaxError。改法：写到 `/tmp/adj_update.py` 文件再 `python3 /tmp/adj_update.py`。
 18. **任务描述里的分析方案要沉淀** — 波总说"你的思路也可以沉淀下来"。复杂分析（如 FOS 部署方案 A/B/C）不应只口头说，写入任务的 `description` 字段，让后续 AI 接手时直接读取。
 19. **API Key 绝不能进 Git** — 存 `.env` 文件 + chmod 600 + `.gitignore`。直接写入环境变量或 `.env` 文件，绝不出现在 commit message 或代码注释中。
+20. **僵尸检测误报未来日程** — advisor.py 的 `check_stale_tasks` 只看创建>7天且 pending，不看 `date` 字段是否指向未来。T034（6/19长沙理工）被 Q3 感知引擎每30分钟重复告警。修复：在 advisor.py 僵尸判断中加入 date 检查——若任务的 `date` 字段 >= 今天，跳过不予告警。未来日程是排期提醒，不是僵尸任务。

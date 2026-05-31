@@ -1,6 +1,6 @@
 ---
 name: mac-mini-environment
-description: Mac Mini M4 production environment profile — hardware, system, Hermes project layout, and known constraints
+description: Mac Mini M4 production environment profile — hardware, system, Hermes project layout, robustness health check, and known constraints
 ---
 
 # Mac Mini Environment Profile
@@ -42,3 +42,12 @@ description: Mac Mini M4 production environment profile — hardware, system, He
 2. Docker sandbox unavailable unless Desktop is manually launched first
 3. Memory saving across sessions is disabled in this environment
 4. Multiple Thunderbolt interfaces (en2, en3, en4) but no external storage connected
+5. **Clash fake-IP DNS interception**: Clash runs in fake-IP mode — DNS resolution via system resolver or `dig` returns `198.18.0.0/15` addresses instead of real IPs. TCP connectivity checks to fake IPs pass because Clash transparently proxies them, so contamination is invisible to naive health checks. **Workaround**: use DNS-over-HTTPS (Cloudflare/Google DoH) + fake-IP range filtering. See `references/clash-fake-ip-dns.md` for detection code and DoH implementation.
+
+## Health Check & Robustness Audit
+
+For a comprehensive system health audit — checking launchd KeepAlive, log rotation, cron persistence, disk space, network watchdog, backup status, and recovery checklist — see:
+
+📄 `references/robustness-health-check.md` (load with `skill_view("mac-mini-environment", "references/robustness-health-check.md")`)
+
+Trigger these checks when: asking about "system health", "robustness", "停电恢复", "outage recovery", or before/after major OS updates.

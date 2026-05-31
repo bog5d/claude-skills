@@ -1,0 +1,48 @@
+{
+  "jobs": [
+    {
+      "id": "6957554ca722",
+      "name": "skills-sync-四端",
+      "prompt": "Run the skills sync script at /Users/mac/.hermes/scripts/sync_skills_cross_profile.sh and report the results silently. This syncs skills across 4 Hermes profiles + pushes to GitHub. If push fails, it's ok — retry next cycle. Do NOT notify the user unless there's a fatal error.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 30,
+        "display": "every 30m"
+      },
+      "schedule_display": "every 30m",
+      "repeat": {
+        "times": null,
+        "completed": 14
+      },
+      "enabled": false,
+      "state": "paused",
+      "paused_at": null,
+      "paused_reason": "robustness: duplicate of default no_agent skills sync",
+      "created_at": "2026-05-24T16:30:58.450916+08:00",
+      "next_run_at": "2026-05-25T00:09:33.430092+08:00",
+      "last_run_at": "2026-05-24T23:39:33.430092+08:00",
+      "last_status": "error",
+      "last_error": "RuntimeError: HTTP 429: Error code: 429",
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "中本 笨笨",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    }
+  ],
+  "updated_at": "2026-05-24T23:58:11.696751+08:00"
+}

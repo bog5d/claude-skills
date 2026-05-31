@@ -1,9 +1,10 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior. 4-phase root cause investigation — NO fixes without understanding the problem first.
+description: "4-phase root cause debugging: understand bugs before fixing."
 version: 1.1.0
 author: Hermes Agent (adapted from obra/superpowers)
 license: MIT
+platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [debugging, troubleshooting, problem-solving, root-cause, investigation]
@@ -56,39 +57,7 @@ You MUST complete each phase before proceeding to the next.
 
 ---
 
-### Phase 0: Source-of-Truth Verification (Critical)
-
-**Before assessing status, verify against CODE — not memory.**
-
-Memory (session_search, semantic_search, mem0) can be stale or incomplete. When the user asks about project completion status, feature existence, or what's been built:
-1. **Check actual files on disk FIRST** — `search_files(target='files')` or `read_file`
-2. **Check git log** — `git log --oneline --follow <file>` for creation dates
-3. **Only then** consult memory as supplementary context
-
-**Real failure mode:** Claimed W5/W6/executor were "not done" based on memory → user corrected → code audit proved all were completed. 3 incorrect assessments because memory was 2-4 weeks stale.
-
-**Rule:** If user pushes back on a status claim ("I think this was already done"), immediately audit code files. Do not defend the memory-based claim.
-
-### Phase 0b: Tool Semantics Check (Common Traps)
-
-**Before diving into code, verify you're using the right tools for the job.**
-
-**mem0_search is NOT web search**
-- `mem0_search` searches persisted memory only — it cannot retrieve real-time data (weather, news, prices, etc.)
-- Signal: results always start with "User ..." memory fragments, no URLs/timestamps/sources
-- If you need live data: use `web_search` or `browser_navigate` directly — don't burn 3+ turns trying mem0_search variants
-
-**execute_code's read_file may truncate large files**
-- `read_file` inside `execute_code` has a ~50KB stdout limit
-- For files >25KB (like the guizang-ppt-skill template at 30KB), content may be silently truncated
-- If you need the full file for string manipulation: use `terminal` with Python's `open().read()` instead
-
-**delegate_task results may not return if they exceed output limits**
-- Subagents produce a final summary that enters your context
-- If the subagent generates a huge amount of content, it may get cut off
-- Solution: have the subagent write results to a file instead of returning them inline
-
-### Phase 1: Root Cause Investigation
+## Phase 1: Root Cause Investigation
 
 **BEFORE attempting ANY fix:**
 
@@ -108,23 +77,6 @@ Memory (session_search, semantic_search, mem0) can be stale or incomplete. When 
 - Does it happen every time?
 - If not reproducible → gather more data, don't guess
 
-### 2b. Check: Is the Failure in Test Code or Production Code?
-
-**Before deep investigation, a quick triage:** rule out the possibility that the test itself has a bug (calling a non-existent function, importing a non-existent module, or referencing code that hasn't been merged yet).
-
-**Action:** Search for the failing symbol in the codebase:
-
-```python
-search_files("missing_function_or_module_name", path="src/", file_glob="*.py", output_mode="files_only")
-```
-
-**Common patterns:**
-1. **Forward-looking tests** — test references a function/module name that doesn't exist yet (planned but not merged). Action: skip the test or create the missing module.
-2. **Typo'd function names** — a rename happened but tests weren't updated. Action: fix the test or the production code reference.
-3. **Deleted/renamed symbols** — the production code was refactored but tests reference the old name. Action: update the test to use the new name/import path.
-
-This triage takes <30 seconds and saves 5-15 minutes of deep-dive investigation on dead ends.
-
 **Action:** Use the `terminal` tool to run the failing test or trigger the bug:
 
 ```bash
@@ -141,40 +93,18 @@ pytest tests/test_module.py -v --tb=long
 - Git diff, recent commits
 - New dependencies, config changes
 
-**Critical: Check BOTH committed AND uncommitted changes.**
-
-A common trap: a test failure might be caused by **uncommitted working-tree changes** (staged or unstaged), not by your own code. The failure looks like a regression in your code, but the root cause is a pre-existing change in the working tree.
-
 **Action:**
 
 ```bash
 # Recent commits
 git log --oneline -10
 
-# Uncommitted changes (staged + unstaged)
-git status --short
+# Uncommitted changes
 git diff
 
-# Or more comprehensively: check if there are any modifications
-# that might have introduced behavior changes
-git stash list
-git diff --stat
-
-# Important: if the failure involves code paths that don't exist in HEAD,
-# check whether a worktree-only change introduced the behavior
-git stash && pytest failing_test -v  # run on HEAD
-git stash pop  # restore worktree
+# Changes in specific file
+git log -p --follow src/problematic_file.py | head -100
 ```
-
-**Three-way comparison technique for working-tree-induced failures:**
-
-When a test fails and you didn't touch the area of code it tests:
-1. `git stash` (save your changes)
-2. Run the failing test on HEAD — if it passes, the working tree changes are the cause
-3. `git stash pop` (restore your changes)
-4. Now investigate what in the unstaged changes broke it — compare the test expectations against the current behavior
-
-This is especially important when extending an active refactoring branch where prior uncommitted changes may have subtly changed behavior (e.g., introducing new compression thresholds, test expectations, or API signatures).
 
 ### 4. Gather Evidence in Multi-Component Systems
 
@@ -210,96 +140,6 @@ search_files("function_name(", path="src/", file_glob="*.py")
 # Find where the variable is set
 search_files("variable_name\\s*=", path="src/", file_glob="*.py")
 ```
-
-### Special Scenario: Fixture Scope Mismatch After DB Isolation
-
-**When you add a function-scope autouse fixture that monkeypatches shared state (DB paths, env vars, global config), tests using module/class-scope fixtures that pre-populate that same state will silently break.**
-
-**Root cause chain:**
-1. Module-scope fixture runs FIRST → calls `_connect()` → writes data to **real DB path** (monkeypatch hasn't run yet — it's function-scope)
-2. Individual test function runs → autouse fixture monkeypatches `_db_path` → points to **temp directory**
-3. Test calls `db_job_get()` → reads from temp DB → empty → returns `None`
-4. All assertions downstream fail: `NoneType has no attribute 'get'`, 404 on API, "not found"
-
-**Diagnosis indicators (all must be present):**
-- Multiple test files suddenly fail, all with the same error pattern
-- Errors are "data not found" type (NoneType, 404, KeyError), not assertion logic failures
-- The failing tests use module/class-scope fixtures that call database functions directly
-- Failure started after adding or modifying an autouse fixture that alters shared state
-
-**Fix approach (prefer A over B):**
-
-| Approach | Mechanism | Pro |
-|----------|-----------|-----|
-| **A — Marker opt-out** | `@pytest.mark.real_db` on test class → fixture checks `request.node.get_closest_marker("real_db")` | Test file self-declares; no central list to maintain |
-| B — Module name list | Hardcoded `_SKIP_MODULES` tuple in conftest, check `request.node.path` | Quick to implement |
-
-**Full marker implementation recipe (Approach A):**
-
-*Step 1: Register marker* — in `pyproject.toml` under `[tool.pytest.ini_options]`:
-```toml
-markers = [
-  "real_db: 测试使用 module/class 级 fixture 预写数据，跳过 autouse DB 隔离",
-]
-```
-
-*Step 2: Autouse fixture checks marker* — in `conftest.py`:
-```python
-@pytest.fixture(autouse=True)
-def _isolate_db_per_test(request, tmp_path, monkeypatch):
-    if request.node.get_closest_marker("real_db"):
-        return  # self-declared — test manages its own DB
-    # ... normal isolation logic
-```
-
-*Step 3: Test files self-declare* — add after imports in each test file:
-```python
-pytestmark = [pytest.mark.real_db]
-```
-
-*Step 4: Safety net* — git pre-push hook runs all `@pytest.mark.real_db` tests to catch scope mismatches before they hit remote:
-```bash
-#!/usr/bin/env bash
-# .git/hooks/pre-push
-uv run --extra dev pytest \
-    tests/test_wizard_pipeline_e2e.py \
-    tests/test_pipeline_e2e.py \
-    ...all @real_db files... \
-    -q --tb=short
-```
-
-**When to use `@pytest.mark.real_db`:**
-- Test file has module/class-scope fixture that calls `_connect()` / `db_job_create()` directly
-- Test file has its own `isolated_db` fixture that monkeypatches `_db_path` (avoids double-patch race)
-- Any test that pre-populates DB before individual test functions run
-
-**Real case:** Adding `_isolate_db_per_test` (function-scope autouse) broke 46 tests across 4 files (wizard/pipeline/retry-eval/follow-ups) — all had module fixtures pre-writing DB. Same pattern recurs when another AI adds `test_wiki_display` — requires updating centralized skip list. Marker-based approach would have self-documented.
-
-### Special Scenario: Working-Tree Test Failures
-
-When working on a refactoring branch with **uncommitted changes**, a test failure might be caused by pre-existing worktree changes, not your code.
-
-**Three-way comparison technique:**
-
-```bash
-git stash  # save your changes
-python -m pytest <failed_test> -x -v  # run on HEAD only
-git stash pop  # restore
-```
-
-| git stash result | meaning | action |
-|---|---|---|
-| Passes on HEAD | Your changes OR worktree changes caused failure | Investigate what in unstaged changes broke it |
-| Fails on HEAD too | Pre-existing bug in the branch, not your fault | The tests were failing before you started |
-
-**Working tree also may have introduced new behavior that changed test expectations**, even if you didn't touch that area. Example: a prior uncommitted change added `_get_compression_level` threshold check → tests that previously triggered compression now need explicit `last_prompt_tokens` > threshold.
-
-The fix pattern for such pre-existing breaking changes:
-1. Identify the specific behavior change in the worktree
-2. Patch the **test** to match the new expected behavior (not the other way around if the behavioral change was intentional)
-3. Or if the behavioral change was unintended, patch the production code
-
-**Never spend >5 min debugging a test failure until you've verified whether it fails on HEAD.**
 
 ### Phase 1 Completion Checklist
 

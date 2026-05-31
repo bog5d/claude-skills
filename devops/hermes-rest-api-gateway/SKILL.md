@@ -128,3 +128,87 @@ curl -X POST http://localhost:PORT/call \
 ```json
 {"tool": "工具名", "args": {"参数": "值"}, "task_id": "可选"}
 ```
+
+## macOS 开机自启配置（launchd）
+
+Gateway 通过 login item 自动启动，但 API 服务器需要单独配置 launchd 才能在停电/重启后自动恢复。
+
+### 创建 plist
+`~/Library/LaunchAgents/com.hermes.api-gateway.plist`：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" ...>
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.hermes.api-gateway</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/mac/.hermes/hermes-agent/venv/bin/python3</string>
+        <string>-c</string>
+        <string>import model_tools; from tools.hermes_api import _start_server; _start_server(port=18765); import time,threading,signal; stop=threading.Event(); signal.signal(signal.SIGTERM,lambda*a:stop.set()); [time.sleep(5) while not stop.is_set()]</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/mac/.hermes/hermes-agent</string>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>StandardOutPath</key>
+    <string>/Users/mac/.hermes/logs/api-gateway.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/mac/.hermes/logs/api-gateway-error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HERMES_HOME</key><string>/Users/mac/.hermes</string>
+        <key>HOME</key><string>/Users/mac</string>
+    </dict>
+</dict>
+</plist>
+```
+
+### 加载
+```bash
+launchctl bootout gui/$(id -u)/com.hermes.api-gateway 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.hermes.api-gateway.plist
+launchctl list | grep hermes.api
+```
+
+### 验证自启
+重启 Mac 后检查：`curl http://localhost:18765/health`
+
+## ngrok 公网穿透完整流程
+
+### 注册
+去 ngrok.com → Sign Up（GitHub/Google/邮箱，30秒）
+
+### 配置 authtoken（从 Dashboard 复制）
+```bash
+ngrok config add-authtoken <你的token>
+ngrok http 18765
+```
+
+### 常见问题：端口绑定冲突
+```
+ERR_NGROK_334: endpoint 'xxx.ngrok-free.dev' is already online
+```
+原因：之前的 ngrok 进程残留或同一个 endpoint 被其他地方占用。
+解决：
+```bash
+pkill -f ngrok
+sleep 2
+ngrok http 18765
+```
+
+### 验证公网可访问
+```bash
+curl https://xxx.ngrok-free.dev/health
+```
+
+## v2 增强功能（2026-05-18）
+
+基于 AnyGen 等外部 AI 的反馈，网关 v2 增加了：
+- `GET /tools` — 全量工具清单含完整参数 schema
+- `GET /tools/{name}` — 单个工具详情（参数、必填项、类型）
+- `GET /openapi.json` — OpenAPI 3.0 规范文档
+- 统一返回格式：`{"success":bool, "tool":"...", "data":..., "duration_ms":N, "request_id":"..."}`
+- 统一错误码：`TOOL_NOT_FOUND` / `MISSING_PARAMETER` / `UNAUTHORIZED` / `EXECUTION_FAILED`
+- API Key 固定存储在 `~/.hermes/api_key.txt`，权限 0600，不会变化

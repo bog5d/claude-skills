@@ -208,7 +208,100 @@ lark-cli calendar events search_event \
 | 操作 | 命令 |
 |------|------|
 | 创建文档 | `lark-cli docs create --title "标题" --folder-token <token>` |
-| 创建任务 | `lark-cli task create --summary "任务名" --due-date 2026-05-20` |
+
+---
+
+## Task / 任务操作（待办清单）
+
+飞书任务是真正的 Todo 式待办——有标题、截止日、可打勾完成。比 Base 更适合「做一个、勾一个」的工作流。
+
+### 创建任务清单（tasklist）
+
+```bash
+lark-cli task +tasklist-create --name "波总待办"
+# 返回 guid（如 b1df7ca1-e399-4466-bbda-7b9152cee418）+ URL
+```
+
+一个 tasklist 就是一个分组（类似 Todoist 的项目）。建议用一个 tasklist 装所有副官任务，飞书中可按优先级/日期筛选。
+
+### 批量创建任务到指定清单
+
+```bash
+TL="b1df7ca1-e399-4466-bbda-7b9152cee418"
+
+lark-cli task +create \
+  --summary "🔴 [T018] FOS系统软著申请：提交第二批材料" \
+  --due "2026-05-10" \
+  --description "已付款，待准备第二批材料" \
+  --tasklist-id $TL \
+  --idempotency-key "adjutant-T018-v1"
+# 返回 data.guid（飞书任务 ID，用于后续 complete/update）
+```
+
+**关键 flag：**
+| Flag | 说明 |
+|------|------|
+| `--summary` | 任务标题（建议带优先级 emoji + 副官 ID） |
+| `--due` | 截止日期（`YYYY-MM-DD` 格式） |
+| `--description` | 任务详情/备注 |
+| `--tasklist-id` | 所属清单 GUID（必传，否则任务不进清单） |
+| `--idempotency-key` | 幂等键（用 `adjutant-T0XX-v1` 格式，防重复创建） |
+
+### 完成任务（打勾）
+
+```bash
+lark-cli task +complete --task-id <feishu_task_guid>
+```
+
+### 重新打开已完成任务
+
+```bash
+lark-cli task +reopen --task-id <feishu_task_guid>
+```
+
+### 查询清单中的任务
+
+```bash
+# 搜索特定关键词
+lark-cli task +search --query "T018" --page-all
+
+# 查询已完成的
+lark-cli task +search --completed --page-all
+```
+
+⚠️ `+search` **不支持** `--data` flag（报 `unknown flag: --data`）。用 `--query` 搜索关键词，或 `--completed` 筛选已完成。
+⚠️ `+get-my-tasks` 返回空是正常的——任务属于 tasklist，不在「我的任务」视图。
+⚠️ `is_completed` 字段返回值是 `None`（不是 `True/False`）——已完成任务的特征是 `completed_at` 有值而非 `is_completed == True`。同步脚本应检查 `completed_at` 而非 `is_completed`。
+
+### 副官 ↔ 飞书任务自动同步模式
+
+**从副官到飞书（创建）：**
+1. `status.json` 新增 pending 任务 → 调用 `lark-cli task +create` 带 `--idempotency-key "adjutant-{ID}-v1"`
+2. 保存飞书 task GUID 到 `feishu_task_mapping.json`：
+```json
+{
+  "tasklist_guid": "b1df7ca1-...",
+  "tasklist_url": "https://applink.feishu.cn/client/todo/task_list?guid=...",
+  "mapping": {
+    "T018": "42aaa3d3",
+    "T033": "5c4fb44e"
+  }
+}
+```
+
+**从副官到飞书（完成）：**
+3. `status.json` 任务标记 completed → 查 mapping 取 GUID → `lark-cli task +complete --task-id <guid>`
+
+**反向同步（飞书打勾 → 副官标记完成）：**
+飞书 webhook 可订阅任务变更事件（`task.task_status_changed`），但需要服务端接收。
+已实现的轻量方案详见 `references/bidirectional-task-sync.md`：`scripts/sync_feishu.py` + cron 每5分钟轮询。
+
+### 陷阱
+
+- `+create` 不加 `--tasklist-id` → 任务创建成功但不在任何清单里，飞书 UI 中难以找到
+- `--idempotency-key` 不是 UUID 格式也可以（与日历不同），用 `adjutant-T0XX-v1` 即可
+- `+get-my-tasks` 返回 `items: null` 不代表任务没创建——任务在 tasklist 里，不在「我的任务」视图
+- 飞书任务不自动同步到飞书日历——需要单独创建日历事件
 
 ---
 
@@ -363,16 +456,32 @@ lark-cli base +table-delete ... --yes     # 不加 --yes 会报 "requires confir
 ## 与副官系统集成
 
 见 `hermes-adjutant/INTEGRATION_LARK.md`：
-- status.json 任务 → 飞书日历事件自动同步
+- status.json 任务 → 飞书日历事件 + 飞书任务（待办清单）双同步
 - 每日行程日志自动生成到飞书文档
 - 周报汇总
 
 **已实现的同步脚本：** `hermes-adjutant/scripts/sync_to_lark.py`
-- 读取 status.json → 筛选有 date 且未完成的任务 → 批量创建飞书日历事件
-- 使用 UUID5 (`uuid.uuid5(NAMESPACE_DNS, "adjutant-{task_id}-{date}")`) 作 idempotency_key 防止重复
+
+**双同步策略（日历 + 任务）：**
+- 有具体 `date` 的任务 → 飞书日历（日程事件，带时间点）
+- 无时间或纯行动项 → 飞书任务（Todo 待办清单，可打勾）
+- 有 `deadline` 的任务 → 任务附件截止日期 (`--due date:YYYY-MM-DD`)
+
+**技术细节：**
+- 读取 status.json → 筛选未完成 → 分类为 `calendar_tasks` 和 `task_items`
+- 日历事件：`lark-cli calendar events create`，使用 `uuid.uuid5(NAMESPACE_DNS, "adjutant-cal-{task_id}-{date}")` 作 idempotency_key
+- 任务待办：`lark-cli task +create`，使用 `uuid.uuid5(NAMESPACE_DNS, "adjutant-task-{task_id}")` 作 `--idempotency-key`
 - 支持 `--dry-run` 预览模式
 - 按 priority 自动分配颜色：🔴critical 🟠high 🔵medium 灰色low
 - 过去日期/已完成/cancelled 的任务自动跳过
+- 运行后输出日历和任务各自的创建/跳过/失败统计
+
+**⚠️ 陷阱：lark-cli task +create 与 calendar events create 校验方式不同**
+- `calendar events create` 返回 `{"code": 0, "data": {"event": {"event_id": "..."}}}` — 检查 `resp.get("code") != 0`
+- `task +create` 返回 `{"ok": true, "data": {"guid": "..."}}` — 必须检查 `resp.get("ok")`（不是 `code`！）
+- task +create 不支持 `--priority` flag，要用 `--summary` + `--description` 直接传
+- `--idempotency-key` 用连字符（hyphens），不是下划线 `--idempotency_key`
+- `--due` 格式为 `date:YYYY-MM-DD`（如 `--due date:2026-05-27`）
 
 ---
 

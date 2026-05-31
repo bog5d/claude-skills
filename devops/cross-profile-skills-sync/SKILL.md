@@ -17,7 +17,7 @@ triggers:
 **四端同步路径（波总环境）：**
 - SRC1: `~/.hermes/skills/` （当前 active profile her-m2）
 - SRC2: `~/.hermes/profiles/her-m2/skills/` （her-m2 profile 冗余副本）
-- SRC3: `~/.hermes/hermes-agent/skills/` （default profile 的技能目录）
+- SRC3: `~/.hermes/skills/` （default profile 的技能目录 — HERMES_HOME=/Users/mac/.hermes 从 launchd plist 解析）
 - SRC4: `~/.hermes/profiles/english-tutor/skills/` （@Engcjd_bot 英语伴学 profile）
 
 ## 步骤
@@ -69,7 +69,12 @@ cronjob create \
 
 ## 实战教训
 
-### ⚠️ GitHub push 卡了 32 天未发现
+### ⚠️ Git identity 未配置导致 push 失败
+如果 git 的 user.name/user.email 为空，某些 git push 操作可能被阻止（第一次 push 会使用系统默认 identity 成功，但后续可能卡住）。修复：
+```bash
+cd ~/.claude/skills && git config user.name "Hermes Agent" && git config user.email "hermes@nousresearch.com"
+cd ~/.wangbo-brain && git config user.name "Hermes Agent" && git config user.email "hermes@nousresearch.com"
+```
 **根因：** 原脚本只有 Phase 1(Pull) + Phase 2(本地同步)，缺 Phase 3(Push)。另外 HTTPS push 在 32MB repo 上必定超时，需 Token URL。
 
 **修复后验证：**
@@ -77,8 +82,12 @@ cronjob create \
 curl -s "https://api.github.com/repos/bog5d/claude-skills/commits/master" | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'][:80])"
 ```
 
+### ⚠️ 致命：$HOME 在 Hermes 运行时被重写
+Hermes Agent 在 gateway/terminal 运行时会修改 `$HOME` 指向 profile 目录（如 `/Users/mac/.hermes/profiles/her-m2/home/`），导致脚本中所有 `$HOME/...` 路径解析错误（形成双重嵌套路径）。
+**修复方案：** 所有路径必须硬编码为绝对路径 `/Users/mac/...`，禁止使用 `$HOME`。
+
 ### ⚠️ default profile 路径特殊
-default profile 的 skills 不在 `~/.hermes/profiles/default/skills/`，而在 `~/.hermes/hermes-agent/skills/`（hermes-agent 源码内的 skills 目录）。必须在同步链中显式加入 SRC3。
+default profile 的 skills 不在 `~/.hermes/profiles/default/skills/`，而在 `~/.hermes/skills/`（因为 launchd plist 中 `HERMES_HOME=/Users/mac/.hermes`）。
 
 ### ⚠️ rsync --delete 会删 GitHub 仓库根文档
 Phase 3 的 `rsync -a --delete "$SRC1/" ./` 会将仓库根目录所有不在 SRC1 里的文件删除——包括 README.md、AGENTS.md、SKILLS_SYNC_GUIDE.md。必须加 exclude：
