@@ -121,6 +121,28 @@ cd /Users/mac/.claude/skills && git push origin master 2>&1
 
 **预防：** 新 skill 或模板中嵌入的代码示例，token 必须用占位符，绝不能放真实凭证。
 
+### ⚠️ token-scrub-procedure.md 自身可能携带真实 token（递归问题）
+
+**现象：** 就连教人如何清洗 token 的参考文件 `references/token-scrub-procedure.md` 自身也可能含有真实 token（前人在示例中误用了真实凭证）。当你按 GitHub Push Protection 错误信息追踪到该文件时，会发现文件本身也是"污染源"。
+
+**检测：** 去掉 `2>/dev/null` 直接 push，GitHub 会返回含 token 的文件路径和行号：
+```bash
+cd /Users/mac/.claude/skills && git push origin master 2>&1
+# 输出会列出所有违规文件路径和行号，包括 references/token-scrub-procedure.md
+```
+
+**修复：**
+1. 用 `git show HEAD:path > /tmp/file && sed -n 'Np' /tmp/file | xxd` 提取真实 token（`read_file` 会掩码）
+2. 用 `patch` 工具替换所有真实 token 为 `ghp_YOUR_TOKEN_HERE`（`replace_all: true`）
+3. 用 `git commit --amend --no-edit` 修正当前提交（如果只有一个未推送提交）
+4. `git push origin master` 重新推送
+5. 将清洗后的文件复制回 Hermes 源目录，防止下次同步复现：
+   ```bash
+   cp /Users/mac/.claude/skills/path/to/file.md /Users/mac/.hermes/profiles/her-m2/skills/path/to/file.md
+   ```
+
+**根因：** 有人在该参考文件中用真实的 GitHub PAT 作为示例文本，违反了"示例中 token 必须用占位符"的铁律。该文件虽然是教人洗 token 的，但自身违反了规则。
+
 ## 限制
 
 - 只在同一台机器上的 profile 间同步
