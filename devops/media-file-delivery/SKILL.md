@@ -29,6 +29,36 @@ Hermes 的 `validate_media_delivery_path()` (gateway/platforms/base.py:867) 检�
 - `/tmp/`（除非设置了 `HERMES_MEDIA_ALLOW_DIRS`）
 - 命名 profile 下 `~` 展开到的任何路径
 
+## Telegram 不支持的文件类型
+
+**Telegram Bot API 不接受以下扩展名**，直接用 MEDIA 标签或 send_message 发这些文件会被静默丢弃：
+
+| 不支持 | 转换方案 |
+|--------|----------|
+| `.html` | Chrome headless → `.png` 或 `.pdf` |
+| 其他非白名单格式 | 改后缀为 `.txt`/`.zip` 传入，转换后 `.pdf`/.`png` 传出 |
+
+### HTML → PNG 截图（暗黑主题/可视化仪表盘，保真最好）
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --headless --disable-gpu \
+  --screenshot=/Users/mac/.hermes/cache/images/output.png \
+  --window-size=780,3400 \
+  "file:///Users/mac/.hermes/cache/documents/input.html"
+```
+
+### HTML → PDF（长内容/可缩放，信息无损）
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --headless --disable-gpu \
+  --print-to-pdf=/Users/mac/.hermes/cache/documents/output.pdf \
+  --no-pdf-header-footer \
+  "file:///Users/mac/.hermes/cache/documents/input.html"
+```
+
+### 接收 HTML：改名传入法
+用户发给你的 HTML 文件 Telegram 也拒收。让用户把 `xxx.html` 重命名为 `xxx.txt` 发过来，收到后改回 `.html` 再处理。这条规则同时适用于传入和传出方向。
+
 ## 永久修复（按推荐度排序）
 
 ### 方案 A：用绝对路径拷贝到默认 cache（最简单，无需改配置）

@@ -94,7 +94,7 @@ import json, urllib.request, base64, ssl, random
 from datetime import date, datetime
 
 ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
-token = "ghp_REDACTED_TOKEN_PLACEHOLDER"
+token = "ghp_YOUR_TOKEN_HERE"
 today = str(date.today()); now_ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 def fetch(p):
@@ -433,7 +433,7 @@ curl -s ... | python3 -c "import sys,json,base64; ...; open('/tmp/words.json','w
 import urllib.request, json, base64, ssl
 ctx = ssl.create_default_context()
 ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE  # 沙箱 SSL 兼容
-token = "ghp_REDACTED_TOKEN_PLACEHOLDER"
+token = "ghp_YOUR_TOKEN_HERE"
 # GET https://api.github.com/repos/bog5d/bog-vocab-tracker/contents/data/words.json
 # Authorization: token {token}, Accept: vnd.github.v3+json
 # 返回内容 base64 decode → json.loads

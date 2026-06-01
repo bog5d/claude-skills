@@ -272,6 +272,8 @@ lark-cli task +search --completed --page-all
 ⚠️ `+search` **不支持** `--data` flag（报 `unknown flag: --data`）。用 `--query` 搜索关键词，或 `--completed` 筛选已完成。
 ⚠️ `+get-my-tasks` 返回空是正常的——任务属于 tasklist，不在「我的任务」视图。
 ⚠️ `is_completed` 字段返回值是 `None`（不是 `True/False`）——已完成任务的特征是 `completed_at` 有值而非 `is_completed == True`。同步脚本应检查 `completed_at` 而非 `is_completed`。
+⚠️ **`--page-all` 配额杀手**：`lark-cli task +search --completed --page-all` 每次翻页消耗 1 次 API 调用。飞书免费版 Base/文档/任务配额共享，长文 4-5 次即耗尽。**不要用 `--page-all` 做定期全量轮询**——应改为按 GUID 单查（`+search --query "<guid前8位>"`，通常 1 次调用）。
+⚠️ **飞书配额恢复**：每天 0 点（北京时间）重置。0 点前所有通道（task +search / docs +create / drive +import）可能同时返回超时或 quota exceeded。
 
 ### 副官 ↔ 飞书任务自动同步模式
 
@@ -475,6 +477,19 @@ lark-cli base +table-delete ... --yes     # 不加 --yes 会报 "requires confir
 - 按 priority 自动分配颜色：🔴critical 🟠high 🔵medium 灰色low
 - 过去日期/已完成/cancelled 的任务自动跳过
 - 运行后输出日历和任务各自的创建/跳过/失败统计
+
+**⚠️ 去重机制（铁律）：飞书 API 幂等 key 不可靠，本地映射才是真正防线**
+
+`lark-cli` 的 `--idempotency-key` 在日历事件和任务 API 中**并不完美生效**——同一 idempotency key 仍可能创建出重复条目。
+
+真正的去重依赖 `feishu_task_mapping.json` 本地映射：
+- **创建前**：查 `mapping[TID]`，已存在 → 直接跳过（`📝 已映射`）
+- **创建后**：`mapping[TID] = feishu_guid`，立即写回文件
+- **写回时机**：在 `create_event()` 和 `create_task()` 成功返回后，不是调用方手动写
+
+这个映射是防止飞书重复任务的**唯一可靠防线**。幂等 key 是第一道（不靠谱的）防御，本地映射是第二道（可靠的）防御。
+
+多个同步路径（`sync_to_lark.py`、`sync_feishu.py`、`feishu-sync-from-feishu.sh`、手动 `lark-cli`、`perception.py`）共享同一份映射文件，因此只要任一路径创建成功并写回，其他路径的后续运行都不会重复创建。
 
 **⚠️ 陷阱：lark-cli task +create 与 calendar events create 校验方式不同**
 - `calendar events create` 返回 `{"code": 0, "data": {"event": {"event_id": "..."}}}` — 检查 `resp.get("code") != 0`

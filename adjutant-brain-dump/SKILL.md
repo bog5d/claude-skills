@@ -99,6 +99,8 @@ python3 scripts/executor.py --task <任务ID>
 - **DB 插入后 ≠ 任务已上线**：必须额外更新 status.json + git push，sync.py 不会自动更新 status.json。
 - **sync.py 只同步 DB → docs/**：sync.py 输出到 docs/tasks.md 和 docs/summary.json，不更新 status.json。status.json 需手动维护。
 - **飞书同步 ≠ 日历同步**：`sync_to_lark.py` 现在执行双同步——有日期的任务进飞书日历，无日期的进飞书任务栏。用户说"飞书看不到任务"大概率是找错了入口（日历 vs 任务栏是两个模块）。完整同步后可在飞书日历和任务栏两处看到。
+- **`sync_to_lark.py` 可能超时**：飞书 API 配额耗尽或网络波动时 `sync_to_lark.py` 可能超时（30s+）。**任务数据已在 git push 中持久化**，即使飞书同步失败，数据不丢。cron `a1582da9a8fa`（每 15 分钟 `feishu-sync-from-feishu.sh`）会在配额恢复后自动补同步。BTW 飞书每日配额 0 点重置。
+- **飞书打勾 ≠ 副官完成**：`feishu-sync-from-feishu.sh` 的 `--page-all` 全量轮询是配额杀手，可能静默失败。用户在飞书手动打勾的任务不会自动回流到副官 `status.json`。当用户质疑"这个我明明完成了"时，直接用用户确认 + mem0 记忆校准 status.json，不要等飞书回流。
 
 ## 示例
 波总说："记一下，要让房东退款，给他发消息和费用结余图片"

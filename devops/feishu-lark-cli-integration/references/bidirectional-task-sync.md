@@ -73,6 +73,37 @@ done
 
 `lark-cli task +search` 用 `--query`（关键词搜索）、`--completed`（筛选已完成）、`--page-all`（全量分页），**不支持** `--data` flag（会报 `unknown flag: --data`）。
 
+## 关键 Pitfall：--page-all 配额消耗（2026-06 已验证）
+
+`sync_feishu.py` 的 `sync_from_feishu()` 调用 `get_all_completed_tasks()` → `lark-cli task +search --completed --page-all`，每次翻页消耗 1 次 API 配额。飞书免费版 Base/文档/任务配额共享池，4-5 次长文即耗尽。当配额耗尽时：
+
+- `lark-cli task +search --completed --page-all` → 超时（无报错，静默失败）
+- `feishu-sync-from-feishu.sh` cron（每 15 分钟）→ 空转，飞书打勾不回流到副官
+- 用户感知：飞书打勾 ✓ ≠ 副官完成 ✓
+
+**解决方案：弃用全量轮询，改用按 GUID 单查**
+
+```python
+# ❌ 旧方案（配额杀手）
+completed = get_all_completed_tasks()  # --page-all 翻页
+
+# ✅ 新方案（按 GUID 逐个查，每个 1 次调用）
+for t in pending_tasks:
+    guid = mapping["mapping"].get(t["id"])
+    if guid:
+        task = get_feishu_task_status(guid)  # +search --query <guid[:8]> 1次调用
+        if task.get("completed_at"):
+            mark_completed(t)
+```
+
+## 配额耗尽应急手册
+
+| 症状 | 根因 | 处置 |
+|------|------|------|
+| `lark-cli task +search --completed --page-all` 超时 | 配额耗尽 | 等 0 点重置，或改用 GUID 单查 |
+| `sync_feishu.py --direction from-feishu` 超时 | 同上 | 手动修复：从 mem0 + 用户确认校准 status.json，git push |
+| `sync_to_lark.py` 超时 | 配额耗尽或网络问题 | 任务数据已在 git push 中持久化，cron `a1582da9a8fa` 稍后重试 |
+
 ## 防误匹配
 
 方向二（飞书→副官）轮询时，不能仅凭 GUID 匹配就标记完成——

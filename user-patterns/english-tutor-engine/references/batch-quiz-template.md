@@ -16,7 +16,7 @@ Agent: execute_code(1次) → 完整判分+5层讲解+进度报告
 # === STEP 1: FETCH ===
 import urllib.request, json, base64, ssl
 from datetime import date
-token = "ghp_REDACTED_TOKEN_PLACEHOLDER"
+token = "ghp_YOUR_TOKEN_HERE"
 # fetch: words.json, progress.json, config.json, sessions.json
 # get SHA for push
 
@@ -54,7 +54,7 @@ def classify(word, resp):
 ## Key Constants
 
 - Batch size: 6 words
-- Token: ghp_REDACTED_TOKEN_PLACEHOLDER
+- Token: ghp_YOUR_TOKEN_HERE
 - GitHub repo: bog5d/bog-vocab-tracker
 - Data path: data/words.json, data/progress.json, data/sessions.json, data/config.json
 - SSL: check_hostname=False, verify_mode=CERT_NONE (sandbox compat)

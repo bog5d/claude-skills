@@ -108,7 +108,7 @@ cd /root/wx-publisher && node server.js
 
 ```bash
 export BOGS_PUB_TOKEN="d1f551894905ad52b2a1885216ff31ad11b07c146708d664"
-export BOGS_GH_TOKEN="ghp_REDACTED_TOKEN_PLACEHOLDER"
+export BOGS_GH_TOKEN="ghp_YOUR_TOKEN_HERE"
 export BOGS_GH_REPO="bog5d/Agentic-Capital-Workflow"
 export BOGS_WP_URL="http://hellobog.com"
 export BOGS_WP_USER="admin"
