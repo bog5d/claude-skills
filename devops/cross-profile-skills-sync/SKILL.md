@@ -98,6 +98,29 @@ rsync -a --delete --exclude='.git' --exclude='README.md' --exclude='AGENTS.md' -
 ### ⚠️ rsync 不传 `--exclude='.git'` 会误删 .git 目录
 如果从 non-git 源 rsync 到 git repo 目标，不加 `--exclude='.git'` 会删除目标的 .git 目录，后续 git push 无法工作。
 
+### ⚠️ GitHub Push Protection 会静默阻止含 token 的 push
+如果任何 skill 文件包含真实的 GitHub PAT（如 `ghp_...` 或 `github_pat_...`），GitHub push protection 会拒绝整个 push，且脚本的 `2>/dev/null` 会吞掉错误信息，导致**静默堆积未推送提交**（本次经历了 14 commits / 12+ 小时的黑洞）。
+
+**检测方法：**
+```bash
+cd /Users/mac/.claude/skills && git log --oneline origin/master..HEAD | wc -l
+# 如果 > 0，说明有未推送的提交
+```
+
+**根因定位：** 去掉 `2>/dev/null` 直接 push 看 GitHub 返回的具体错误：
+```bash
+cd /Users/mac/.claude/skills && git push origin master 2>&1
+# 会列出含 token 的文件路径和行号
+```
+
+**修复流程（详见 references/token-scrub-procedure.md）：**
+1. 用 GitHub 返回的路径定位所有 token
+2. 全部替换为占位符 `ghp_YOUR_TOKEN_HERE`
+3. Squash 所有未推送提交为单提交：`git reset --soft origin/master && git commit -m "..." && git push`
+4. 同步回 Hermes profile 源文件
+
+**预防：** 新 skill 或模板中嵌入的代码示例，token 必须用占位符，绝不能放真实凭证。
+
 ## 限制
 
 - 只在同一台机器上的 profile 间同步

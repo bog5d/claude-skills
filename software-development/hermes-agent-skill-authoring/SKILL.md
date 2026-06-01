@@ -152,6 +152,8 @@ Pick the closest existing category. Don't invent new top-level categories casual
 
 7. **Linking to skills that don't exist in-repo.** `related_skills: [some-user-local-skill]` works for you but breaks for other clones. Prefer only in-repo links.
 
+8. **Embedding real tokens, keys, or credentials in skill content.** Never put real API keys, GitHub PATs, passwords, or tokens in SKILL.md or any references/templates file — even in code examples. Use placeholders: `ghp_YOUR_TOKEN_HERE`, `sk-YOUR_API_KEY`, `export SECRET="<your-secret>"`. Real tokens trigger GitHub push protection (blocking all future pushes silently), and auto-sync pipelines like cross-profile-skills-sync distribute them across all profiles. Once detected by GitHub, the token is auto-revoked. See `cross-profile-skills-sync` references for the 2026-06-02 incident where 5 embedded PATs caused a 12-hour sync blackout.
+
 ## Verification Checklist
 
 - [ ] File is at `skills/<category>/<name>/SKILL.md` (not in `~/.hermes/skills/`)
