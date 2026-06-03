@@ -101,6 +101,7 @@ done
   2. 临时方案：重启 gateway（有时 DNS 缓存过期后会恢复正常）→ `launchctl bootstrap gui/501/<plist> && launchctl kickstart gui/501/<service>`（见 Phase 4）
   3. 永久方案：修复代理软件的 DNS 设置，确保 `8.8.8.8` 或 `1.1.1.1` 可达
   4. 详见 `references/dns-debugging.md`
+  5. Clash Verge Rev（mihomo）详细 API 和规则修改流程见 `references/clash-tun-debugging.md`
 
 **模式F：KeepAlive SuccessfulExit 陷阱 — gateway 被 SIGTERM 后永不自动重启**
 - 症状：launchd plist 有 `KeepAlive → SuccessfulExit: false`，gateway 收到 SIGTERM 后退出，launchd 认为"正常退出"不重启。服务从此消失
