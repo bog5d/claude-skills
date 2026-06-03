@@ -51,6 +51,19 @@
     "use_count": 19,
     "view_count": 4
   },
+  "feishu-lark-cli-integration": {
+    "archived_at": null,
+    "created_at": "2026-06-03T14:29:08.826988+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-06-03T14:29:30.116395+00:00",
+    "last_viewed_at": "2026-06-03T14:29:30.115991+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 2,
+    "view_count": 2
+  },
   "hermes-custom-provider": {
     "archived_at": null,
     "created_at": "2026-05-24T06:52:51.906455+00:00",
