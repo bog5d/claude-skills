@@ -259,15 +259,110 @@ lark-cli task +complete --task-id <feishu_task_guid>
 lark-cli task +reopen --task-id <feishu_task_guid>
 ```
 
-### 查询清单中的任务
+### 删除任务（⚠️ 命令路径不同！）
+
+删除命令不在便利命令层（`task +xxx`），在底层 API 命令（`task tasks xxx`）：
 
 ```bash
-# 搜索特定关键词
-lark-cli task +search --query "T018" --page-all
-
-# 查询已完成的
-lark-cli task +search --completed --page-all
+lark-cli task tasks delete --params '{"task_guid":"<guid>"}' --yes
 ```
+
+| 要素 | 值 |
+|------|-----|
+| 命令路径 | `task tasks delete`（不是 `task +delete`） |
+| 参数 | `--params '{"task_guid":"<guid>"}'` |
+| 确认 | 必须加 `--yes`，否则拒绝执行 |
+| scope | `task:task:delete`（通常已随 `task:task:write` 授予） |
+| 返回 | `{"code":0,"data":{},"msg":""}` 表示成功 |
+
+⚠️ 常见的错误路径：`lark-cli task +delete` → 不存在。正确路径：`lark-cli task tasks delete`。
+
+## 重复任务清理 SOP
+
+当同步脚本 bug 导致同一任务在飞书出现多份拷贝时的标准清理流程。
+
+### 症状
+
+同一任务的 summary 包含相同 `[T0XX]` 标记，但 GUID 不同，飞书待办视图中出现多条相同条目。
+
+### 根因
+
+`sync_to_lark.py` / `sync_feishu.py` 等同步路径无去重锁，每次遍历 `status.json` 都重新创建任务。`feishu_task_mapping.json` 未及时更新 → 后续运行不认已有任务 → 继续创建。
+
+### 清理步骤
+
+**Step 1：检测重复**
+
+```bash
+export PATH="$HOME/.npm-global/bin:$PATH"
+for tid in T040 T041 T042; do
+  count=$(lark-cli task +search --query "$tid" 2>&1 | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']['items']))")
+  [ "$count" -gt 1 ] && echo "$tid: $count copies ⚠️" || echo "$tid: clean ✅"
+done
+```
+
+**Step 2：全部标记完成（清理待办视图）**
+
+先让所有拷贝进入"已完成"状态，飞书待办视图自然清空：
+
+```bash
+for tid in T040 T041; do
+  lark-cli task +search --query "$tid" 2>&1 | python3 -c "
+import sys,json,subprocess,os
+os.environ['PATH']+=':$HOME/.npm-global/bin'
+for t in json.load(sys.stdin)['data']['items']:
+    if not t.get('completed_at'):
+        subprocess.run(['lark-cli','task','+complete','--task-id',t['guid']])
+        print(f'  ✅ completed {t[\"guid\"][:8]}')
+"
+done
+```
+
+**Step 3：删除多余拷贝，每任务仅保留 1 份**
+
+```bash
+for tid in T040 T041; do
+  # 获取全部 GUID
+  guids=$(lark-cli task +search --query "$tid" 2>&1 | python3 -c "
+import sys,json
+items=json.load(sys.stdin)['data']['items']
+# 保留第一个，删除其余
+for t in items[1:]:
+    print(t['guid'])
+")
+  # 逐个删除
+  for guid in $guids; do
+    lark-cli task tasks delete --params "{\"task_guid\":\"$guid\"}" --yes 2>&1 | python3 -c "import sys,json; d=json.load(sys.stdin); print('✅' if d['code']==0 else '❌'+str(d))"
+  done
+  echo "  $tid done"
+done
+```
+
+**Step 4：更新映射表**
+
+```bash
+# 获取每任务仅剩的 GUID 并写入映射表
+for tid in T040 T041; do
+  guid=$(lark-cli task +search --query "$tid" 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['items'][0]['guid'])")
+  echo "  $tid → $guid"
+  # 更新 feishu_task_mapping.json 的 mapping 字段
+done
+```
+
+**Step 5：验证**
+
+```bash
+for tid in T040 T041; do
+  count=$(lark-cli task +search --query "$tid" 2>&1 | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']['items']))")
+  [ "$count" -eq 1 ] && echo "$tid: ✅" || echo "$tid: ⚠️ $count copies remain"
+done
+```
+
+### 防止复发
+
+- `sync_to_lark.py` 创建前检查 `feishu_task_mapping.json` 的 `mapping[TID]` → 已存在则跳过
+- 创建成功后立即写回 `mapping[TID] = feishu_guid`
+- 同步脚本每次运行前 `git pull` 确保映射表最新
 
 ⚠️ `+search` **不支持** `--data` flag（报 `unknown flag: --data`）。用 `--query` 搜索关键词，或 `--completed` 筛选已完成。
 ⚠️ `+get-my-tasks` 返回空是正常的——任务属于 tasklist，不在「我的任务」视图。

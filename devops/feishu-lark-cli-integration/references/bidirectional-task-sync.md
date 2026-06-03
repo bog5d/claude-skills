@@ -96,13 +96,39 @@ for t in pending_tasks:
             mark_completed(t)
 ```
 
-## 配额耗尽应急手册
+## 关键 Pitfall：同步脚本重复创建任务（2026-06 真实事故）
 
-| 症状 | 根因 | 处置 |
-|------|------|------|
-| `lark-cli task +search --completed --page-all` 超时 | 配额耗尽 | 等 0 点重置，或改用 GUID 单查 |
-| `sync_feishu.py --direction from-feishu` 超时 | 同上 | 手动修复：从 mem0 + 用户确认校准 status.json，git push |
-| `sync_to_lark.py` 超时 | 配额耗尽或网络问题 | 任务数据已在 git push 中持久化，cron `a1582da9a8fa` 稍后重试 |
+### 事故
+
+`sync_to_lark.py` 等同步路径每次遍历 `status.json` 时，因 `feishu_task_mapping.json` 未及时更新，无法识别已有任务 → 每次运行都重新创建 → 同一任务在飞书出现 3-8 份拷贝。
+
+实际影响：T040（知乎账号）8 份、T041-T063 各 2-4 份，共约 60 份重复。
+
+### 根因链
+
+1. `sync_to_lark.py` 创建任务后未写回 `feishu_task_mapping.json`
+2. 飞书 API 的 `--idempotency-key` 不可靠（不能防止重复）
+3. 多个同步路径（`sync_to_lark.py`、`sync_feishu.py`、`feishu-sync-from-feishu.sh`、手动 `lark-cli`、`perception.py`）共享同一批任务，无去重锁
+4. 映射文件仅 14 个条目（2026-05-24 冻结），新任务 T040-T074 全部缺失
+
+### 修复
+
+见 SKILL.md `重复任务清理 SOP` 章节。
+
+### 防止复发
+
+```python
+# sync_to_lark.py 创建前必须检查映射
+mapping = load_mapping()
+if tid in mapping["mapping"]:
+    print(f"📝 {tid} 已映射，跳过")
+    return
+
+guid = create_task(...)
+mapping["mapping"][tid] = guid
+save_mapping(mapping)  # 立即写回，铁律！
+git_commit_push("update: feishu mapping {tid}")
+```
 
 ## 防误匹配
 
