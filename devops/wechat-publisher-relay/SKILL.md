@@ -156,3 +156,93 @@ pm2 delete all           # 删除（需重新 start）
 | `/push_telegram` Markdown 解析错误 | 未转义特殊字符 | 使用 `escapeMd()` 函数（已在 server.js 中） |
 | TG 消息发不出去 | Bot token 或频道错误 | 检查代码中硬编码的 TG_BOT_TOKEN 和 TG_CHANNEL |
 | PM2 不识别 | PM2 未安装或 dump 丢失 | `pm2 list`，必要时 `pm2 start server.js --name wx-publisher` |
+
+## 🛡️ 安全加固
+
+### 已知攻击面（当前状态：脆弱）
+
+| 风险点 | 现状 | 风险等级 |
+|--------|------|----------|
+| SSH 密码登录 | `PermitRootLogin yes` + `PasswordAuthentication yes` | 🔴 致命 |
+| Root 密码强度 | 弱密码，可能已泄露 | 🔴 致命 |
+| FRP Token | `Cangjie2026` 明文，7000端口公网暴露 | 🔴 高 |
+| 公网端口 | 22, 7000, 6000 全开 | 🟡 中 |
+| 暴力破解 | 持续遭受多IP扫描 | 🔴 高 |
+
+### 加固清单（优先从高到低）
+
+```bash
+# 1. 上传 SSH 公钥（先在本地生成 ed25519 密钥对）
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_alicloud -N "" -C "hermes@alicloud"
+sshpass -p '<current-pass>' ssh root@47.85.62.133 \
+  "mkdir -p ~/.ssh && echo '<PUBKEY>' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+
+# 2. 改 root 密码
+sshpass -p '<current-pass>' ssh root@47.85.62.133 "echo 'root:<NEW_PASS>' | chpasswd"
+
+# 3. 关闭 SSH 密码登录（确认密钥可用后再执行）
+ssh root@47.85.62.133 \
+  "sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+   sed -i 's/^PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config && \
+   systemctl restart sshd"
+
+# 4. 更新 FRP token + 重启
+ssh root@47.85.62.133 \
+  "sed -i \"s/auth.token = .*/auth.token = '$(openssl rand -hex 16)'/\" /root/frp_*/frps.toml && \
+   systemctl restart frps"
+
+# 5. 防火墙白名单 SSH（只允许固定 IP）
+ssh root@47.85.62.133 \
+  "firewall-cmd --permanent --remove-service=ssh && \
+   firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=YOUR_IP/32 port port=22 protocol=tcp accept' && \
+   firewall-cmd --reload"
+```
+
+### 应急响应速查
+
+当收到阿里云安全告警时，按以下顺序排查：
+
+```bash
+# Phase 1: 进程侦察
+ps aux --sort=-%cpu | head -20          # 高CPU进程
+ss -tlnp                                # 监听端口
+ss -tnp | grep ESTAB                    # 活跃连接（找攻击者IP）
+last -n 10                              # 近期登录
+lastb | head -10                        # 失败登录（暴力破解痕迹）
+
+# Phase 2: 定时任务
+crontab -l                              # root crontab
+ls -la /etc/cron.d/                     # 系统 cron
+find /etc/systemd -name "*.service" -mtime -30  # 近期新增服务
+
+# Phase 3: 恶意文件定位
+find /usr/local/bin -type f -mtime -30  # 近期新增二进制
+find /tmp /var/tmp /dev/shm -type f     # 临时目录可疑文件
+cat /proc/<PID>/cmdline | tr '\0' ' '   # 查进程完整命令
+ls -la /proc/<PID>/cwd                  # 查进程工作目录
+
+# Phase 4: 清除
+kill -9 <PID>                           # 杀进程
+systemctl stop <service> && systemctl disable <service>  # 停服务
+rm -f <malicious-file>                  # 删文件
+systemctl daemon-reload                 # 重载 systemd
+```
+
+### 常见恶意软件伪装模式（本服务器曾发现）
+
+> 📄 具体 IOC 见 `references/malware-ioc-20260604.md`
+
+- **systemd.service** — 伪装的挖矿守护（`Restart=always`），二进制在 `/usr/local/bin/systemd`
+- **observed.service** — 伪装的"系统观测服务"，实际是竞品清理守护
+- **free_proc.sh** — 杀 CPU >200% 的非 self 进程，防止其他挖矿竞争资源
+- CPU 160%+ 进程名 `systemd` 连接 `xmr.kryptex.network:8029` → XMR 挖矿
+
+### 常驻合法服务（勿杀）
+
+| 服务 | PID 模式 | 用途 |
+|------|----------|------|
+| `moltbot-gateway` | `/opt/moltbot/dist/index.js` (admin 用户) | 波总 AI Gateway |
+| `wx-publisher` | `node /root/wx-publisher/server.js` (PM2) | 微信发布中继 |
+| `AliYunDun` | `/usr/local/aegis/` | 阿里云盾 |
+| `frps` | `/root/frp_*/frps` | FRP 隧道服务 |
+| `node` / `docker-proxy` | Docker 容器端口映射 | n8n 等容器 |
