@@ -10,7 +10,18 @@ category: english-tutor
 
 ## Workflow
 
-### Phase 1: Generate Challenge (no meanings shown)
+### Phase 1: Generate Challenge (no meanings shown) — FAST PATH FIRST
+
+**Default (10–30s):** one terminal only, no Agent tool loop:
+
+```bash
+/Users/mac/.hermes/hermes-agent/venv/bin/python3 /Users/mac/.hermes/profiles/english-tutor/bin/fast_vocab_round.py
+```
+
+Paste stdout to Telegram. Script sets `vocab_batch.json` + `coordinator` english lock.
+
+**Fallback** (only if script exits non-zero): pull `words.json` via curl + manual SM-2 select (legacy steps below).
+
 1. Pull latest `words.json`, `progress.json` from GitHub `bog5d/bog-vocab-tracker` (repo is PRIVATE, use PAT) — files live under `data/` directory
 2. Apply SM-2 priority scheduling to select 6 words
 3. Present ONLY: `{index}. {word}  {phonetic}` — NO meanings, NO hints
