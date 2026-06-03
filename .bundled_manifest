@@ -89,6 +89,7 @@ hermes-gateway-monitoring:193b88842f841a4586f0766220c7a8c3
 hermes-integrate-external-async-library:7bec993fae328b4623c66cff9e4f2fce
 hermes-mcp-server:30f52d6efd30b59a8f63a43f995d6a5a
 hermes-rest-api-gateway:9856c9fdcd60340a324739db9e6830f6
+hermes-s6-container-supervision:d1dd00ca7688c85813f325a564490431
 hermes-service-troubleshooting:c4bcec620584e3627d756c289b54e125
 hermes-upgrade:c40bd609f7229194a04a1a2da2a710c7
 himalaya:3f05533dcd15be9d89cc86ab13c94a83

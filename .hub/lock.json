@@ -1,1 +1,55 @@
-{"version": 1, "installed": {}}
+{
+  "version": 1,
+  "installed": {
+    "domain-intel": {
+      "source": "official",
+      "identifier": "official/research/domain-intel",
+      "trust_level": "builtin",
+      "scan_verdict": "backfilled",
+      "content_hash": "sha256:eaa692b981ec0e9f",
+      "install_path": "research/domain-intel",
+      "files": [
+        "SKILL.md",
+        "scripts/domain_intel.py"
+      ],
+      "metadata": {
+        "backfilled_from": "optional-skills"
+      },
+      "installed_at": "2026-06-03T14:03:39.290267+00:00",
+      "updated_at": "2026-06-03T14:03:39.290267+00:00"
+    },
+    "duckduckgo-search": {
+      "source": "official",
+      "identifier": "official/research/duckduckgo-search",
+      "trust_level": "builtin",
+      "scan_verdict": "backfilled",
+      "content_hash": "sha256:25ae5cbdbb2bff0b",
+      "install_path": "research/duckduckgo-search",
+      "files": [
+        "SKILL.md",
+        "scripts/duckduckgo.sh"
+      ],
+      "metadata": {
+        "backfilled_from": "optional-skills"
+      },
+      "installed_at": "2026-06-03T14:03:39.291814+00:00",
+      "updated_at": "2026-06-03T14:03:39.291814+00:00"
+    },
+    "rest-graphql-debug": {
+      "source": "official",
+      "identifier": "official/software-development/rest-graphql-debug",
+      "trust_level": "builtin",
+      "scan_verdict": "backfilled",
+      "content_hash": "sha256:4ff99e0538f23af7",
+      "install_path": "software-development/rest-graphql-debug",
+      "files": [
+        "SKILL.md"
+      ],
+      "metadata": {
+        "backfilled_from": "optional-skills"
+      },
+      "installed_at": "2026-06-03T14:03:39.292376+00:00",
+      "updated_at": "2026-06-03T14:03:39.292376+00:00"
+    }
+  }
+}
