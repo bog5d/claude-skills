@@ -30,7 +30,7 @@ Paste stdout to Telegram. Script sets `vocab_batch.json` + `coordinator` english
 ### Phase 2: Score + Explain (single execute_code call)
 After user replies with 6 answers, process everything in ONE execute_code call:
 - Score each answer (correct/incorrect, record exact user response)
-- Update SM-2 model (interval, EF, mastery)
+- Update SM-2 model: mastery 使用 **0-100 整数刻度**（答对 +15，答错 -5，详见 english-tutor-engine SM-2 公式章节）
 - Push updated data back to GitHub
 - Generate ALL 5-layer explanations for EVERY word (correct or incorrect):
   1. 词根拆解 + 同源词族
@@ -104,6 +104,8 @@ A multi-turn warmup-to-burst format for session 1 of the day. Designed to elimin
 1. If no state file → init new session (pull words, select 6, assign rounds, save state, present Round 1)
 2. If state.round < 3 → score current round, update SM-2, push GitHub, increment round, present next batch
 3. If state.round == 3 → score final round, update SM-2, push GitHub, present FULL summary + delete state file
+
+⚠️ **Progressive 中断恢复**：如果 Round 3 的 execute_code 被 blocked（用户 consent 超时或其他原因），最后的 SM-2 数据可能未推送。检查方法：从 GitHub 拉取最新 words.json，检查 `essential/conventional/equilibrium`（或本局第三轮词）的 history 中是否有 `session="prog-YYYY-MM-DD-001"` 的条目。若无，用 Python heredoc + git config PAT 方案单独补推（见 Network 章节）。补推后确保删除 `state/vocab_progressive.json` 避免重复。
 
 **Progressive difficulty**: within the 6-word batch, sort by core_level ascending so easier words come first.
 
