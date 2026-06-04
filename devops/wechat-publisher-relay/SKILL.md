@@ -32,7 +32,26 @@ category: devops
 
 进程管理：**PM2**，进程名 `wx-publisher`，端口 **8787**。
 
-## SSH 登录
+## 安全加固记录 (2026-06-04)
+
+### 入侵事件
+- 旧FRP token `Cangjie2026` 泄露 → 攻击者通过FRP跳板SSH登录
+- 部署了XMR挖矿（伪装为systemd.service + observed.service）
+- 位于 `/usr/local/bin/systemd` 和 `/usr/local/bin/free_proc.sh`
+
+### 新凭证
+- root密码: 已更换为强随机
+- SSH: 密码登录已关闭，仅密钥认证
+- FRP token: `f48653aaa631f8ce4814c3fb07a39955`
+- Mac Mini本地密钥: `~/.ssh/id_ed25519_alicloud`
+
+### ⚠️ iptables教训
+Alibaba Cloud Linux (nftables) 下 `iptables -I INPUT -s <IP> -j DROP` 可能导致**全端口锁死**。
+正确封禁方式：阿里云控制台安全组 → 入方向 → 拒绝规则。
+
+### FRP客户端同步
+修改服务端token后，必须同步更新所有客户端的 `frpc.toml`：
+- Mac Mini: `/Users/mac/frp_0.61.0_darwin_arm64/frpc.toml`
 
 ```bash
 ssh -i ~/.ssh/id_ed25519_alicloud -o StrictHostKeyChecking=no root@47.85.62.133
