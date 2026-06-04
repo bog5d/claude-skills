@@ -214,6 +214,7 @@ pm2 delete all           # 删除（需重新 start）
 | PM2 不识别 | PM2 未安装或 dump 丢失 | `pm2 list`，必要时 `pm2 start server.js --name wx-publisher` |
 | frps 挂了 | 非 systemd 服务，进程被杀后需手动重启 | `ps aux \| grep frps`，若不存在则 `cd /root/frp_*/ && nohup ./frps -c ./frps.toml > /dev/null 2>&1 &` |
 | frps token 泄露 | 需更新 token 并重启 | `sed -i "s/auth.token = .*/auth.token = '<NEW>'/" frps.toml && kill $(pgrep frps) && sleep 1 && nohup ./frps -c ./frps.toml > /dev/null 2>&1 &` |
+| FRP 客户端断连 | frps 端 token 改了但 frpc 端未同步 | 在 Mac Mini 上：`sed -i '' 's/auth.token = "OLD"/auth.token = "NEW"/' frpc.toml && kill $(pgrep frpc) && /path/frpc -c frpc.toml &` |
 
 ## 🛡️ 安全加固
 
@@ -339,6 +340,28 @@ iptables -P INPUT ACCEPT
 systemctl restart sshd
 ```
 
+### ⛔ FRP Token 更新陷阱：必须同步所有客户端
+
+**更新 frps 服务端 token 后，所有 FRP 客户端（frpc）也必须同步更新 token**，否则链路全断。波总的 pub2gg 全链路依赖 FRP 隧道，断一个客户端 = 全链路断。
+
+两台需同步的机器：
+| 机器 | frpc 配置路径 | 管理方式 |
+|------|-------------|---------|
+| Mac Mini (macOS) | `/Users/mac/frp_0.61.0_darwin_arm64/frpc.toml` | 手动进程 (`ps aux \| grep frpc`) |
+| 可能还有其他 frpc 节点 | 需排查 | — |
+
+Mac Mini 端更新 + 重启命令（**注意 macOS 的 sed -i 需要空备份后缀 `''`**）：
+```bash
+sed -i '' 's/auth.token = "OLD"/auth.token = "NEW"/' /Users/mac/frp_0.61.0_darwin_arm64/frpc.toml
+sudo kill $(pgrep frpc)
+/Users/mac/frp_0.61.0_darwin_arm64/frpc -c /Users/mac/frp_0.61.0_darwin_arm64/frpc.toml &
+```
+
+验证恢复：
+```bash
+ssh root@47.85.62.133 'ss -tlnp | grep :6000 && tail -3 /root/frp_*/frps.log'
+```
+
 ### ⛔ 自身 IP 陷阱
 
 **排查可疑连接时，先确认当前客户端的公网 IP，避免自己封自己：**
@@ -354,6 +377,18 @@ curl -s ifconfig.me
 - 断开自己的所有 SSH 会话，等待 10 秒
 - 再查 `ss -tnp | grep ESTAB` — 此时看到的陌生 IP 才是真正攻击者
 - 对比 `curl ifconfig.me` 的输出来排除自己
+
+### ⛔ SSH 加固时的 `chpasswd` 密码字符陷阱
+
+**`echo "user:pass!" | chpasswd` 中 `!` 会在某些 shell 中被解释为历史扩展**，导致密码设置失败或密码被截断。用户用正确密码却登录失败。
+
+```bash
+# ❌ 不要用包含 ! 的密码
+echo "root:Bog88223!" | chpasswd  # ! 可能被 bash 解释
+
+# ✅ 用单引号包裹整个字符串，且避免 ! @ $ 等特殊字符
+echo 'root:Bog2026abc' | chpasswd  # 只用字母数字
+```
 
 ### 应急响应速查
 
