@@ -145,7 +145,7 @@ pm2 delete all           # 删除（需重新 start）
 关联服务器和服务：
 - 腾讯云 111.229.29.110 — WordPress + 宝塔面板
 - n8n — Docker 自动化平台（端口 5678）
-- FRP 隧道 — 47.85.62.133:7000（token: Cangjie2026）
+- FRP 隧道 — 47.85.62.133:7000（⚠️ frps 是手动启动进程，非 systemd 服务，重启方式见下方）
 
 ## 故障排查
 
@@ -156,6 +156,8 @@ pm2 delete all           # 删除（需重新 start）
 | `/push_telegram` Markdown 解析错误 | 未转义特殊字符 | 使用 `escapeMd()` 函数（已在 server.js 中） |
 | TG 消息发不出去 | Bot token 或频道错误 | 检查代码中硬编码的 TG_BOT_TOKEN 和 TG_CHANNEL |
 | PM2 不识别 | PM2 未安装或 dump 丢失 | `pm2 list`，必要时 `pm2 start server.js --name wx-publisher` |
+| frps 挂了 | 非 systemd 服务，进程被杀后需手动重启 | `ps aux \| grep frps`，若不存在则 `cd /root/frp_*/ && nohup ./frps -c ./frps.toml > /dev/null 2>&1 &` |
+| frps token 泄露 | 需更新 token 并重启 | `sed -i "s/auth.token = .*/auth.token = '<NEW>'/" frps.toml && kill $(pgrep frps) && sleep 1 && nohup ./frps -c ./frps.toml > /dev/null 2>&1 &` |
 
 ## 🛡️ 安全加固
 
@@ -169,34 +171,99 @@ pm2 delete all           # 删除（需重新 start）
 | 公网端口 | 22, 7000, 6000 全开 | 🟡 中 |
 | 暴力破解 | 持续遭受多IP扫描 | 🔴 高 |
 
-### 加固清单（优先从高到低）
+### ⛔ 致命陷阱：阿里云 Instance Connect 后门
+
+**阿里云 ECS 默认启用了 `ecs_config_instance_connect`**，这是一个动态 SSH 密钥注入机制：
 
 ```bash
-# 1. 上传 SSH 公钥（先在本地生成 ed25519 密钥对）
+# sshd_config 中的默认配置（打开后门）
+AuthorizedKeysCommand /usr/bin/ecs_config_instance_connect --uid %U
+AuthorizedKeysCommandUser nobody
+```
+
+这意味着：**任何能访问阿里云控制台（或 Instance Connect API）的人，可以随时注入临时公钥登录 root**，完全绕过 `authorized_keys` 和 `PasswordAuthentication no`。
+
+攻击者正是利用这个机制，在密码被改、密钥被换后仍然反复登录。日志显示：
+```
+Accepted publickey for root from 89.208.247.51: ED25519 SHA256:5NSEd7h6KU...
+```
+即使 authorized_keys 只有我们的公钥，攻击者仍能通过 Instance Connect 动态注入自己的密钥。
+
+**加固时第一步必须禁用它**（在其他步骤之前）：
+
+```bash
+# 先禁掉 Instance Connect（否则后续所有加固都是徒劳）
+ssh root@47.85.62.133 \
+  "sed -i 's/^AuthorizedKeysCommand /#AuthorizedKeysCommand /' /etc/ssh/sshd_config && \
+   sed -i 's/^AuthorizedKeysCommandUser /#AuthorizedKeysCommandUser /' /etc/ssh/sshd_config && \
+   systemctl restart sshd"
+```
+
+### 加固清单（优先从高到低，严格按顺序）
+
+```bash
+# ⚠️ 关键顺序：先断后门再加固，否则攻击者始终在线
+
+# 0. 先检查攻击者是否在线
+ssh root@47.85.62.133 'ss -tnp | grep ESTAB | grep -v "127.0.0.1\|::1\|100.100"'
+# 如果看到陌生 IP — 执行下面的封锁流程
+
+# 1. 立刻禁用 Instance Connect 后门（最关键一步）
+ssh root@47.85.62.133 \
+  "sed -i 's/^AuthorizedKeysCommand /#AuthorizedKeysCommand /' /etc/ssh/sshd_config && \
+   sed -i 's/^AuthorizedKeysCommandUser /#AuthorizedKeysCommandUser /' /etc/ssh/sshd_config && \
+   systemctl restart sshd"
+
+# 2. 上传 SSH 公钥（先在本地生成 ed25519 密钥对）
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_alicloud -N "" -C "hermes@alicloud"
 sshpass -p '<current-pass>' ssh root@47.85.62.133 \
   "mkdir -p ~/.ssh && echo '<PUBKEY>' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 
-# 2. 改 root 密码
+# 3. 改 root 密码
 sshpass -p '<current-pass>' ssh root@47.85.62.133 "echo 'root:<NEW_PASS>' | chpasswd"
 
-# 3. 关闭 SSH 密码登录（确认密钥可用后再执行）
-ssh root@47.85.62.133 \
+# 4. 关闭 SSH 密码登录 + 禁止 root 密码登录
+ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 \
   "sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
    sed -i 's/^PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config && \
-   systemctl restart sshd"
+   systemctl reload sshd"
 
-# 4. 更新 FRP token + 重启
+# 5. 更新 FRP token — NOTE: frps 不是 systemd 服务，需手动重启
 ssh root@47.85.62.133 \
-  "sed -i \"s/auth.token = .*/auth.token = '$(openssl rand -hex 16)'/\" /root/frp_*/frps.toml && \
-   systemctl restart frps"
+  "cd /root/frp_*/ && \
+   sed -i \"s/auth.token = .*/auth.token = '$(openssl rand -hex 16)'/\" frps.toml && \
+   kill \$(pgrep frps) && sleep 1 && \
+   nohup ./frps -c ./frps.toml > /dev/null 2>&1 &"
 
-# 5. 防火墙白名单 SSH（只允许固定 IP）
+# 6. 防火墙（⚠️ 见下方 iptables 陷阱，优先用 firewall-cmd）
 ssh root@47.85.62.133 \
   "firewall-cmd --permanent --remove-service=ssh && \
    firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=YOUR_IP/32 port port=22 protocol=tcp accept' && \
    firewall-cmd --reload"
 ```
+
+### ⛔ 致命陷阱：iptables 锁死服务器
+
+**严禁在 SSH 会话中同时做 iptables DROP + sshd restart！** 这会导致服务器完全失联：
+
+```bash
+# ❌ 致命 — 这样做会把自己锁在外面：
+iptables -I INPUT -s 89.208.247.51 -j DROP
+systemctl restart sshd
+# → 连接断开，此后所有 IP 的 SSH/HTTP/FRP 全部超时，只能 VNC 救援
+
+# ✅ 正确方式（二选一）：
+# 方案A: 用 firewall-cmd（更安全，重启后持久化）
+firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=89.208.247.51/32 drop'
+firewall-cmd --reload
+
+# 方案B: 必须用 iptables 时，用 -A（追加）不用 -I（插入），只重启 reload 不 restart
+iptables -A INPUT -s 89.208.247.51 -j DROP  # -A 追加到底部，不影响已有规则
+iptables-save > /etc/sysconfig/iptables
+systemctl reload sshd  # reload 不断已有连接，restart 会断！
+```
+
+**如果已经锁死**：只能通过阿里云控制台 → VNC 连接 → 执行 `iptables -F INPUT && iptables -P INPUT ACCEPT` 恢复。
 
 ### 应急响应速查
 
