@@ -161,4 +161,4 @@ docker run -d --name hermes-memory \
 
 ## 参考文件
 
-- `references/tencentdb-agent-memory-architecture.md` — 四层记忆架构详解 + 与 Hermes 现有记忆栈的对比分析
+- `references/tencentdb-agent-memory-architecture.md` — 四层记忆架构详解、与 Hermes 现有记忆栈的对比分析、实测 benchmark 数据、部署架构图
