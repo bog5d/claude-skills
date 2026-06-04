@@ -14,7 +14,7 @@ category: devops
 | 主机名 | iZ0xico4s35nx01ecj3anmZ |
 | 云厂商 | 阿里云轻量应用服务器 |
 | OS | Linux (Alibaba Cloud Linux / CentOS) |
-| SSH | `root / Wb88517aliyundl-` |
+| SSH | 密钥认证（`~/.ssh/id_ed25519_alicloud`），密码登录已关闭。VNC 应急用 root 密码。 |
 | Node.js | ESM 模块，通过 PM2 管理 |
 
 ## 服务概览
@@ -35,7 +35,7 @@ category: devops
 ## SSH 登录
 
 ```bash
-sshpass -p 'Wb88517aliyundl-' ssh -o StrictHostKeyChecking=no root@47.85.62.133
+ssh -i ~/.ssh/id_ed25519_alicloud -o StrictHostKeyChecking=no root@47.85.62.133
 ```
 
 ⚠️ Hermes 运行在 macOS 上，无法使用 `read_file` 等本地工具读取远程文件。所有远程操作必须通过 `terminal` 执行 SSH 命令。
@@ -44,13 +44,71 @@ sshpass -p 'Wb88517aliyundl-' ssh -o StrictHostKeyChecking=no root@47.85.62.133
 
 ```bash
 # 读远程文件
-sshpass -p 'Wb88517aliyundl-' ssh root@47.85.62.133 'cat /root/wx-publisher/server.js'
+ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 'cat /root/wx-publisher/server.js'
 
 # 上传本地文件
-sshpass -p 'Wb88517aliyundl-' scp /local/file.js root@47.85.62.133:/root/wx-publisher/
+scp -i ~/.ssh/id_ed25519_alicloud /local/file.js root@47.85.62.133:/root/wx-publisher/
 
 # 执行远程命令
-sshpass -p 'Wb88517aliyundl-' ssh root@47.85.62.133 'pm2 restart all && sleep 1 && curl -s localhost:8787/health'
+ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 'pm2 restart all && sleep 1 && curl -s localhost:8787/health'
+```
+
+## VNC 救援操作
+
+当 SSH 不可用时，需引导波总通过阿里云控制台 VNC 登录。
+
+### ⚠️ VNC 交互铁律
+
+波总在 VNC 端是手动逐条输入，**严禁给出多行组合命令**。每条命令必须：
+
+- 单个代码块，带 `copy code` 按钮
+- 一次只给一条命令
+- 上一条确认执行后再给下一条
+- 说明简洁，不解释原理
+
+```bash
+# ✅ 正确：单条逐个给
+su -
+# （等用户确认切到 root 后，再给下一条）
+```
+
+```bash
+# ✅ 正确：继续给下一条
+iptables -F INPUT
+```
+
+```bash
+# ❌ 错误：多行组合，用户会粘贴出错
+su -
+iptables -F INPUT
+iptables -P INPUT ACCEPT
+```
+
+### VNC 登录后标准恢复流程
+
+先确认当前用户（`whoami`），如果不是 root 则逐条引导切换：
+
+```bash
+su -
+```
+（密码会提示输入，输入后回车，密码不显示字符）
+
+切到 root 后，常见恢复操作：
+
+```bash
+iptables -F INPUT
+```
+
+```bash
+iptables -P INPUT ACCEPT
+```
+
+```bash
+nft flush ruleset
+```
+
+```bash
+systemctl restart sshd
 ```
 
 ## API 端点
@@ -100,11 +158,9 @@ Telegram Bot Token 和频道写在代码中：
 ```bash
 # 1. 本地写文件（用 write_file 工具）
 # 2. 上传
-sshpass -p 'Wb88517aliyundl-' scp /tmp/server.js root@47.85.62.133:/root/wx-publisher/server.js
-# 3. 重启
-sshpass -p 'Wb88517aliyundl-' ssh root@47.85.62.133 'pm2 restart all'
-# 4. 验证
-curl -s http://47.85.62.133:8787/health
+scp -i ~/.ssh/id_ed25519_alicloud /tmp/server.js root@47.85.62.133:/root/wx-publisher/
+# 3. 重启 + 验证
+ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 'pm2 restart all && sleep 1 && curl -s localhost:8787/health'
 ```
 
 ### 代码注意事项
