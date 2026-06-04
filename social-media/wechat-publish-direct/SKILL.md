@@ -71,9 +71,19 @@ POST https://api.weixin.qq.com/cgi-bin/draft/add?access_token=TOKEN
 
 返回 `media_id` 给波总 → 波总在公众号后台确认发送。
 
-## 注意事项
+## 坑位与教训
 
-- IP白名单生效需2-5分钟
-- access_token有效期7200秒，需缓存
-- 正文用波总原文，不改逻辑和观点
-- 封面图需先上传获取media_id
+1. **标题字节限制**：微信标题限制64**字节**（非字符），中文字UTF-8占3字节。必须 `len(title.encode()) <= 58` 保守截断。
+2. **IP白名单**：生效需2-5分钟，错误码40164。
+3. **access_token**：有效期7200秒，需缓存复用。
+4. **正文不动**：波总原文不改逻辑和观点。
+5. **封面图**：先上传素材获取media_id再创建草稿。
+6. **图片占位符**：DeepSeek排版生成 `[IMAGE:keywords]`，用Unsplash搜索→上传微信→替换为`<img src="微信url">`。
+
+## 执行脚本
+
+完整脚本位于 `/tmp/wechat_publish.py`，流程：
+1. DeepSeek排版（原样保留文字，插入图片占位符）
+2. Unsplash下载→上传微信素材
+3. 标题字节截断
+4. 创建公众号草稿
