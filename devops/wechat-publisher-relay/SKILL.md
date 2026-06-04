@@ -319,7 +319,41 @@ iptables-save > /etc/sysconfig/iptables
 systemctl reload sshd  # reload 不断已有连接，restart 会断！
 ```
 
-**如果已经锁死**：只能通过阿里云控制台 → VNC 连接 → 执行 `iptables -F INPUT && iptables -P INPUT ACCEPT` 恢复。
+**如果已经锁死**：只能通过阿里云控制台 → VNC 连接 → 执行恢复命令：
+
+```bash
+# 先用 nftables（Alibaba Cloud Linux 默认防火墙后端）
+nft flush ruleset
+```
+
+```bash
+# 再清 iptables 遗留
+iptables -F INPUT
+```
+
+```bash
+iptables -P INPUT ACCEPT
+```
+
+```bash
+systemctl restart sshd
+```
+
+### ⛔ 自身 IP 陷阱
+
+**排查可疑连接时，先确认当前客户端的公网 IP，避免自己封自己：**
+
+```bash
+# 在自己机器上查当前公网 IP
+curl -s ifconfig.me
+```
+
+**注意：** 47.85.62.133 所在网络出口可能与你的本地 IP 相同（FRP/VPN 等导致）。曾发生将 `89.208.247.51` 判定为攻击者，反复封禁导致 SSH 自锁的教训——实际上那是波总 macOS 的公网出口 IP。
+
+**判定攻击者 IP 的正确方法：**
+- 断开自己的所有 SSH 会话，等待 10 秒
+- 再查 `ss -tnp | grep ESTAB` — 此时看到的陌生 IP 才是真正攻击者
+- 对比 `curl ifconfig.me` 的输出来排除自己
 
 ### 应急响应速查
 
