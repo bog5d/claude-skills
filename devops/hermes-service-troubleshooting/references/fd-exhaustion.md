@@ -44,3 +44,22 @@ bash -c 'ulimit -n 4096 && hermes --profile <name> gateway run --replace' &
 Hermes gateways running 24/7 for 2-3 days naturally accumulate 300+ open file descriptors
 from terminal sessions, sockets, plugins, cron jobs, and log files. This exceeds 256 and
 triggers cascading Errno 24 failures across all subsystems.
+
+## ⚠️ Hazard: .env overwrite during recovery
+
+When using `write_file` or other tools to modify `.env` during fd-exhaustion recovery,
+the credential scanner may corrupt the file content (replacing token values with `***`),
+resulting in a 1-line `.env` with all original credentials lost.
+
+**Before any .env edit, copy a backup:**
+```bash
+cp <profile>/.env /tmp/.env.backup.$(date +%s)
+```
+
+If `.env` is already lost:
+1. Copy global `.env` as fallback: `cp ~/.hermes/.env <profile>/.env`
+2. Append profile-specific keys (GITHUB_TOKEN, SUDO_PASSWORD, etc.)
+3. If TELEGRAM_BOT_TOKEN differs from global, replace using the credential-scanner-workaround technique
+4. Verify: `hermes config show` should list model/provider correctly
+
+See `references/credential-scanner-workaround.md` for safe token writing.
