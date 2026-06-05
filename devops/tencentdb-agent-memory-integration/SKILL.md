@@ -93,17 +93,31 @@ memory:
 
 1. **TDAI_LLM_* vs MEMORY_TENCENTDB_LLM_***：Gateway 本身读 `TDAI_LLM_*` 环境变量。Hermes 插件读 `MEMORY_TENCENTDB_LLM_*`。两者需要同时设置或在启动脚本中映射。
 
-2. **Standalone Gateway ≠ OpenClaw Plugin**：Standalone 模式只支持 capture/recall/search；offload (Mermaid) 是 OpenClaw 插件功能。在 Hermes 中通过 `offload.enabled: true` 在 config 中开启（效果受限）。
+2. **Standalone Gateway ≠ OpenClaw Plugin**：Standalone 模式只支持 capture/recall/search；offload (Mermaid) 是 OpenClaw 插件功能。
 
 3. **Docker 不是必需的**：原生 Node.js + npm 在本机直接跑，零 Docker 依赖。
 
 4. **config.yaml 修改受网关保护**：必须用 `hermes config set` 而非直接文件写入。
 
-5. **launchd 环境**：wrapper 脚本需同时 source `.hermes/.env` 和 `tdai-gateway.env`，因为 launchd 不继承用户 shell 环境。
+5. **launchd 环境**：wrapper 脚本需同时 source `.hermes/.env` 和 `tdai-gateway.env`。plist 用 `KeepAlive.SuccessfulExit=false` + `ThrottleInterval=10` 确保 crash 自动重启。
 
 6. **数据持久性**：Gateway 重启后数据不丢失（SQLite 存储在 `~/.memory-tencentdb/memory-tdai/`）。
 
-7. **同 session 多 capture 触发管道**：默认每 5 轮触发一次 L1 提取（`everyNConversations: 5`），warmup 模式会加速初始提取。
+7. **同 session 多 capture 触发管道**：默认每 5 轮触发一次（`everyNConversations: 5`），warmup 加速初始提取。
+
+8. **memory_char_limit**：从默认 2200 上调至 5000，避免截断 Agent Memory 的 ~3000-5000 字符画像。
+
+9. **跨 Profile 共享**：所有 Profile 共用同一 Gateway + 数据目录。L3 Persona 全局可见。
+
+## 运维
+
+### 备份
+- 手动：`bash ~/.hermes/scripts/backup-tdai-memory.sh`
+- Cron：每日 03:00 自动备份（job `46b7f802c037`），保留最近 7 份
+- 位置：`~/.hermes/backups/tdai-memory/`
+
+### 健康巡检
+- Cron：每 6 小时检测 Gateway（job `3a23bebc959b`），宕机告警
 
 ## 测试验证
 

@@ -221,6 +221,26 @@ done
   4. 等待下一个 defibrillator 巡检周期（10秒），确认不再报"离线"
 - 关键区分：**进程存活 ≠ defibrillator 认为存活**。当收到"Gateway X 自动复活 ❌"消息时，先检查该 gateway 的平台连接日志，不要直接假设进程挂了。
 
+**模式P：File Descriptor 耗尽 — Errno 24（进程活着但完全无响应）**
+
+- 症状：gateway 进程 ps 可见、端口 LISTEN，但 health check 无响应、对话发不出。日志满屏 `OSError: [Errno 24] Too many open files` — memory-tencentdb 反复尝试 resurrect 失败、kanban dispatcher tick 失败、terminal cleanup 线程报错
+- 根因：macOS 默认 soft limit `ulimit -n` = 256。Gateway 运行 2-3 天后累积 300+ fd（终端会话、socket、插件、cron、日志文件），超出限制后所有 `open()` 调用失败
+- 验证：
+  1. `grep "Errno 24" <profile>/logs/gateway.error.log | wc -l` — 大量出现
+  2. `lsof -p <PID> | wc -l` — 看当前 fd 数
+  3. `ulimit -n` — 看限制（通常是 256）
+  4. fd 数 > 限制 → 确认根因
+- 修复：
+  1. `kill -9 <PID>` 杀掉僵尸进程
+  2. 用提升后的 ulimit 重启：`bash -c 'ulimit -n 4096 && hermes --profile <name> gateway run --replace'`
+  3. 验证：`curl -s --max-time 5 http://localhost:<port>/health` 应返回 `{"status":"ok"}`
+- 永久修复（需 sudo 密码）：
+  ```bash
+  sudo launchctl limit maxfiles 4096 8192
+  ```
+  设置后所有新进程自动继承高限制
+- 预防：如果用 launchd 管理 gateway，在 plist 的 `EnvironmentVariables` 或 `LaunchOnlyOnce` 配合 wrapper script 中设 `ulimit -n 4096`
+
 **模式O：pkill 误杀其他 gateway（进程名不含 profile 名）**
 - 症状：用 `pkill -9 -f "hermes.*gateway.*default"` 只能匹配到 english-tutor 的进程（因为命令行含 `--profile english-tutor`），her-m2 和 default 的进程命令行不含 profile 名（`hermes_cli.main gateway run --replace`），导致无法精确 kill
 - 根因：her-m2 和 default gateway 的命令行中不含 profile 名称。`pkill -f` 正则会匹配到错误的进程
