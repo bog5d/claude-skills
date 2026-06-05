@@ -5,6 +5,12 @@ description: "当面对一个不熟悉的项目时，系统的信息采集→架
 trigger: "用户让我理解/分析/评估一个我不熟悉的代码库或项目时"
 ---
 
+## Sub-Skill Map
+
+| Workflow | Reference |
+|----------|-----------|
+| Codebase metrics (LOC, pygount) | `references/codebase-inspection.md` |
+
 ## 核心原则
 
 **不要跳步**：信息采集 → 架构理解 → 现状评估 → 结构化输出。每一步必须在前一步的基础上，不能凭直觉跳过。

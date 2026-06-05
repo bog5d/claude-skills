@@ -119,6 +119,16 @@ CREATE VIRTUAL TABLE tasks_fts USING fts5(
 );
 ```
 
+## Sub-Skill Map
+
+| Workflow | Reference |
+|----------|-----------|
+| New session boot protocol (any AI) | `references/adjutant-boot.md` |
+| Recording brain dumps as tasks | `references/adjutant-brain-dump.md` |
+| Adding a new Phase/module | `references/adjutant-add-phase.md` |
+| Blueprint decomposition | `references/blueprint-decomposition.md` |
+| Finance module requirements | `references/finance-module-requirements.md` |
+
 ## 工作流（完整版 — Phase 1-5）
 
 ### Phase 1 — 本地记忆 + GitHub 双向同步

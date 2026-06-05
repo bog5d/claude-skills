@@ -6,6 +6,13 @@ category: project-analysis
 
 # 仓颉 FOS 项目速查卡
 
+## Sub-Skill Map
+
+| Workflow | Reference |
+|----------|-----------|
+| Structured project analysis | `references/fos-project-analysis-workflow.md` |
+| Screenshot capture for manuals | `references/fos-screenshot-capture.md` |
+
 ## 接手第一步
 ```bash
 git clone https://github.com/bog5d/cangjie-fos.git
