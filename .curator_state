@@ -1,9 +1,9 @@
 {
-  "last_report_path": "/Users/mac/.hermes/profiles/her-m2/logs/curator/20260529-122340",
-  "last_run_at": "2026-05-29T12:23:40.240959+00:00",
-  "last_run_duration_seconds": 0.458935,
-  "last_run_summary": "auto: no changes; llm: skipped (no candidates)",
+  "last_report_path": "/Users/mac/.hermes/profiles/her-m2/logs/curator/20260605-125311",
+  "last_run_at": "2026-06-05T12:53:11.660130+00:00",
+  "last_run_duration_seconds": 561.291824,
+  "last_run_summary": "auto: no changes; llm: ---\n\n## Final Report\n\n### Pass summary\n\nProcessed **202 agent-created skills** across 10 clusters. **18 skills archived** into 6 umbrella targets (plus 1 new umbrella created). **0 prunings** — every archived skill had its content absorbed …",
   "last_run_summary_shown_at": null,
   "paused": false,
-  "run_count": 1
+  "run_count": 2
 }

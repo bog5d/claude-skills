@@ -15,8 +15,8 @@
       "metadata": {
         "backfilled_from": "optional-skills"
       },
-      "installed_at": "2026-06-03T14:03:39.290267+00:00",
-      "updated_at": "2026-06-03T14:03:39.290267+00:00"
+      "installed_at": "2026-06-03T13:53:17.734900+00:00",
+      "updated_at": "2026-06-03T13:53:17.734900+00:00"
     },
     "duckduckgo-search": {
       "source": "official",
@@ -32,8 +32,8 @@
       "metadata": {
         "backfilled_from": "optional-skills"
       },
-      "installed_at": "2026-06-03T14:03:39.291814+00:00",
-      "updated_at": "2026-06-03T14:03:39.291814+00:00"
+      "installed_at": "2026-06-03T13:53:17.736859+00:00",
+      "updated_at": "2026-06-03T13:53:17.736859+00:00"
     },
     "rest-graphql-debug": {
       "source": "official",
@@ -48,8 +48,8 @@
       "metadata": {
         "backfilled_from": "optional-skills"
       },
-      "installed_at": "2026-06-03T14:03:39.292376+00:00",
-      "updated_at": "2026-06-03T14:03:39.292376+00:00"
+      "installed_at": "2026-06-03T13:53:17.738354+00:00",
+      "updated_at": "2026-06-03T13:53:17.738354+00:00"
     }
   }
 }

@@ -1,0 +1,400 @@
+{
+  "jobs": [
+    {
+      "id": "6957554ca722",
+      "name": "skills-sync-\u56db\u7aef",
+      "prompt": "Run the skills sync script at /Users/mac/.hermes/scripts/sync_skills_cross_profile.sh and report the results silently. This syncs skills across 4 Hermes profiles + pushes to GitHub. If push fails, it's ok \u2014 retry next cycle. Do NOT notify the user unless there's a fatal error.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 30,
+        "display": "every 30m"
+      },
+      "schedule_display": "every 30m",
+      "repeat": {
+        "times": null,
+        "completed": 14
+      },
+      "enabled": false,
+      "state": "paused",
+      "paused_at": null,
+      "paused_reason": "robustness: duplicate of default no_agent skills sync",
+      "created_at": "2026-05-24T16:30:58.450916+08:00",
+      "next_run_at": "2026-05-25T00:09:33.430092+08:00",
+      "last_run_at": "2026-05-24T23:39:33.430092+08:00",
+      "last_status": "error",
+      "last_error": "RuntimeError: HTTP 429: Error code: 429",
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "519f2c869326",
+      "name": "\u7cfb\u7edf\u5065\u5eb7\u62a5\u544a",
+      "prompt": "\u6267\u884c\u7cfb\u7edf\u5065\u5eb7\u68c0\u67e5\u5e76\u62a5\u544a\u3002\u4e0d\u9700\u8981\u8c03\u7528\u5916\u90e8\u5de5\u5177\u505a\u4efb\u4f55\u4fee\u6539\uff0c\u4ec5\u8bfb\u53d6\u72b6\u6001\u3002\n\n\u68c0\u67e5\u4ee5\u4e0b\u9879\u76ee\uff1a\n1. \u672c\u673a Gateway \u8fdb\u7a0b\uff1a\u8fd0\u884c `ps aux | grep \"hermes.*gateway\" | grep -v grep` \u7edf\u8ba1\u6bcf\u4e2a profile \u7684\u8fdb\u7a0b\u72b6\u6001\n2. \u78c1\u76d8\u7a7a\u95f4\uff1a\u8fd0\u884c `df -h / | tail -1` \n3. \u5185\u5b58\uff1a\u8fd0\u884c `vm_stat | head -5` (macOS)\n4. \u963f\u91cc\u4e91\u4e2d\u7ee7\uff1a\u8fd0\u884c `curl -s -o /dev/null -w '%{http_code}' http://47.85.62.133:8787/health --connect-timeout 5`\n5. WordPress\uff1a\u8fd0\u884c `curl -s -o /dev/null -w '%{http_code}' http://hellobog.com/ --connect-timeout 5`\n\n\u6c47\u603b\u6210\u7b80\u6d01\u62a5\u544a\u53d1\u7ed9\u7528\u6237\u3002\u5982\u679c\u6709\u5f02\u5e38\u9879\uff0c\u6807\u8bb0 \ud83d\udd34 \u5e76\u5efa\u8bae\u4fee\u590d\u3002\u62a5\u544a\u683c\u5f0f\uff1a\n```\n\ud83e\ude7a \u7cfb\u7edf\u5065\u5eb7 | {\u65f6\u95f4}\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nHermes GW: {\u72b6\u6001}\n\ud83d\udcbe \u78c1\u76d8: {\u4f7f\u7528\u7387}\n\ud83e\udde0 \u5185\u5b58: {\u6982\u51b5}\n\ud83d\udce1 \u4e2d\u7ee7: {\u72b6\u6001}\n\ud83c\udf10 WP:   {\u72b6\u6001}\n```\n\u5168\u90e8\u6b63\u5e38\u5219\u7ed3\u5c3e\u52a0 \u2705\uff0c\u6709\u5f02\u5e38\u5219\u8bf4\u660e\u95ee\u9898\u3002",
+      "skills": [
+        "hermes-agent"
+      ],
+      "skill": "hermes-agent",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */6 * * *",
+        "display": "0 */6 * * *"
+      },
+      "schedule_display": "0 */6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 25
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-30T15:19:14.845642+08:00",
+      "next_run_at": "2026-06-06T00:00:00+08:00",
+      "last_run_at": "2026-06-05T18:02:39.545720+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": [
+        "terminal"
+      ],
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "e86760fc815a",
+      "name": "skills-sync-\u4e09\u7aef",
+      "prompt": "Execute skills sync across all Hermes profiles. \nStep 1: Run `rsync -a --delete /Users/mac/.hermes/profiles/her-m2/skills/ /Users/mac/.hermes/hermes-agent/skills/`\nStep 2: Run `rsync -a --delete /Users/mac/.hermes/profiles/her-m2/skills/ /Users/mac/.hermes/profiles/english-tutor/skills/`\nStep 3: If /Users/mac/.hermes/scripts/sync_skills_cross_profile.sh exists, run it for GitHub sync\nReport the final skill counts for each profile.",
+      "skills": [
+        "cross-profile-skills-sync"
+      ],
+      "skill": "cross-profile-skills-sync",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 30,
+        "display": "every 30m"
+      },
+      "schedule_display": "every 30m",
+      "repeat": {
+        "times": null,
+        "completed": 282
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-30T15:41:34.621548+08:00",
+      "next_run_at": "2026-06-05T21:04:00.672941+08:00",
+      "last_run_at": "2026-06-05T20:34:00.672941+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "1407b9291d43",
+      "name": "dns-cache-refresh",
+      "prompt": "Run /Users/mac/.hermes/profiles/her-m2/bin/dns-redundancy.py to refresh the Telegram IP cache. Report the working IPs.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 120,
+        "display": "every 120m"
+      },
+      "schedule_display": "every 120m",
+      "repeat": {
+        "times": null,
+        "completed": 73
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-30T16:58:23.966746+08:00",
+      "next_run_at": "2026-06-05T22:23:29.977230+08:00",
+      "last_run_at": "2026-06-05T20:23:29.977230+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "16a9c651c8c7",
+      "name": "cache-health-report",
+      "prompt": "Load skill deepseek-cache-optimization. Run /opt/homebrew/bin/python3 /Users/mac/.hermes/profiles/her-m2/bin/cache_monitor.py her-m2. Analyze the cache hit rate. If hit rate < 60%, investigate what's breaking the cache and suggest fixes. Store findings in agentmemory if significant.",
+      "skills": [
+        "deepseek-cache-optimization"
+      ],
+      "skill": "deepseek-cache-optimization",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 360,
+        "display": "every 360m"
+      },
+      "schedule_display": "every 360m",
+      "repeat": {
+        "times": null,
+        "completed": 23
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-30T20:53:36.647124+08:00",
+      "next_run_at": "2026-06-05T21:22:28.202002+08:00",
+      "last_run_at": "2026-06-05T15:22:28.202002+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
+    },
+    {
+      "id": "b9c5b34a9390",
+      "name": "\u526f\u5b98\u8bb0\u5fc6\u4ed3\u540c\u6b65",
+      "prompt": "\u6267\u884c\u526f\u5b98\u8bb0\u5fc6\u4ed3\u81ea\u52a8\u540c\u6b65\uff1a\u8fdb\u5165 adjutant \u4ed3\u5e93\uff0c\u8fd0\u884c\u611f\u77e5\u5f15\u64ce\u5b8c\u6210 git pull \u2192 \u53d8\u66f4\u68c0\u6d4b \u2192 \u81ea\u52a8\u63d0\u4ea4 \u2192 push GitHub\u3002\n\n\u6b65\u9aa4\uff1a\n1. cd /Users/mac/.hermes/profiles/her-m2/adjutant/repo/hermes-adjutant\n2. \u8fd0\u884c python3 scripts/perception.py --once\uff08\u8d85\u65f6 30s\uff09\n3. \u5982\u679c perception.py \u4e0d\u53ef\u7528\uff0c\u5219\u624b\u52a8\u6267\u884c\uff1a\n   a. git pull origin main\n   b. git add -A\n   c. \u5982\u679c\u6709\u53d8\u66f4\uff0cgit commit -m \"auto: perception sync $(date +%Y-%m-%dT%H:%M)\"\n   d. git push origin main\n4. \u62a5\u544a\u6267\u884c\u7ed3\u679c\uff08\u6210\u529f/\u8df3\u8fc7/\u5931\u8d25\uff09",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 5,
+        "display": "every 5m"
+      },
+      "schedule_display": "every 5m",
+      "repeat": {
+        "times": null,
+        "completed": 1364
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-31T08:51:21.975406+08:00",
+      "next_run_at": "2026-06-05T20:55:11.210029+08:00",
+      "last_run_at": "2026-06-05T20:50:11.210029+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": "default"
+    },
+    {
+      "id": "ac87997f61be",
+      "name": "\u7cfb\u7edf\u5065\u5eb7\u62a5\u544a",
+      "prompt": "\u6267\u884c\u7cfb\u7edf\u5065\u5eb7\u68c0\u67e5\u5e76\u62a5\u544a\u3002\u4e0d\u9700\u8981\u8c03\u7528\u5916\u90e8\u5de5\u5177\u505a\u4efb\u4f55\u4fee\u6539\uff0c\u4ec5\u8bfb\u53d6\u72b6\u6001\u3002\n\n\u68c0\u67e5\u4ee5\u4e0b\u9879\u76ee\uff1a\n1. \u672c\u673a Gateway \u8fdb\u7a0b\uff1a\u8fd0\u884c `ps aux | grep \"hermes.*gateway\" | grep -v grep`\uff0c\u62a5\u544a\u6bcf\u4e2a gateway \u7684 PID\u3001RSS\u3001CPU%\n2. launchd \u72b6\u6001\uff1a\u8fd0\u884c `launchctl list | grep hermes`\uff0c\u62a5\u544a exit code\n3. \u5185\u5b58\uff1a\u8fd0\u884c `vm_stat | head -3`\uff0c\u63d0\u53d6 free/active pages\n4. \u78c1\u76d8\uff1a\u8fd0\u884c `df -h / | tail -1`\uff0c\u62a5\u544a\u4f7f\u7528\u7387\n5. DNS\uff1a\u8fd0\u884c `scutil --dns | grep 'nameserver\\[' | head -3`\uff0c\u68c0\u67e5\u662f\u5426\u6709 198.18.x \u6c61\u67d3\n6. \u526f\u5b98\u8bb0\u5fc6\u4ed3\uff1a\u8fd0\u884c `cd /Users/mac/.hermes/profiles/her-m2/adjutant/repo/hermes-adjutant && git log --oneline -3`\n\n\u6700\u540e\u6c47\u603b\uff1a\u54ea\u4e2a gateway \u6b63\u5e38/\u5f02\u5e38\uff0c\u5185\u5b58/\u78c1\u76d8\u662f\u5426\u4f4e\u4e8e\u9608\u503c\uff08RSS>500MB\u6216\u78c1\u76d8>80%\uff09\uff0cDNS \u662f\u5426\u6b63\u5e38\uff0c\u8bb0\u5fc6\u4ed3\u6700\u540e\u540c\u6b65\u65f6\u95f4\u3002\n\n\u26a0\ufe0f \u53ea\u8bfb\uff01\u4e0d\u8981\u505a\u4efb\u4f55\u4fee\u6539\u3001\u91cd\u542f\u3001kill\u3002",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */6 * * *",
+        "display": "0 */6 * * *"
+      },
+      "schedule_display": "0 */6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 22
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-31T08:52:06.423522+08:00",
+      "next_run_at": "2026-06-06T00:00:00+08:00",
+      "last_run_at": "2026-06-05T18:01:03.419393+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": "default"
+    },
+    {
+      "id": "26f5ecca2534",
+      "name": "DNS\u7f13\u5b58\u5237\u65b0",
+      "prompt": "\u8fd0\u884c DNS \u5197\u4f59\u5237\u65b0\u811a\u672c\uff1apython3 /Users/mac/.hermes/profiles/her-m2/bin/dns-redundancy.py\u3002\u5982\u679c\u811a\u672c\u4e0d\u5b58\u5728\uff0c\u8fd0\u884c `dscacheutil -flushcache && killall -HUP mDNSResponder` \u5237\u65b0\u7cfb\u7edf DNS \u7f13\u5b58\u3002\u62a5\u544a\u7ed3\u679c\u3002",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 120,
+        "display": "every 120m"
+      },
+      "schedule_display": "every 120m",
+      "repeat": {
+        "times": null,
+        "completed": 65
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-31T08:52:07.572046+08:00",
+      "next_run_at": "2026-06-05T22:03:00.205184+08:00",
+      "last_run_at": "2026-06-05T20:03:00.205184+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": "default"
+    },
+    {
+      "id": "63fbf60cf00d",
+      "name": "Skills\u4e09\u7aef\u540c\u6b65",
+      "prompt": "Run bash /Users/mac/.hermes/scripts/sync_skills_cross_profile.sh silently. Report only: skill counts per profile (her-m2, english-tutor, hermes-agent/skills) and whether GitHub push succeeded. Do NOT notify user unless fatal error. Git repo path is /Users/mac/.claude/skills (NOT profiles/her-m2/claude-skills).",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 30,
+        "display": "every 30m"
+      },
+      "schedule_display": "every 30m",
+      "repeat": {
+        "times": null,
+        "completed": 250
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-31T08:52:08.724346+08:00",
+      "next_run_at": "2026-06-05T21:18:39.477019+08:00",
+      "last_run_at": "2026-06-05T20:48:39.477019+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": "default"
+    }
+  ],
+  "updated_at": "2026-06-05T20:50:11.210474+08:00"
+}
