@@ -221,6 +221,21 @@ done
   4. 等待下一个 defibrillator 巡检周期（10秒），确认不再报"离线"
 - 关键区分：**进程存活 ≠ defibrillator 认为存活**。当收到"Gateway X 自动复活 ❌"消息时，先检查该 gateway 的平台连接日志，不要直接假设进程挂了。
 
+**模式Q：Telegram Polling Conflict — 多 gateway 抢同一 bot token**
+
+- 症状：gateway 日志反复出现 `WARNING gateway.platforms.telegram: [Telegram] Telegram polling conflict (1/5) — previous session still held open on Telegram's servers`。bot 完全不响应消息。两个 gateway 交替抢到 polling session，"resumed after conflict" 和 "polling conflict" 交替出现
+- 根因：两个（或更多）gateway 实例使用了同一个 TELEGRAM_BOT_TOKEN。Telegram 的 getUpdates 是排他性的——同一 token 只能有一个活跃 polling session。当 profile A 的 gateway 持有 session 时，profile B 的 gateway 尝试连接就被踢，然后 B 重试抢回 session 又把 A 踢掉，形成永动冲突
+- 验证：
+  1. 用脚本确认各 profile 的 bot 身份：读取各 `.env` 的 TELEGRAM_BOT_TOKEN，调 `https://api.telegram.org/bot<token>/getMe` 看 username
+  2. 如果两个 profile 返回同一个 @username → 确认根因
+  3. 检查日志中的 conflict 模式：`grep "polling conflict\|resumed after conflict" <profile>/logs/gateway.log`
+- 修复：
+  1. 确保每个 profile 有独立 Telegram bot（去 @BotFather 创建）
+  2. 替换冲突 profile 的 `.env` 中 TELEGRAM_BOT_TOKEN 为正确的独立 token
+  3. ⚠️ **危险区域**：凭证扫描器会破坏所有含 token 字符串的命令和文件写入。详见 `references/credential-scanner-workaround.md`
+  4. 重启 gateway
+- 预防：创建新 profile 时，**永远创建新的 Telegram bot**，不要复制旧 profile 的 bot token。唯一例外是：设计上就该共享的 bot（如故意多 worker 轮询同一 bot）
+
 **模式P：File Descriptor 耗尽 — Errno 24（进程活着但完全无响应）**
 
 - 症状：gateway 进程 ps 可见、端口 LISTEN，但 health check 无响应、对话发不出。日志满屏 `OSError: [Errno 24] Too many open files` — memory-tencentdb 反复尝试 resurrect 失败、kanban dispatcher tick 失败、terminal cleanup 线程报错
