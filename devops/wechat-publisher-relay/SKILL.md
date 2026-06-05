@@ -166,6 +166,38 @@ Telegram Bot Token 和频道写在代码中：
 - Bot: `8609798183:AAGcIIm_cSnLQRFtlYCaH9A5gaE6P86scGA`
 - 频道: `@AgentToWest`
 
+## ⛔ Token 被 Shell Redact 陷阱
+
+从 macOS 直接 curl 47.85.62.133:8787 时，BEARER_TOKEN 会被 Hermes 系统自动 redact 成 `***`，导致 401 unauthorized。
+
+**正确方式：SSH 到服务器后 source .env 再 curl localhost：**
+
+```bash
+ssh -i /Users/mac/.ssh/id_ed25519_alicloud root@47.85.62.133 \
+  "source /root/wx-publisher/.env && curl -s -X POST http://localhost:8787/push_telegram \
+   -H \"Authorization: Bearer \$BEA...\" \
+   -H 'Content-Type: application/json' \
+   -d '{\"title\":\"...\",\"excerpt\":\"...\",\"wp_link\":\"...\"}' --max-time 30"
+```
+
+> `$BEARER_TOKEN` 必须用反斜杠转义 `\$` 让服务器端 shell 展开变量，而非本地 shell。
+
+## ⛔ MarkdownV2 转义 Bug（已知）
+
+`escapeMd()` 函数不转义 `.`（句点和 `!`），导致 Telegram 推送失败：
+```
+[tg] 推送失败: Bad Request: can't parse entities: Character '.' is reserved
+```
+Telegram MarkdownV2 完整转义集：`_ * [ ] ( ) ~ ` > # + - = | { } . !`
+临时规避：标题/excerpt 中避免英文句点。
+
+## SSH 密钥绝对路径
+
+⚠️ Hermes profile 的 `$HOME` 可能不等于 `/Users/mac`，`~/.ssh/` 会解析到错误路径。始终使用绝对路径：
+```bash
+ssh -i /Users/mac/.ssh/id_ed25519_alicloud root@47.85.62.133 '...'
+```
+
 ## 新增端点流程
 
 当需要在 server.js 中新增路由时：
@@ -222,14 +254,22 @@ pm2 delete all           # 删除（需重新 start）
 - n8n — Docker 自动化平台（端口 5678）
 - FRP 隧道 — 47.85.62.133:7000（⚠️ frps 是手动启动进程，非 systemd 服务，重启方式见下方）
 
+## 快速健康检查（全线一条命令）
+
+```bash
+ssh -i /Users/mac/.ssh/id_ed25519_alicloud -o StrictHostKeyChecking=no root@47.85.62.133 \
+  'echo "=== HEALTH ===" && curl -s localhost:8787/health && echo "" && echo "=== PM2 ===" && pm2 status && echo "=== PORTS ===" && ss -tlnp | grep -E "8787|22|7000|6000"'
+```
+
 ## 故障排查
 
 | 现象 | 可能原因 | 检查方法 |
 |------|---------|---------|
 | `/health` 不通 | PM2 挂了或端口被占 | `ssh root@47.85.62.133 'pm2 status'` |
 | `/publish` 401 | BEARER_TOKEN 不匹配 | 检查 `.env` 和请求 Header |
-| `/push_telegram` Markdown 解析错误 | 未转义特殊字符 | 使用 `escapeMd()` 函数（已在 server.js 中） |
+| `/push_telegram` Markdown 解析错误 | 未转义特殊字符 `.` 或 `!` — escapeMd() 已知不转义这两个 | 临时规避：标题/excerpt 避免英文句点；根治：修复 escapeMd() 添加 `.` 和 `!` |
 | TG 消息发不出去 | Bot token 或频道错误 | 检查代码中硬编码的 TG_BOT_TOKEN 和 TG_CHANNEL |
+| macOS curl 返回 401 | Bearer token 被 Hermes shell redact 成 `***` | 改用 SSH + source .env + curl localhost（见上方 Token 陷阱） |
 | PM2 不识别 | PM2 未安装或 dump 丢失 | `pm2 list`，必要时 `pm2 start server.js --name wx-publisher` |
 | frps 挂了 | 非 systemd 服务，进程被杀后需手动重启 | `ps aux \| grep frps`，若不存在则 `cd /root/frp_*/ && nohup ./frps -c ./frps.toml > /dev/null 2>&1 &` |
 | frps token 泄露 | 需更新 token 并重启 | `sed -i "s/auth.token = .*/auth.token = '<NEW>'/" frps.toml && kill $(pgrep frps) && sleep 1 && nohup ./frps -c ./frps.toml > /dev/null 2>&1 &` |

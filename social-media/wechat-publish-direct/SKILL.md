@@ -1,6 +1,6 @@
 ---
 name: wechat-publish-direct
-description: 波总发文章 → Hermes全自动排版+Unsplash配图+创建公众号草稿。当波总发送文章说"发布""pub""发公众号"或直接发送MD/纯文本要求排版发布时使用。
+description: 波总发文章 → Hermes全自动排版+Unsplash配图+创建公众号草稿。当波总发送文章说"发布""pub""发公众号""pub2gg"或直接发送MD/纯文本要求排版发布时使用。
 category: social-media
 ---
 
@@ -67,3 +67,16 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 ## 执行脚本
 
 完整自动化脚本参考 `references/publish_flow.md`
+
+## ✅ 验证状态 (2026-06-05)
+
+全链路端到端实测通过，无需修改代码即可使用。
+
+| 组件 | 状态 | 备注 |
+|------|------|------|
+| 中继服务器 47.85.62.133:8787 | 🟢 在线 | PM2 wx-publisher, 运行 6d+ |
+| /publish (排版+草稿) | 🟢 正常 | DeepSeek→Unsplash配图→公众号草稿 |
+| /push_telegram | 🟢 正常 | MarkdownV2 推送到 @AgentToWest |
+| FRP 隧道 | 🟢 在线 | frps :7000 ↔ frpc macOS |
+
+**已知问题**：`escapeMd()` 不转义 `.` 和 `!`，含英文句点的标题会导致 TG 推送失败。临时规避：标题用中文句号。
