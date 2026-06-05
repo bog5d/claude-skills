@@ -67,6 +67,17 @@ cronjob create \
 ```
 ⚠️ `deliver=local` 关键——避免每 30 分钟往 Telegram 推送同步日志。
 
+### 5. Post-Sync 验证（每次 cron 运行后必须执行）
+
+脚本 `2>/dev/null` 会吞掉 push 错误，即使 GitHub push protection 拒绝了全部提交，脚本仍返回 `EXIT:0`。**每次 cron 运行后必须检查：**
+
+```bash
+# 检查是否有未推送的提交（> 0 说明 push 被静默阻止）
+cd /Users/mac/.claude/skills && git log --oneline origin/master..HEAD | wc -l
+```
+
+如果 > 0，立即执行 token-scrub 修复流程（见下方「GitHub Push Protection 会静默阻止含 token 的 push」）。
+
 ## 实战教训
 
 ### ⚠️ Git identity 未配置导致 push 失败
