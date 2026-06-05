@@ -35,8 +35,13 @@ echo 'SUDO_PASSWORD=*** >> /Users/mac/.hermes/profiles/<profile>/.env
 # 列出所有 key
 grep -o '^[A-Z_]*=' /Users/mac/.hermes/profiles/<profile>/.env | sort
 
-# 确认 Telegram bot 不和其他 profile 冲突
-python3 ~/.hermes/profiles/english-tutor/skills/devops/hermes-service-troubleshooting/references/check-bot-tokens.py
+# ⚠️ 关键：确认 Telegram bot 不和其他 profile 冲突
+# 所有 gateway 共用同一 TELEGRAM_BOT_TOKEN 会导致 polling conflict（见 Mode Q）。
+# 用此脚本确认每个 profile 使用独立 bot（token 从文件读，不在代码中明文出现）：
+
+python3 /Users/mac/.hermes/profiles/english-tutor/skills/devops/hermes-service-troubleshooting/references/check-bot-tokens.py
+
+# 预期：三个 profile 的 @username 必须全部不同，且无 FAIL
 ```
 
 ### 4. 重启 Gateway

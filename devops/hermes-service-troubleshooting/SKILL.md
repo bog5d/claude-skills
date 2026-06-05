@@ -288,6 +288,16 @@ done
 
 详见：`references/credential-scanner-workaround.md`
 
+### Profile .env 不回退全局 .env（致命陷阱）
+
+当 profile 目录下存在自己的 `.env` 文件时，Hermes **只加载 profile 的 `.env`**，不会 fallback 到全局 `~/.hermes/.env`。即使 profile `.env` 缺少某些 key，也不会从全局 `.env` 补全。
+
+**实例**：her-m2 的 `.env` 被误覆盖为只含 `SUDO_PASSWORD`，导致 `TELEGRAM_BOT_TOKEN` 和 `API_SERVER_KEY` 缺失，gateway 启动后 Telegram 和 API server 均无法连接——即使全局 `.env` 中这两个 key 都存在。
+
+- 验证：`grep TELEGRAM <profile>/.env` 确认 profile 自身有完整凭证
+- 修复：重建 profile `.env` 时，务必包含**所有必需的 key**，不能依赖全局 fallback
+- 预防：创建新 profile 时，手动将全局 `.env` 的完整内容复制到 profile `.env`，再按需修改
+
 ---
 
 ### 4a: launchd 服务恢复（当服务未加载时）
