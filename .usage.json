@@ -103,6 +103,19 @@
     "use_count": 0,
     "view_count": 0
   },
+  "ai-qujing-video": {
+    "archived_at": null,
+    "created_at": "2026-06-05T16:36:57.816486+00:00",
+    "created_by": null,
+    "last_patched_at": "2026-06-05T16:38:05.323673+00:00",
+    "last_used_at": "2026-06-05T16:36:57.818246+00:00",
+    "last_viewed_at": "2026-06-05T16:36:57.816492+00:00",
+    "patch_count": 2,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "aider-expert": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.007537+00:00",
