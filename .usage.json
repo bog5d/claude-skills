@@ -30,13 +30,13 @@
     "created_at": "2026-06-03T18:00:26.753925+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-05T00:00:27.782871+00:00",
-    "last_viewed_at": null,
+    "last_used_at": "2026-06-05T06:28:15.302074+00:00",
+    "last_viewed_at": "2026-06-05T06:28:15.300602+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 0
+    "use_count": 5,
+    "view_count": 1
   },
   "auto-retrospective": {
     "archived_at": null,
