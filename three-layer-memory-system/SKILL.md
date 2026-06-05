@@ -224,6 +224,10 @@ def _save_my_data(self):
 13. **语义记忆自动提取 hook** — 在 `_save_episodic_memory()` 尾部调用 `_extract_semantic_facts(messages)`。用辅助 LLM（auxiliary_client.call_llm）提取事实，返回 JSON 数组。所有提取结果用 `store.store_semantic(category="fact", fact=..., confidence=0.6, source_session_id=..., source="auto-extract")` 存入。注意只传最后 5 条用户消息给 LLM 以控制 token
 14. **旧 session backfill** — 在 AIAgent init 尾部触发 `_backfill_legacy_sessions()`，调用 `MemoryStoreV2.backfill_episodic_from_sessions(max_sessions=100)`。扫描 state.db 的 sessions 表，找有消息记录但不在 episodic_memory 中的 session。用标记文件 `.episodic_backfill_done` 控制只执行一次。backfill 的条目 tags 标记为 `["backfill"]`
 
+## External Memory System Evaluations
+
+- [TencentDB Agent Memory (2026-06-04)](references/tencentdb-agent-memory-evaluation.md) — 四层渐进式记忆架构 vs 我们现有记忆栈的对比分析，含集成路线图。
+
 ## Verification
 
 ```bash

@@ -110,6 +110,29 @@ ffmpeg -i final.mp4 -c:v libx264 -preset fast -crf 28 -c:a aac -b:a 64k compress
 07 🚀 CTA：一行命令（"开源地址搜 TencentDB-Agent-Memory"）
 ```
 
+## Method C: HTML → Playwright Screenshot（设计感最强）
+
+当需要 CSS 渐变背景、阴影、排版精致度远超 PIL 时使用。管线：HTML 模板 → Playwright Python API 截图 → ffmpeg 编码。
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page(viewport={"width": 1080, "height": 1920})
+    page.goto(html_path.resolve().as_uri(), wait_until="networkidle")
+    page.screenshot(path="screenshot.png", full_page=False)
+    browser.close()
+```
+
+⚠️ **用 Python API，不要用 CLI**：`npx playwright screenshot` 在本机有 parser 错误，Python `playwright.sync_api` 稳定。
+
+⚠️ **本地 HTML 必须用 `file://`**：`html_path.resolve().as_uri()` 生成 `file:///path/to/file.html`。
+
+⚠️ **CSS 在 `.format()` 里要双花括号**（见下方 Pitfall #6）。
+
+**完整可运行模板**：`references/html-video-build-template.py` — HTML → Playwright 截图 → ffmpeg 完整管线。改 `SCENES` 数组即可适配新文章。
+
 ## Pitfalls
 
 1. **MiniMax `sk-cp-` key 不能用于 TTS**：MiniMax 有两种 key 格式。`sk-cp-` 前缀的 key 在 TTS API 返回 `status_code: 1004 login fail`。需要 JWT 格式 key（`eyJ...`）。建议用 Edge TTS 作为默认。
@@ -117,3 +140,8 @@ ffmpeg -i final.mp4 -c:v libx264 -preset fast -crf 28 -c:a aac -b:a 64k compress
 3. **音频时长获取**：`ffprobe -v quiet -show_entries format=duration -of csv=p=0 audio.mp3`
 4. **视频卡死**：`-shortest` 参数确保视频随音频结束，防止无声黑屏。
 5. **Telegram 50MB 限制**：大于 50MB 需压缩，`-crf 28` 通常能压到 10-30MB。
+6. **Python `.format()` + CSS = 花括号地狱**：当 HTML 模板用 `.format(**kwargs)` 渲染时，CSS 里的 `{...}` 会被当作占位符。三个铁律：
+   - **所有 CSS 规则块用 `{{...}}`**：`body {{ width:100%; }}` → 渲染后 `body { width:100%; }`
+   - **CSS 内嵌的真实占位符保持单花括号**：`{{ margin-top:{big_top}px; }}` → 外层 `{{}}` 转义，内层 `{big_top}` 正常替换
+   - **表达式不能写在花括号里**：`{W-120}` → KeyError。必须 `W120 = W - 120` 预计算后传入
+   - 错误表现：`KeyError: ' margin'`（`* { margin:0 }` 没转义）、`KeyError: '\\n    width'`（`body {\n  width:...` 没转义）、`KeyError: 'W-120'`（表达式不被支持）
