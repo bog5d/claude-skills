@@ -107,7 +107,9 @@ memory:
 
 8. **memory_char_limit**：从默认 2200 上调至 5000，避免截断 Agent Memory 的 ~3000-5000 字符画像。
 
-9. **跨 Profile 共享**：所有 Profile 共用同一 Gateway + 数据目录。L3 Persona 全局可见。
+9. **跨 Profile 共享**（用户确认）：所有 Profile 共用同一 Gateway + 数据目录。L3 Persona 全局可见。english-tutor 也会召回技术画像，这是设计选择——用户选择"全 Profile 用 Agent Memory，接受共享"。
+
+10. **MiniMax API 兼容性**：MiniMax 的 API key 有两种格式——JWT token（`eyJ...`，全功能支持 TTS/LLM）和 `sk-cp-` 前缀格式（部分功能受限）。`sk-cp-` 格式的 key 不能用于 TTS（返回 `login fail`）。TTS 应使用 Edge TTS（免费，`zh-CN-XiaoxiaoNeural`）或获取 MiniMax JWT 格式 key。
 
 ## 运维
 
