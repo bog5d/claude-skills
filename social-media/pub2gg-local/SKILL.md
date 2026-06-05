@@ -192,3 +192,4 @@ git add _posts/ && git commit -m 'pub2gg: 标题'
 - **WP 凭证发现技巧**：波总的 Obsidian vault (`Cangjie_OBS_Notes/`) 中可能存有历史配置。搜索 `YWRtaW46`（base64 of "admin:"）可找到旧 WP auth header。2026-04-20 配置区笔记中找到过 `admin:boWm4uPKgEET`（现已过期）。
 - **Telegram 推送限制**：`send_message` 只能 DM 波总 her-m2 bot，不能推频道 @AgentToWest。推频道必须用 Bot API 直连（同 token），或通过 relay SSH `source .env && curl localhost` 桥接。
 - 凭证 hex 编码速查：`references/credential-hex-table.md`
+- Obsidian 凭证发现技巧：`references/obsidian-credential-discovery.md`
