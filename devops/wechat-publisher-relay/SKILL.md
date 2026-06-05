@@ -138,7 +138,7 @@ systemctl restart sshd
 |------|------|------|------|
 | GET | `/health` | 无 | 健康检查 → `ok` |
 | POST | `/publish` | Bearer TOKEN | 接收原始文本 → DeepSeek排版 → 创建公众号草稿 |
-| POST | `/push_telegram` | Bearer TOKEN | 接收 JSON → MarkdownV2格式 → 推送到 @AgentToWest |
+| POST | `/push_telegram` | Bearer TOKEN | 接收 JSON → HTML格式 → 推送到 @AgentToWest |
 | 其他 | 任意 | — | 返回 `{"error":"not found"}` |
 
 认证 Token 存储在 `.env` 的 `BEARER_TOKEN` 字段中。
@@ -175,21 +175,37 @@ Telegram Bot Token 和频道写在代码中：
 ```bash
 ssh -i /Users/mac/.ssh/id_ed25519_alicloud root@47.85.62.133 \
   "source /root/wx-publisher/.env && curl -s -X POST http://localhost:8787/push_telegram \
-   -H \"Authorization: Bearer \$BEA...\" \
-   -H 'Content-Type: application/json' \
-   -d '{\"title\":\"...\",\"excerpt\":\"...\",\"wp_link\":\"...\"}' --max-time 30"
-```
+   ```bash
+   # 全部从服务器端取 Token（推荐，不会被 redact）
+   ssh -i /Users/mac/.ssh/id_ed25519_alicloud root@47.85.62.133 "source /root/wx-publisher/.env && curl ... -H \"Authorization: Bearer \$BEA...\" ..."
+   ```
 
-> `$BEARER_TOKEN` 必须用反斜杠转义 `\$` 让服务器端 shell 展开变量，而非本地 shell。
+   > 注意：`$BEARER_TOKEN` 必须用 `\$` 让远端 shell 展开，而非本地。
 
-## ⛔ MarkdownV2 转义 Bug（已知）
+   ## ⛔ 已知历史 Bug：MarkdownV2 转义（已修复）
 
-`escapeMd()` 函数不转义 `.`（句点和 `!`），导致 Telegram 推送失败：
-```
-[tg] 推送失败: Bad Request: can't parse entities: Character '.' is reserved
-```
-Telegram MarkdownV2 完整转义集：`_ * [ ] ( ) ~ ` > # + - = | { } . !`
-临时规避：标题/excerpt 中避免英文句点。
+   早期 server.js 使用 `parse_mode: 'MarkdownV2'`，`escapeMd()` 不转义 `.` 导致：
+   ```
+   [tg] 推送失败: Bad Request: can't parse entities: Character '.' is reserved
+   ```
+   **当前代码已改为 `parse_mode: 'HTML'`**，此问题不存在。但标题/excerpt 中的 `<`、`>`、`&` 仍需 HTML 转义。
+
+   ## ⛔ pub2gg 管道缺口：WordPress → Relay 触发器缺失
+
+   基础设施图中 WordPress → Relay 的箭头**目前不存在**。WordPress 发布文章后不会自动调用 `/publish` 或 `/push_telegram`。
+
+   当前链路实际状态：
+   ```
+   ✅ 文章 → WordPress 发布 (hellobog.com)
+   ❌ WordPress → 47.85.62.133:8787 (无 webhook/触发器)
+   ❌ 后续公众号草稿 / Telegram 推送 (未自动触发)
+   ```
+
+   补全方案：
+   - **方案A**: WordPress 装 webhook 插件，post_publish 时 POST 到中继
+   - **方案B**: Mac Mini cron 每 5 分钟轮询 WP REST API 新文章 → 调中继（推荐，不碰 WP）
+
+   见 `references/pub2gg-webhook-gap.md` 详细实施计划。
 
 ## SSH 密钥绝对路径
 
@@ -217,7 +233,7 @@ ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 'pm2 restart all && sleep 1 
 ### 代码注意事项
 
 - 使用 `import` / `export`（ESM 模块），不是 `require()`
-- MarkdownV2 模式需要转义特殊字符：`` _ * [ ] ( ) ~ ` > # + - = | { } . ! ``
+- Telegram 推送当前用 `parse_mode: 'HTML'` — 标题/excerpt 需对 `<`、`>`、`&` 做 HTML 转义
 - Telegram API 调用使用 Node.js 内置 `https` 模块（无需额外依赖）
 - `.env` 文件包含敏感凭证，输出时会自动 redact
 
@@ -241,11 +257,11 @@ pm2 delete all           # 删除（需重新 start）
 文章内容 → GitHub (bog5d/Agentic-Capital-Workflow)
               ↓ 发布
          WordPress (hellobog.com, 腾讯云 111.229.29.110)
-              ↓ API 调用
+              ↓ ⚠️ 缺 WEBHOOK — 不会自动调用中继
     ┌─────────┼─────────┐
     ↓                   ↓
 /publish              /push_telegram
-(DeepSeek排版        (MarkdownV2推送
+(DeepSeek排版        (HTML推送
  → 公众号草稿)         → @AgentToWest)
 ```
 

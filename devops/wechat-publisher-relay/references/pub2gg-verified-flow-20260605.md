@@ -8,7 +8,7 @@
         ┌─────────┼─────────┐
         ▼                   ▼
    /publish            /push_telegram
-   DeepSeek排版        MarkdownV2推送
+   DeepSeek排版        HTML推送
    + Unsplash配图       → @AgentToWest
    + 公众号草稿
 ```
@@ -39,11 +39,13 @@
 | Bear Token | d1f551894905ad52b2a1885216ff31ad11b07c146708d664 |
 | DeepSeek Key | sk-*** (redacted, 在服务器 .env 中) |
 
-## 已知 Bug
+## 已知问题
 
-1. **MarkdownV2 `.` 未转义**: `escapeMd()` 缺少 `.` 和 `!` → TG 推送失败 "Can't parse entities: Character '.' is reserved"
-   - 临时规避：标题/excerpt 避免英文句点和感叹号
-   - 根治：修复 server.js escapeMd() 添加 `.` 和 `!` 到转义集
+1. **WordPress → Relay 触发器缺失** (2026-06-05 发现): WordPress 发布文章后不会自动调用 `/publish` 和 `/push_telegram`。pub2gg 管道在 WordPress 和 Relay 之间断开。
+   - 待实施：Mac Mini cron 每 5 分钟轮询 WP REST API → 调中继
+   - 详见 references/pub2gg-webhook-gap.md
 
 2. **Token Shell Redact**: macOS 端 curl 时 BEARER_TOKEN 被 redact → 401
    - 规避：SSH 到服务器 + source .env + curl localhost
+
+3. **[已修复] MarkdownV2 转义**: 早期代码用 `parse_mode: 'MarkdownV2'`，`escapeMd()` 不转义 `.` → 推送失败。2026-06-05 确认当前代码已改为 `parse_mode: 'HTML'`。
