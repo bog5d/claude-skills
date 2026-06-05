@@ -216,6 +216,8 @@ WP REST API 接受 HTML 或 Gutenberg block 格式。发布文章时 `content` �
 - `references/app-password-plugin-upload.md` — 无 SSH 时通过插件上传启用应用密码
 - `references/relay-telegram-integration.md` — WordPress → 阿里云中继 → Telegram 推送全链路架构
 - `references/cover-generation.md` — Pillow 批量生成文章封面图（1200×630），含色彩方案和字体配置
+- `references/remote-ops-without-app-password.md` — Cookie + Nonce 远程管理（无应用密码时）
+- `references/content-cleanup-sop.md` — 内容清理 SOP + SEO 优化清单 + 站点诊断命令
 
 ## 相关技能
 
