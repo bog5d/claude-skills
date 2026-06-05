@@ -1,6 +1,6 @@
 ---
 name: vocab-batch-challenge
-description: Generate 6-word vocabulary challenges for kaoyan English with Progressive or Straight Batch modes. Anki-first selection, SM-2 scheduling, 5-layer explanations. Full spec in references-progressive-mode-spec.
+description: Generate escalating vocabulary challenges (6→9→12 words per session, 27 total) for kaoyan English. Anki-first selection, SM-2 scheduling, 5-layer explanations.
 category: english-tutor
 ---
 
@@ -72,46 +72,53 @@ After user replies with 6 answers, process everything in ONE execute_code call:
 - **MEDIA file delivery (CRITICAL)**: When sending chronicle HTML or screenshots via MEDIA tag, `/tmp/` is NOT in the whitelist — files sent from `/tmp/` are silently dropped. Always `cp` to `~/.hermes/cache/screenshots/` (images) or `~/.hermes/cache/documents/` (HTML/docs) first. Use ASCII filenames. Load `media-file-delivery` skill for full rules.
 - Do NOT try `git clone` of the entire repo — it frequently times out (>60s). Always use individual file downloads via `curl` with the GitHub API raw endpoint.
 
-## Progressive Challenge Mode (NEW)
+## Escalating Challenge Mode (ACTIVE — replaces Progressive + Batch)
 
-A multi-turn warmup-to-burst format for session 1 of the day. Designed to eliminate the psychological pressure of 6 words at once.
+**Escalating Commitment** design: difficulty climbs per round — 6→9→12 words, 27 total per session.
+Psychological hook: Round 1 hooks (6 words, easy entry), Round 2 escalates (9 words, sunk cost locks in), Round 3 climax (12 words, full burst + summary payoff).
 
-**Structure per session (3 rounds = 6 words):**
-- Round 1: 1 word → score + explain → present Round 2
-- Round 2: 2 words → score + explain → present Round 3
-- Round 3: 3 words → score + explain → FULL SESSION SUMMARY + gamification blast
+**Structure per session (3 rounds = 27 words):**
+- Round 1: 6 words → score + 5-layer explain → present Round 2
+- Round 2: 9 words → score + 5-layer explain → present Round 3
+- Round 3: 12 words → score + 5-layer explain → **FULL SESSION SUMMARY + gamification blast**
 
-**State tracking** uses `~/.hermes/profiles/english-tutor/state/vocab_progressive.json`:
+**State tracking** uses `~/.hermes/profiles/english-tutor/state/vocab_escalating.json`:
 ```json
 {
-  "session_id": "prog-20260528-HHMMSS",
-  "round": 1,           // current round (1-3)
+  "session_id": "esc-20260605-HHMMSS",
+  "round": 1,
   "total_rounds": 3,
-  "all_words": [...],   // all 6 words in order
-  "all_words_data": {}, // SM-2 metadata per word
-  "round_words": {      // word assignments per round
-    "1": [{"word": "...", "phonetic": "..."}],
-    "2": [...],
-    "3": [...]
+  "all_words": [...27 words in order...],
+  "all_words_data": {},
+  "round_words": {
+    "1": [6 items],
+    "2": [9 items],
+    "3": [12 items]
   },
-  "scores": {},         // accumulates across rounds
+  "scores": {"1": {"correct": 0, "total": 6}, "2": {...}, "3": {...}},
   "started_at": "...",
-  "mode": "progressive"
+  "mode": "escalating"
 }
 ```
 
 **Per-turn workflow:**
-1. If no state file → init new session (pull words, select 6, assign rounds, save state, present Round 1)
-2. If state.round < 3 → score current round, update SM-2, push GitHub, increment round, present next batch
-3. If state.round == 3 → score final round, update SM-2, push GitHub, present FULL summary + delete state file
+1. If no state file → init session (pull words, Anki-first SM-2 select 27 words, assign rounds 6/9/12, save state, present Round 1)
+2. If state.round == 1 → score R1 (6w), update SM-2, push GitHub, increment to 2, present R2 (9w)
+3. If state.round == 2 → score R2 (9w), update SM-2, push GitHub, increment to 3, present R3 (12w)
+4. If state.round == 3 → score R3 (12w), update SM-2, push GitHub, present FULL session summary (27w) + gamification panel + delete state file
 
-⚠️ **Progressive 中断恢复**：如果 Round 3 的 execute_code 被 blocked（用户 consent 超时或其他原因），最后的 SM-2 数据可能未推送。检查方法：从 GitHub 拉取最新 words.json，检查 `essential/conventional/equilibrium`（或本局第三轮词）的 history 中是否有 `session="prog-YYYY-MM-DD-001"` 的条目。若无，用 Python heredoc + git config PAT 方案单独补推（见 Network 章节）。补推后确保删除 `state/vocab_progressive.json` 避免重复。
+**Round presentation format:**
+```
+⚔️ 闯关 Round {N}/3 — {M}词
+格式: 1: 释义 2: 释义 ... {M}: 释义
+1. **word**  /phonetic/
+...
+```
+NO Chinese meanings in challenge phase.
 
-**Progressive difficulty**: within the 6-word batch, sort by core_level ascending so easier words come first.
+**Escalating difficulty**: within each round, sort by mastery ascending (weakest first). Across rounds, Round 1 gets lowest-mastery words, Round 3 gets strongest.
 
-## Straight Batch Mode
-
-Session 2 of the day (or standalone). Present all 6 words at once, user answers all 6, single scoring pass. State file: `state/vocab_batch.json`. Simpler — no multi-turn tracking needed.
+⚠️ **中断恢复**：若某轮 execute_code 被 blocked，从 GitHub 拉最新 words.json 检查是否有当轮历史记录。若无则补推。确保删除 `state/vocab_escalating.json` 避免重复。
 
 ## BOSS Mode — Nightmare Word Round 👾
 
@@ -152,10 +159,9 @@ if is_boss_eligible():
 ## Daily Session Structure
 
 ```
-Session 1: Progressive (1→2→3 = 6 words) — warmup
-Session 2: Straight Batch (6 words) — burst
-BOSS Mode: 3-6 nightmare words (when eligible) — bonus round
-Daily minimum: 12 words (BOSS is extra)
+Session: Escalating Challenge (6→9→12 = 27 words) — one session per day
+BOSS Mode: 3-6 nightmare words (when ≥3 active) — bonus round
+Daily minimum: 27 words (BOSS is extra)
 ```
 
 ## Sub-Rank System (青铜I→IV→白银)

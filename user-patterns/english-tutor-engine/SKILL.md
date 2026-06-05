@@ -388,6 +388,7 @@ next_review = today + interval (答对) 或 today (答错)
 
 - `references/batch-quiz-template.md` — 6词冲刺包 execute_code 模板 + 交互协议 + 分类关键词表
 - `references/report-template.md` — 学习报告生成格式模板（用户批准的格式）
+- `references/report-code-template.py` — 工作版报告生成代码模板（2026-06-05 实战验证，已处理 mastery 刻度归一化、words.json 列表结构、history 重建等所有已知坑）
 - `scripts/engine.py` — 旧版 SQLite 引擎（已废弃，保留仅为向后兼容。实际使用 inline execute_code 模式）
 
 ## ⚡ 性能铁律：单次调用流水线（2026-05-22 实战验证）

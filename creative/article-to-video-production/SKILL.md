@@ -112,7 +112,33 @@ ffmpeg -i final.mp4 -c:v libx264 -preset fast -crf 28 -c:a aac -b:a 64k compress
 
 ## Method C: HTML → Playwright Screenshot（设计感最强）
 
-当需要 CSS 渐变背景、阴影、排版精致度远超 PIL 时使用。管线：HTML 模板 → Playwright Python API 截图 → ffmpeg 编码。
+当需要 CSS 渐变背景、阴影、排版精致度远超 PIL 时使用。
+
+### ✅ 推荐架构：Jinja2 模块化管线
+
+**不要写"一个脚本硬扛全流程"**——CSS 和 Python 模板同居必定出 bug。用四层分离：
+
+```
+~/.hermes/tools/ai-qujing/
+├── config.json              # 场景数据（TTS 文本、配色、字号）——改场景不动代码
+├── templates/slide.html     # Jinja2 模板——CSS 零转义，天然隔离
+├── tts.py                   # Edge TTS 语音合成
+├── renderer.py              # Jinja2 渲染 → Playwright 截图
+├── encoder.py               # ffmpeg 帧编码 + 多段合成
+└── build.py                 # 编排器：读 config → TTS → 渲染 → 合片
+```
+
+**用法**：
+```bash
+cd ~/.hermes/tools/ai-qujing
+python build.py                          # 读 config.json → output/config/
+python build.py --config episode-03.json # 指定配置
+python build.py --out /tmp/my-video      # 指定输出目录
+```
+
+**新文章只需改 `config.json` 的 `scenes` 数组**，不动任何 Python 代码。
+
+### ⚠️ 旧方案：Playwright Python API 直接调用（仅备查）
 
 ```python
 from playwright.sync_api import sync_playwright
@@ -129,9 +155,7 @@ with sync_playwright() as p:
 
 ⚠️ **本地 HTML 必须用 `file://`**：`html_path.resolve().as_uri()` 生成 `file:///path/to/file.html`。
 
-⚠️ **CSS 在 `.format()` 里要双花括号**（见下方 Pitfall #6）。
-
-**完整可运行模板**：`references/html-video-build-template.py` — HTML → Playwright 截图 → ffmpeg 完整管线。改 `SCENES` 数组即可适配新文章。
+⚠️ **如果用 `.format()` 渲染模板，CSS 要双花括号**（见 Pitfall #6）。**建议直接改用 Jinja2，一劳永逸。**
 
 ## Pitfalls
 
@@ -140,7 +164,7 @@ with sync_playwright() as p:
 3. **音频时长获取**：`ffprobe -v quiet -show_entries format=duration -of csv=p=0 audio.mp3`
 4. **视频卡死**：`-shortest` 参数确保视频随音频结束，防止无声黑屏。
 5. **Telegram 50MB 限制**：大于 50MB 需压缩，`-crf 28` 通常能压到 10-30MB。
-6. **Python `.format()` + CSS = 花括号地狱**：当 HTML 模板用 `.format(**kwargs)` 渲染时，CSS 里的 `{...}` 会被当作占位符。三个铁律：
+6. **❌ Python `.format()` + CSS = 花括号地狱（应避免，用 Jinja2 替代）**：当 HTML 模板用 `.format(**kwargs)` 渲染时，CSS 里的 `{...}` 会被当作占位符。三个铁律：
    - **所有 CSS 规则块用 `{{...}}`**：`body {{ width:100%; }}` → 渲染后 `body { width:100%; }`
    - **CSS 内嵌的真实占位符保持单花括号**：`{{ margin-top:{big_top}px; }}` → 外层 `{{}}` 转义，内层 `{big_top}` 正常替换
    - **表达式不能写在花括号里**：`{W-120}` → KeyError。必须 `W120 = W - 120` 预计算后传入
