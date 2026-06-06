@@ -186,29 +186,10 @@ python3 ~/.hermes/adjutant/finance/scripts/finance.py milestones
 
 ## 自动化
 
-财务中枢运行在独立 Gateway（profile `finance`，bot `@BogFinance_bot`），三条 cron 推送线：
-
-| 推送 | 时间 | 内容 |
+| 机制 | 时间 | 内容 |
 |------|------|------|
-| 早间推送 | 每天 09:00 | 问候 + 问今日还款计划 + 债务全景 + 距下个里程碑 |
-| 晚间汇总 | 每天 21:00 | 今日还款检查 + 进度更新 + 鼓励/激励 |
-| 周报 | 每周日 21:00 | 完整周报：本周还款、总负债变化、进度条、预计清债日、里程碑、高息排序 |
-
-每次还款即时处理：`git commit + push`（不等 cron）。
-
-### 部署架构
-
-```
-@BogFinance_bot（独立 Telegram bot）
-    ↕
-finance profile Gateway（launchd: ai.hermes.gateway-finance）
-    ↕
-personal-finance skill + ~/.hermes/adjutant/finance/ 数据
-    ↕
-GitHub: hermes-adjutant/finance/（双副本，AI 可接盘）
-```
-
-与副官是**平行独立线**——副官管工程/任务/研究，财务 Bot 只管钱。故障互不传染。
+| Cron `1fa49ed0087e` | 每周日 21:00 | 生成快照 + 周报 + Git push + Telegram 推送 |
+| 每次还款 | 即时 | 自动 git commit + push（不等 cron） |
 
 ## 归途驿站 — 显示铁律
 

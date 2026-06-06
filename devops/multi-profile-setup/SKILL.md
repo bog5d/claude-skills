@@ -94,41 +94,71 @@ hermes profile list
 
 ---
 
-## Phase 4: Skills 双向同步
+## Phase 4: Skills 同步 — 加入新 Profile
 
-创建同步脚本，挂到 cron 每 30 分钟运行。
+已有同步脚本 `~/.hermes/scripts/sync_skills_cross_profile.sh` 管理多端 skills 双向 merge。新增 profile 后必须更新脚本，否则新 profile 的 skills 不会被同步。
 
-### 同步脚本核心逻辑
+### 步骤
+
+1. 编辑 `sync_skills_cross_profile.sh`
+2. 添加新的 `SRC<N>=<新profile的skills路径>`（如 `SRC5="/Users/mac/.hermes/profiles/finance/skills"`）
+3. 在内循环中添加 `d5` 变量和 `t5` mtime 比较
+4. 在 `for target in ...` 和 `find_skills` 集合中追加新 SRC
+5. 保存后手动跑一次确认：`bash ~/.hermes/scripts/sync_skills_cross_profile.sh`
+
+### 同步逻辑
 
 ```bash
-# 双向合并: mtime 较新者胜，不删除任何文件
-# SRC1: ~/.hermes/skills/
-# SRC2: ~/.hermes/profiles/<name>/skills/
+# N-way merge: mtime 较新者胜，不删除任何文件
+# SRC1: ~/.hermes/skills/          (default)
+# SRC2: ~/.hermes/profiles/her-m2/skills/
+# SRC3: ~/.hermes/profiles/english-tutor/skills/
+# SRC4: ~/.hermes/hermes-agent/skills/
+# SRC5: ~/.hermes/profiles/finance/skills/   ← 新增
 
-for skill in (两边所有 skill 目录); do
-    if 两边都存在:
-        比较 SKILL.md mtime → 新的覆盖旧的
-    elif 只在一边:
-        拷贝到另一边
+for skill in (所有 SRC 的 skill 目录合集); do
+    找到 mtime 最新的那份 → rsync 到所有其他 SRC
     永不删除
 done
 ```
 
-### Cron 配置
+Cron 每 30 分钟自动运行，无需手动创建。
+
+---
+
+## Phase 5: 启动后必做
+
+### 5a. 用户发首条消息（关键！）
+
+🚨 **Telegram bot 不能主动给用户发第一条消息。** Cron 推送在用户发首条消息前无法送达。
+
+- 用户必须去 Telegram 给新 bot 发一条消息（`/start` 或任意文字）
+- 此后 cron 的 `deliver: origin` 才能正常推送
+
+### 5b. 定制 SOUL.md
+
+编辑 `~/.hermes/profiles/<name>/SOUL.md`，定义新 profile 的专属 persona。Gateway 无需重启即可生效。
+
+### 5c. 设定时推送（如适用）
+
+用 `cronjob create` 为新 profile 创建专属定时任务，指定 `profile: <name>`：
 
 ```bash
-# 用 cronjob tool 创建定时任务
+# 示例：每天早 9 推送
 cronjob create \
-  --schedule "every 30m" \
-  --deliver local \
-  --prompt "运行 bash ~/.hermes/scripts/sync_skills_cross_profile.sh，完成后回复 skills synced"
+  --name "早间推送" \
+  --profile finance \
+  --schedule "0 9 * * *" \
+  --skills '["personal-finance"]' \
+  --prompt "早上好，加载 personal-finance 后推送今日债务概览"
 ```
 
 ---
 
 ## 验证清单
 
-- [ ] `hermes profile list` 显示两个 profile，gateway 均在运行
-- [ ] 两个 bot 在 Telegram 上都能响应
-- [ ] 运行一次同步脚本确认两边 skills 数量一致
-- [ ] 查看 cron 确认定时任务已调度
+- [ ] `hermes profile list` 显示新 profile，gateway running
+- [ ] `sync_skills_cross_profile.sh` 已更新并包含新 SRC
+- [ ] 用户已给新 bot 发首条消息（否则 cron 静默失败）
+- [ ] 新 bot 在 Telegram 上能响应
+- [ ] SOUL.md 已定制（可选但推荐）
