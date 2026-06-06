@@ -537,26 +537,26 @@
     "created_at": "2026-06-03T14:21:37.621188+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-05T11:29:39.639312+00:00",
-    "last_used_at": "2026-06-05T13:04:15.001971+00:00",
-    "last_viewed_at": "2026-06-05T11:29:11.792131+00:00",
+    "last_used_at": "2026-06-06T04:11:35.414338+00:00",
+    "last_viewed_at": "2026-06-06T04:11:35.410883+00:00",
     "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 93,
-    "view_count": 4
+    "use_count": 94,
+    "view_count": 5
   },
   "cursor-acp-integration": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.044434+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_used_at": "2026-06-06T04:11:35.412469+00:00",
+    "last_viewed_at": "2026-06-06T04:11:35.409138+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "debugging-hermes-tui-commands": {
     "archived_at": null,
