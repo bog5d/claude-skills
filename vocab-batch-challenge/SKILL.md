@@ -27,17 +27,28 @@ Paste stdout to Telegram. Script sets `vocab_batch.json` + `coordinator` english
 3. Present ONLY: `{index}. {word}  {phonetic}` — NO meanings, NO hints
 4. Wait for user to reply with 6 Chinese meanings
 
-### Phase 2: Score + Explain (single execute_code call)
-After user replies with 6 answers, process everything in ONE execute_code call:
-- Score each answer (correct/incorrect, record exact user response)
-- Update SM-2 model: mastery 使用 **0-100 整数刻度**（答对 +15，答错 -5，详见 english-tutor-engine SM-2 公式章节）
-- Push updated data back to GitHub
-- Generate ALL 5-layer explanations for EVERY word (correct or incorrect):
-  1. 词根拆解 + 同源词族
-  2. 演化链
-  3. 视觉锚点
-  4. 原卡时空背景 (if available from Anki)
-  5. 考研语境锚
+### Phase 2: Score + Explain (ONE terminal call to session_pipeline.py)
+
+**PRIMARY (deterministic):** single `terminal()` call to unified pipeline:
+
+```bash
+python3 /Users/mac/.hermes/profiles/english-tutor/state/session_pipeline.py <round_number> '<json_answers>'
+```
+
+This ONE script handles EVERYTHING deterministically:
+- Keyword-based grading (27-word keyword table built-in)
+- SM-2 updates
+- 5-layer explanations for ALL words (full database built-in)
+- Gamification update + panel
+- Chronicle generation + cache copy on rank-up
+- Chronicle index regeneration on rank-up
+- GitHub push
+- Escalating state management (round progression / cleanup)
+- Structured JSON output + pre-formatted Telegram markdown
+
+**LLM only needs to**: call this one terminal command, parse `_formatted` field, relay to user. No more hand-written execute_code for quiz processing.
+
+If script fails: fall back to inline execute_code (legacy path below).
 
 ### Phase 3: Present Results
 - First: clear score summary (correct/total) — welded with dividers, never buried
@@ -61,6 +72,7 @@ After user replies with 6 answers, process everything in ONE execute_code call:
 
 ## Pitfalls
 - **NEVER show Chinese meanings in Phase 1** — this is the #1 recurring error
+- **ALL words get full 5-layer explanations** — even if 9/9 correct. Never skip words with "重点词速讲" or brief highlights. User explicitly corrected this 2026-06-06: data loss when correct words don't get full breakdown.
 - After each session, update `gamification.json` streak/last_session_date and re-check badges
 - The repo path is `data/words.json` not root-level; use GitHub Contents API path `bog5d/bog-vocab-tracker/contents/data/words.json`
 - progress.json may have few entries; default new words to SM-2 initial state

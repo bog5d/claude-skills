@@ -64,7 +64,18 @@ echo 'PEXELS_API_KEY=<key>' >> ~/.hermes/.env
 
 Note: Hermes `.env` is defense-in-depth protected — cannot be read via `read_file`, must use terminal to append.
 
-## Files
+## Performance Note
+
+PIL frame-by-frame rendering with photo backgrounds is SLOW. Each frame:
+1. Opens a 200-300KB JPEG
+2. Resizes to fill 1080×1920
+3. Applies RGBA overlay + alpha composite
+4. Gaussian blur
+5. Draws text card
+
+~0.3s per frame × ~5000 frames = ~25 minutes for a typical 8-scene video.
+
+**Mitigation**: set `FPS=15` in build.py for previews, use 30fps + background mode for production.
 
 | File | Purpose |
 |------|---------|

@@ -174,7 +174,8 @@ with sync_playwright() as p:
 3. **音频时长获取**：`ffprobe -v quiet -show_entries format=duration -of csv=p=0 audio.mp3`
 4. **视频卡死**：`-shortest` 参数确保视频随音频结束，防止无声黑屏。
 5. **Telegram 50MB 限制**：大于 50MB 需压缩，`-crf 28` 通常能压到 10-30MB。
-6. **❌ Python `.format()` + CSS = 花括号地狱（应避免，用 Jinja2 替代）**：当 HTML 模板用 `.format(**kwargs)` 渲染时，CSS 里的 `{...}` 会被当作占位符。三个铁律：
+6. **🐢 PIL 逐帧渲染 + Pexels 照片背景极慢**：8 场景约 5000 帧，每帧加载/缩放/叠加/模糊/文字约 0.3 秒，全链路约 15-25 分钟。不是卡死，就是慢。对策：(a) 快速预览：降帧率到 15fps（`FPS=15`），时间砍半 (b) 生产：保持 30fps，挂后台 + `notify_on_complete=true` (c) 不降分辨率——1080×1920 是竖屏视频硬需求。
+7. **❌ Python `.format()` + CSS = 花括号地狱（应避免，用 Jinja2 替代）**：当 HTML 模板用 `.format(**kwargs)` 渲染时，CSS 里的 `{...}` 会被当作占位符。三个铁律：
    - **所有 CSS 规则块用 `{{...}}`**：`body {{ width:100%; }}` → 渲染后 `body { width:100%; }`
    - **CSS 内嵌的真实占位符保持单花括号**：`{{ margin-top:{big_top}px; }}` → 外层 `{{}}` 转义，内层 `{big_top}` 正常替换
    - **表达式不能写在花括号里**：`{W-120}` → KeyError。必须 `W120 = W - 120` 预计算后传入

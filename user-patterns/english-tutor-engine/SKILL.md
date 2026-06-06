@@ -639,7 +639,19 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - 旧 session 可能没有记录 error_type 字段
 - 当前 sessions.json.error_log 是主要错误记录源
 
-### pitfall 7: gamification.json 漂移（2026-06-06 真实事故 — 已修复）
+### pitfall 7: 五层讲解不能因全对就偷懒（2026-06-06 用户纠正）
+- **错误做法**：Round 全对时只给「重点词速讲」（3 个词简要提一下）→ 用户反馈「没有解读，没法学习新词」
+- **正确做法**：**无论对错，每词都输出完整 5 层**：词根拆解 + 演化链 + 视觉锚点 + 原卡时空背景 + 考研锚
+- 即使 9/9 全对，9 个词全部五层拉满。execute_code 里用 `for tw in today_words` 循环，不跳过任何正确词
+- 这已被列为铁规则（见 memory），违反一次立即纠正
+
+### pitfall 8: gamification_v2.py timeline KeyError（2026-06-06 已修复）
+- **现象**：`update_after_session()` 的 timeline 记录段 `st["total_sessions"]` 抛出 KeyError，导致段位晋升后的 gamification panel 生成中断
+- **根因**：recalibrate_from_github() 替换 `g["stats"]` 为新 dict（缺某些旧字段）后，`update_after_session()` 中局部引用 `st` 的方括号访问失败
+- **修复**：`st["total_sessions"]` → `st.get("total_sessions", 0)` — 用 `.get()` 做防御性访问
+- **教训**：gamification_v2 中任何对 stats 字段的直接方括号访问都应优先用 `.get()` 兜底
+
+### pitfall 9: gamification.json 漂移（2026-06-06 真实事故 — 已修复）
 - **现象**：gamification.json 段位「白银·白银I」，但 words.json 真实数据只有「青铜II·49词覆盖率3.7%」。stats.total_correct=15 但 GitHub 真实值=55。
 - **根因**：`update_after_session()` 做加法累积，但基础数据从 `update_after_session()` 的局部输入计算，而非从 words.json 全量重建。多次局部更新后漂移累积。
 - **修复**：`gamification_v2.recalibrate_from_github()` — 从 GitHub words.json 全量重建 stats/streak/rank/nightmare_words。漂移时自动检测并修正。
