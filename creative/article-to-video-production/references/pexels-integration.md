@@ -56,6 +56,9 @@ Pexels search only works with English keywords. The `_build_query()` method uses
 ### 4. Cache strategy
 Images cached to `~/.hermes/cache/pexels/<photo_id>.jpg`. Same photo ID = skip download. No cache expiration; Pexels images are permanent.
 
+### 5. Python 3.9 type annotation compatibility
+The `Path | None` syntax (PEP 604) requires Python 3.10+. For Python 3.9, use `Optional[Path]` from `typing`. Same for `str | None` → `Optional[str]`. The imagesourcer.py module uses `Optional` throughout.
+
 ## Key env setup
 
 ```bash
@@ -66,16 +69,9 @@ Note: Hermes `.env` is defense-in-depth protected — cannot be read via `read_f
 
 ## Performance Note
 
-PIL frame-by-frame rendering with photo backgrounds is SLOW. Each frame:
-1. Opens a 200-300KB JPEG
-2. Resizes to fill 1080×1920
-3. Applies RGBA overlay + alpha composite
-4. Gaussian blur
-5. Draws text card
+**✅ Fast mode (default in build.py v3):** PIL per-frame rendering replaced with single keyframe + ffmpeg loop. `encoder.frame_to_mp4()` uses `-loop 1` + `-tune stillimage` to turn one frame + audio into a video segment. Full 8-scene pipeline: ~3 minutes (was ~25 minutes with per-frame rendering).
 
-~0.3s per frame × ~5000 frames = ~25 minutes for a typical 8-scene video.
-
-**Mitigation**: set `FPS=15` in build.py for previews, use 30fps + background mode for production.
+The `_photo_background()` method only runs ONCE per scene — the photo load/resize/filter/text overlay happens once, then ffmpeg loops the result. The visual difference is imperceptible for text-card-over-photo scenes (no per-frame animation to lose).
 
 | File | Purpose |
 |------|---------|

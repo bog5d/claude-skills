@@ -21,7 +21,7 @@ category: creative
 
 ## Pipeline
 
-### Step 0: 图片源（Phase 3a — 真实照片背景）
+### Step 0: 图片源（Phase 3a — 真实照片背景） + Fast Mode 渲染
 
 > 📄 详见: `references/pexels-integration.md`
 
@@ -30,6 +30,8 @@ category: creative
 **能力矩阵**：Pexels → `ai_concept_art` / `corporate_visual`；PIL 原渲染 → `gradient_text` / `cinematic_text` / `tech_abstract` / `motion_infographic`
 
 **关键 Pitfall**：Pexels API 要求 User-Agent header（无则 403）；中文搜索返回 0 结果，必须用英文关键词；下载 CDN 图片同样需要 UA。
+
+**Fast Mode 渲染（默认）**：每场景只渲染 1 帧关键帧，`encoder.frame_to_mp4()` 用 ffmpeg `-loop 1 -tune stillimage` 循环编码。8 场景 ~3 分钟（vs 逐帧渲染 ~25 分钟）。如需逐帧动效改回 `frames_to_mp4()`。
 
 ### Step 1: 写分镜（最关键）
 
@@ -174,7 +176,7 @@ with sync_playwright() as p:
 3. **音频时长获取**：`ffprobe -v quiet -show_entries format=duration -of csv=p=0 audio.mp3`
 4. **视频卡死**：`-shortest` 参数确保视频随音频结束，防止无声黑屏。
 5. **Telegram 50MB 限制**：大于 50MB 需压缩，`-crf 28` 通常能压到 10-30MB。
-6. **🐢 PIL 逐帧渲染 + Pexels 照片背景极慢**：8 场景约 5000 帧，每帧加载/缩放/叠加/模糊/文字约 0.3 秒，全链路约 15-25 分钟。不是卡死，就是慢。对策：(a) 快速预览：降帧率到 15fps（`FPS=15`），时间砍半 (b) 生产：保持 30fps，挂后台 + `notify_on_complete=true` (c) 不降分辨率——1080×1920 是竖屏视频硬需求。
+6. **🐢 PIL 逐帧渲染极慢 → 用 ffmpeg 单帧循环（fast mode）**：8 场景约 5000 帧，每帧 PIL 操作 0.3 秒，全链路 15-25 分钟。**默认已改为 fast mode**——每场景只渲染 1 帧关键帧，ffmpeg `-loop 1` + `-tune stillimage` 循环编码，全链路 ~3 分钟（50x 提速）。encoder.py 新增 `frame_to_mp4()` 方法：`ffmpeg -loop 1 -i frame.png -i audio.mp3 -tune stillimage -shortest out.mp4`。画面效果基本一致（无逐帧动效，但对于文字卡+照片背景的场景感知不到差异）。如需逐帧动效（粒子/渐变漂移），改回 `frames_to_mp4()` 但预期 15-25 分钟。
 7. **❌ Python `.format()` + CSS = 花括号地狱（应避免，用 Jinja2 替代）**：当 HTML 模板用 `.format(**kwargs)` 渲染时，CSS 里的 `{...}` 会被当作占位符。三个铁律：
    - **所有 CSS 规则块用 `{{...}}`**：`body {{ width:100%; }}` → 渲染后 `body { width:100%; }`
    - **CSS 内嵌的真实占位符保持单花括号**：`{{ margin-top:{big_top}px; }}` → 外层 `{{}}` 转义，内层 `{big_top}` 正常替换
