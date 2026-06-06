@@ -6,6 +6,7 @@ adjutant-boot:a265c611c0cd21752f1683600088a8c7
 adjutant-brain-dump:d61d9b1c88d59907082ab42927811061
 adjutant-system:ef15e9075e2c73cfedd25bd4d9a869f8
 agent-evening-diary-cron:78d0f691c6aad9eeb88ca90c4f3e6436
+ai-qujing-video:05ab598835b5b5440d4bd500e8072e08
 aider-expert:6e35eb51492a958e19bce2c212aa41d0
 airtable:30f47a4b29827da14e655356c0edd8a7
 anki-import-parser:2c42e2f09418d43c9295ec9e3e1de73c
@@ -97,6 +98,7 @@ hermes-s6-container-supervision:d1dd00ca7688c85813f325a564490431
 hermes-service-troubleshooting:cb5338b8785d0aac282dc57b7ee0566d
 hermes-upgrade:c40bd609f7229194a04a1a2da2a710c7
 himalaya:7ae61574914c25d57a001d1e1efe39bf
+html-to-video:77a0198251394f0acad3b7a9fe2b4578
 html-video-workflow:9d6f51eb413fff08730c9e0d18c2d3c1
 huggingface-hub:da338c5152d72db030bb81d923d1c64d
 humanizer:6645b341862575f452e86139c5c71ce9
@@ -153,6 +155,7 @@ pub2gg-local:e2ec3bdb0f7eb2dc252a4c912f97570d
 python-debugpy:b87e0abf179c14ea51c7559dc99eb22c
 pytorch-fsdp:bf252a436e718d7c0a864a786674809a
 quick-tunnel-deploy:138aebd915848251c86f7f84e97cbc0d
+remotion:a53a3223a3161d5c4d427ca23605f56d
 remotion-intro-animation:3c419f3dc0a0bffe0732987dbad632be
 remotion-photo-mv-pro:c74b88f0745862d2c39f008ad88f2077
 requesting-code-review:9944f54e8ba5c294b47ee93f3e8f239d

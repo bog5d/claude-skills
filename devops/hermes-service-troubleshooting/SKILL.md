@@ -221,7 +221,50 @@ done
   4. 等待下一个 defibrillator 巡检周期（10秒），确认不再报"离线"
 - 关键区分：**进程存活 ≠ defibrillator 认为存活**。当收到"Gateway X 自动复活 ❌"消息时，先检查该 gateway 的平台连接日志，不要直接假设进程挂了。
 
-**模式Q：Telegram Polling Conflict — 多 gateway 抢同一 bot token**
+**模式R：Launchd 崩溃节流 — KeepAlive=true 也不自动重启**
+
+- 症状：gateway/service 的 plist 有 `KeepAlive => true`，进程崩溃后 launchd **没有**自动重启。`launchctl list` 显示 PID 列为 `-`，exit code 非零。服务消失。
+- 根因：macOS launchd 有内置的**崩溃节流机制**（throttle interval）。如果进程在短时间内反复崩溃（通常 10 秒内 3 次以上），launchd 会暂停自动重启，防止无限 CPU 消耗。`KeepAlive => true` 和 `SuccessfulExit: false` 都无法绕过此限制。
+- 验证：
+  ```bash
+  # 看 runs 计数是否在短时间内暴涨
+  launchctl print gui/501/<service> | grep -E 'runs|last exit|throttle'
+  ```
+  如果 `runs` 很大且时间戳密集 → 触发节流
+- 修复：
+  1. `launchctl kickstart -k gui/501/<service>` 手动强制启动
+  2. 如果 kickstart 也失败：`launchctl bootstrap gui/501 <plist_path> && launchctl kickstart gui/501/<service>`
+  3. 修复崩溃根因（FD 耗尽、内存、凭证等），否则节流会在下次崩溃周期再次触发
+- 预防：
+  1. 在 gateway 代码层加启动冷却（如连续崩溃 3 次后 sleep 30s 再退出）
+  2. defibrillator 作为兜底——当 launchd 节流时，defibrillator 用 `kickstart -k` 强制复活
+  3. ⚠️ 但 defibrillator 自己也可能被 SIGKILL→节流，形成**防线真空**（见模式 S）
+
+**模式S：Watchdog 级联死亡 — FD 耗尽→gateway 自杀→watchdog SIGKILL→防线全塌**
+
+- 症状：用户发现多个 gateway 同时无响应，且 defibrillator/watchdog 全部死亡。`launchctl list` 显示所有服务 exit code 均为 -9 或 -1，PID 列为 `-`。
+- 根因链：
+  1. Gateway 长期运行，FD 缓慢累积接近 256 上限
+  2. FD 耗尽 → gateway 无法 `open()` 新连接 → Telegram polling 崩溃 → 自杀 (exit 1)
+  3. Gateway 自杀过程中清理 fd 触发系统级资源争抢
+  4. macOS 内核/launchd 为回收资源 SIGKILL 轻量级 watchdog 进程（defibrillator, network-watchdog, system-watchdog）
+  5. Watchdog 被 kill 后 launchd 尝试重启 → 崩溃节流触发 → 不再重启
+  6. 结果：**gateway 死 + 防线死 = 无人救火**
+- 验证：
+  ```bash
+  # 检查是否全线垮塌
+  launchctl list | grep -E 'gateway|defib|watchdog'
+  # 如果所有 PID 列为 -，exit code 为 -9/-1/1 → 级联死亡
+  ```
+- 修复（优先级顺序）：
+  1. **救 gateway 先**：`launchctl kickstart -k` 逐个复活 gateway（至少保留一个活的用于对话）
+  2. **救防线**：`launchctl kickstart -k` 复活 defibrillator → network-watchdog → system-watchdog
+  3. **检查 FD**：每个复活后的 gateway 用 `lsof -p <PID> | wc -l` 查 fd 数，超过 200 立即考虑重启
+  4. **治本**：确认 `ulimit -n` 已拉高到 4096（见模式 P）
+- 预防：
+  1. system-watchdog 加 FD 监控：任何 gateway fd > 2000 时告警 + 自动 kickstart
+  2. defibrillator 的 launchd plist 加 `TimeOut => 30` + `ExitTimeOut => 5` 防止资源争抢时被杀
+  3. 定期 cron：每 24h 检查所有 gateway fd 数，接近 2000 自动重启
 
 - 症状：gateway 日志反复出现 `WARNING gateway.platforms.telegram: [Telegram] Telegram polling conflict (1/5) — previous session still held open on Telegram's servers`。bot 完全不响应消息。两个 gateway 交替抢到 polling session，"resumed after conflict" 和 "polling conflict" 交替出现
 - 根因：两个（或更多）gateway 实例使用了同一个 TELEGRAM_BOT_TOKEN。Telegram 的 getUpdates 是排他性的——同一 token 只能有一个活跃 polling session。当 profile A 的 gateway 持有 session 时，profile B 的 gateway 尝试连接就被踢，然后 B 重试抢回 session 又把 A 踢掉，形成永动冲突
@@ -268,6 +311,13 @@ done
   ```
   ⚠️ 注意：terminal 工具直接 `echo '密码' | sudo -S` 会被安全策略拦截，必须通过 Python subprocess 且密码从 .env 读取而非明文在命令中。
 - 预防：如果用 launchd 管理 gateway，在 plist 的 `EnvironmentVariables` 或 `LaunchOnlyOnce` 配合 wrapper script 中设 `ulimit -n 4096`
+- ⚠️ **致命陷阱**：`sudo launchctl limit maxfiles 4096 8192` 只对新进程生效。已经运行的 gateway **不会自动继承新限制**。提高 ulimit 后必须 `launchctl kickstart -k` 重启每个 gateway，否则它们仍用旧限制（256），继续 FD 耗尽。验证方法：
+  ```bash
+  # 对每个 gateway PID 检查实际 ulimit
+  cat /proc/<PID>/limits 2>/dev/null | grep 'open files'
+  # 或
+  lsof -p <PID> 2>/dev/null | wc -l  # 接近 256 就该重启了
+  ```
 
 **模式O：pkill 误杀其他 gateway（进程名不含 profile 名）**
 - 症状：用 `pkill -9 -f "hermes.*gateway.*default"` 只能匹配到 english-tutor 的进程（因为命令行含 `--profile english-tutor`），her-m2 和 default 的进程命令行不含 profile 名（`hermes_cli.main gateway run --replace`），导致无法精确 kill
