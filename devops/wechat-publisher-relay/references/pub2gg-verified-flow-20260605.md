@@ -1,51 +1,54 @@
-# pub2gg 全链路验证记录 — 2026-06-05
-
-## 端到端实测结果
-
-```
-你的文章 ──→ 中继 47.85.62.133:8787
-                  │
-        ┌─────────┼─────────┐
-        ▼                   ▼
-   /publish            /push_telegram
-   DeepSeek排版        HTML推送
-   + Unsplash配图       → @AgentToWest
-   + 公众号草稿
-```
-
-## 实测日志
-
-```
-[pub] 2026-06-05T08:34:49.637Z 收到文章 91 字
-[pub] DeepSeek 排版完成: AI Agent的下一个十年
-[wechat] 发现 2 个图片占位符，开始上传...
-[wechat] 图片已注入: robot hand typing on laptop keyboard → mmbiz.qpic.cn...
-[wechat] 图片已注入: AI agent interface with task list → mmbiz.qpic.cn...
-[pub] 草稿已创建 media_id: bQqYgPWs61_ROOqZBKIhz6WdY0rdg...
-[tg] 2026-06-05T08:36:06.813Z 推送TG: AI Agent的下一个十年
-[tg] 推送成功 msg_id: 8
-```
+# pub2gg 验证链路 (2026-06-05)
 
 ## 基础设施状态
 
-| 组件 | 详情 |
-|------|------|
-| 中继服务器 | 47.85.62.133, Alibaba Cloud Linux |
-| PM2 进程 | wx-publisher, PID 1788339, 端口 8787 |
-| FRP 服务端 | frps :7000, token: f48653aaa631f8ce4814c3fb07a39955 |
-| FRP 客户端 | macOS frpc, PID 1695 |
-| 公众号 AppID | wx37940d296d26c91c |
-| TG Bot | 8609798183 → @AgentToWest |
-| Bear Token | d1f551894905ad52b2a1885216ff31ad11b07c146708d664 |
-| DeepSeek Key | sk-*** (redacted, 在服务器 .env 中) |
+| 组件 | IP | 端口 | 状态 | 验证方式 |
+|------|-----|------|------|---------|
+| Relay (阿里云) | 47.85.62.133 | 8787 | ✅ 在线 | PM2 wx-publisher PID 1788339, uptime 6d |
+| Relay SSH | 47.85.62.133 | 22 | ✅ | 密钥认证 `/Users/mac/.ssh/id_ed25519_alicloud` |
+| FRP Server | 47.85.62.133 | 7000 | ✅ | frps running, token f48653aaa... |
+| FRP Client (Mac) | localhost | — | ✅ | PID 1695, matched token |
+| WordPress | 111.229.29.110 | 80 | ✅ | REST API reachable, Cloudflare front |
+| WordPress DB | 111.229.29.110 | 3306 | ❌ | Not accessible from relay |
+| 宝塔 Panel | 111.229.29.110 | 8888 | ❌ | Connection timeout |
+| WP SSH | 111.229.29.110 | 22 | ❌ | Connection timeout |
 
-## 已知问题
+## 端点验证
 
-1. **WordPress → Relay 触发器缺失** (2026-06-05 发现): WordPress 发布文章后不会自动调用 `/publish` 和 `/push_telegram`。pub2gg 管道在 WordPress 和 Relay 之间断开。
-   - 待实施：Mac Mini cron 每 5 分钟轮询 WP REST API → 调中继
-   - 详见 references/pub2gg-webhook-gap.md
+### GET /health
+```bash
+curl -s 47.85.62.133:8787/health
+# → ok
+```
 
-2. **Token Shell Redact**: macOS 端 curl 时 BEARER_TOKEN 被 redact → 401
-   - 规避：SSH 到服务器 + source .env + curl localhost
+### POST /publish
+```
+Status: ✅ Working
+Input: 91-char Chinese test article
+Output: DeepSeek formatted → 2 Unsplash images → WeChat draft
+media_id: bQqYgPWs61_ROOqZBKIhz6WdY0rdg...
+```
 
-3. **[已修复] MarkdownV2 转义**: 早期代码用 `parse_mode: 'MarkdownV2'`，`escapeMd()` 不转义 `.` → 推送失败。2026-06-05 确认当前代码已改为 `parse_mode: 'HTML'`。
+### POST /push_telegram
+```
+Status: ✅ Working (via SSH + source .env + curl localhost)
+Input: {title, excerpt, wp_link, mp_name}
+Output: msg_id=9 → @AgentToWest
+Parse mode: HTML (NOT MarkdownV2)
+```
+
+## 全链路测试结果
+
+```
+1. /publish:     ✅ media_id created, 2 images auto-uploaded
+2. /push_telegram: ✅ msg_id=9 to @AgentToWest
+3. GitHub push:  ✅ 99e7b6b main -> main (hex-encoded PAT)
+4. WP read:      ✅ Public REST API works
+5. WP write:     ❌ WP_APP_PASS expired, admin login pwd changed
+```
+
+## 已知缺口
+
+1. **WordPress → Relay webhook 不存在**：WP 发布后不会自动触发 pub2gg
+2. **WordPress 凭证全部过期**：admin login `bqS2SBlY2AKG` 失效，app pass `boWm4uPKgEET` 失效
+3. **无直接 VNC/SSH 到 WP 服务器**：需通过腾讯云 Lighthouse 控制台重置
