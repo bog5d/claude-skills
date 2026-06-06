@@ -22,6 +22,12 @@ Hermes Agent Telegram 集成支持 `MEDIA:<path>` 发送文件。MEDIA 正则已
 1. 路径不在 `HERMES_MEDIA_ALLOW_DIRS` 白名单 → 加载 `media-file-delivery` 技能
 2. 旧 Office 格式（.xls/.doc/.ppt）缺少 MIME 映射 → 加载 `media-file-delivery` 技能，详见其 `references/legacy-office-mime-bug.md`
 
+**永久修复：设置 `HERMES_MEDIA_ALLOW_DIRS` 环境变量。** 在 profile 的 `.env` 中添加：
+```
+HERMES_MEDIA_ALLOW_DIRS=/Users/mac/.hermes/profiles/english-tutor/state,/tmp
+```
+然后重启 gateway（`hermes gateway restart`）。此后 MEDIA 标签可直接发送白名单目录下的文件，无需 curl 绕路。验证：`send_message(action='send', message='MEDIA:<path>')` 返回 `"mirrored": true`。
+
 ## 方案 A: MEDIA 指令（优先使用）
 
 ```

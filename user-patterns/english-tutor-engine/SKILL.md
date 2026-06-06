@@ -739,3 +739,21 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - 唯一可行：shell 变量 + curl：
   `BOT_TOKEN=$(grep TELEGRAM_BOT_TOKEN .env | cut -d= -f2) && curl ...`
 - Python 脚本中直接 import token 常量也会被截断，必须走 shell 变量路径
+
+### pitfall 14: chronicle_index 在 Telegram 预览器中链接全断（2026-06-06 已解决）
+- **现象**：chronicle_index.html 通过 MEDIA 标签发到 Telegram 后，打开文档预览器，所有 `<a href="skill_tree.html">` 相对链接全部 404——文件被孤立加载，无 HTTP 上下文
+- **解决方案**：HTTP 服务 + 公网隧道
+  1. `python3 -m http.server 8765`（在 state/ 目录下，background mode）
+  2. localhost.run SSH 隧道暴露：`ssh -R 80:localhost:8765 nokey@localhost.run > /tmp/tunnel_url.txt 2>&1`（background mode）
+  3. 发送公网 URL 给用户（如 `https://xxxx.lhr.life/chronicle_index.html`）
+  4. 所有页面在 HTTP 上下文中，链接可正常跳转，手机/桌面均可
+- **隧道输出提取**：localhost.run 输出在 Hermes process log 中可能全空白，必须重定向到文件后 `cat` 提取 URL
+- **持久化**：HTTP server + SSH tunnel 均在 background mode 运行。隧道断开后 URL 会变
+
+### pitfall 15: MEDIA 标签不工作 → env var 缺失（2026-06-06 已修复）
+- **现象**：`send_message` + `MEDIA:<path>` 静默失败，文件不送达
+- **根因**：`HERMES_MEDIA_ALLOW_DIRS` 未在 profile `.env` 中设置
+- **修复**：在 `/Users/mac/.hermes/profiles/english-tutor/.env` 添加：
+  `HERMES_MEDIA_ALLOW_DIRS=/Users/mac/.hermes/profiles/english-tutor/state,/tmp`
+- 修复后需 `hermes gateway restart` 生效
+- 验证：`send_message(action='send', message='MEDIA:<path>')` 返回 `"mirrored": true`

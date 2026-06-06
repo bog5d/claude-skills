@@ -53,6 +53,8 @@ grep -o 'https://[a-z0-9]*\.lhr\.life' /tmp/tunnel.log | tail -1
 
 **关闭：** `pkill -f "localhost.run"`
 
+**⚠️ 坑：SSH 输出在 Hermes process log 中可能全空白。** `process(action='log')` 返回的 output 字段全是空行，无法提取 `.lhr.life` URL。**已验证的绕过方案**：重定向到文件 `ssh ... > /tmp/tunnel_url.txt 2>&1`，等待 5 秒后用 `cat /tmp/tunnel_url.txt` 提取 URL。原因：localhost.run 的欢迎 banner + URL 可能经 SSH 的 PTY 分配逻辑处理后不在 stdout/stderr 的缓冲区中正常显示。
+
 ### 3. cloudflared（备选，需提前认证）
 
 ```bash
