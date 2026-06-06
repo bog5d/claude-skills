@@ -36,16 +36,33 @@ trigger:
 
 ## 游戏化引擎 V3（当前运行的 — 2026-05-30 升级）
 
-**新架构：**
+**新架构（2026-06-06 更新 — 含 Tier 1 战报系统）：**
 ```
-state/  (本地状态，非 GitHub)
-├── gamification.json        ← 段位/子段位/噩梦词/统计 (v2 schema)
-├── gamification_v2.py       ← 面板生成 + 晋升检测 + chronicle触发
-├── chronicle_generator.py   ← HTML英雄史书生成器
-└── chronicle_青铜II.html    ← 晋升时自动生成
+state/  (本地状态，gamification 经 GitHub 校准)
+├── gamification.json          ← 段位/子段位/噩梦词/统计（派生缓存，每次 quiz 后 update_after_session + recalibrate）
+├── gamification_v2.py         ← 面板生成 + 晋升检测 + chronicle触发 + recalibrate_from_github()
+├── chronicle_generator.py     ← HTML英雄史书（读 GitHub words.json，不读 /tmp/vocab/）
+├── chronicle_index_generator.py ← 勋章收藏室（含战报中心入口）
+├── nightmare_boss.py          ← 噩梦词BOSS局（读 GitHub words.json）
+├── timeline_generator.py      ← 进度时间线
+├── rank_config.json           ← 段位配置
+├── rank_timeline.json         ← 晋升时间线
+│
+├── weekly_report.py           ← Tier 1: Strava风格周战报 HTML
+├── weakness_share.py          ← Tier 1: 弱点雷达SVG + 战绩分享卡 HTML
+├── weekly_report.html         ← 生成的周战报
+├── weakness_radar.html        ← 生成的弱点雷达图
+├── share_card.html            ← 生成的战绩分享卡
+│
+└── chronicle_*.html           ← 晋升时自动生成的史诗页面
+
+scripts/
+├── health_monitor.py          ← 系统健康监控（读 GitHub，不读 gamification.json）
+├── daily_report.py            ← 学习日报（读 GitHub）
+└── fast_vocab_round.py        ← Phase 1 快速出题（GitHub 拉取后 /tmp/vocab 缓存 1h）
 
 skills/vocab-batch-challenge/
-├── SKILL.md                 ← 闯关主控技能
+├── SKILL.md                   ← 闯关主控技能
 └── references/
     ├── five-layer-explanations.md
     ├── gamification-output.md
@@ -210,6 +227,27 @@ print(json.dumps({"results":...,"events":...,"bars":...,"next_round_words":...},
 
 段位表（config.json.ranks）：
 青铜 → 白银(10%/30%) → 黄金(25%/45%) → 铂金(40%/55%) → 钻石(60%/70%) → 王者(80%/85%) → 考研战神(100%/90%)
+
+### 3.1 Tier 1 战报系统（2026-06-06 上线）
+
+对标全球顶尖游戏化学习产品（Strava/Duolingo/Khan Academy/Zwift），四项 HTML 战报：
+
+| 战报 | 对标 | 脚本 | 触发 |
+|------|------|------|------|
+| **周战报** | Strava Weekly Recap | `state/weekly_report.py` | 周日 health_monitor 自动生成 |
+| **连击火焰** | Duolingo Streak Freeze | `gamification_v2.py` gen_panel 内置 | 每次面板渲染自动显示 |
+| **弱点雷达** | Khan Academy Mastery | `state/weakness_share.py` | 周日自动 / 手动 `python3 weakness_share.py` |
+| **战绩分享卡** | Zwift Ride Summary | `state/weakness_share.py` | 同上 |
+
+**连击火焰等级**（gamification_v2.gen_panel 自动渲染）：
+- 0-2天：🔥
+- 3-6天：🔥🔥🔥
+- 7-13天：🔥🔥🔥🔥🔥⚡ ON FIRE
+- 14+天：🔥🔥🔥🔥🔥🔥🔥🌈 LEGENDARY
+
+**勋章收藏室入口**：`chronicle_index.html` 顶部新增「📊 战报中心」按钮区，链接周战报/弱点雷达/战绩分享卡。
+
+**数据源**：所有战报脚本**必须读 GitHub words.json**，不读本地 gamification.json 的 stats 字段。
 
 ### 4. 词根能力树
 
@@ -388,8 +426,9 @@ next_review = today + interval (答对) 或 today (答错)
 
 - `references/batch-quiz-template.md` — 6词冲刺包 execute_code 模板 + 交互协议 + 分类关键词表
 - `references/report-template.md` — 学习报告生成格式模板（用户批准的格式）
-- `references/report-code-template.py` — 工作版报告生成代码模板（2026-06-05 实战验证，已处理 mastery 刻度归一化、words.json 列表结构、history 重建等所有已知坑）
-- `scripts/engine.py` — 旧版 SQLite 引擎（已废弃，保留仅为向后兼容。实际使用 inline execute_code 模式）
+- `references/report-code-template.py` — 工作版报告生成代码模板（2026-06-05 实战验证）
+- `references/data-source-audit.md` — 2026-06-06 数据源审计：所有脚本的数据读取路径 + PAT 提取模式 + 死路径清单
+- `scripts/engine.py` — 旧版 SQLite 引擎（已废弃）
 
 ## ⚡ 性能铁律：单次调用流水线（2026-05-22 实战验证）
 
@@ -599,3 +638,25 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 ### pitfall 6: 错误日志（error_log）可能不完整
 - 旧 session 可能没有记录 error_type 字段
 - 当前 sessions.json.error_log 是主要错误记录源
+
+### pitfall 7: gamification.json 漂移（2026-06-06 真实事故 — 已修复）
+- **现象**：gamification.json 段位「白银·白银I」，但 words.json 真实数据只有「青铜II·49词覆盖率3.7%」。stats.total_correct=15 但 GitHub 真实值=55。
+- **根因**：`update_after_session()` 做加法累积，但基础数据从 `update_after_session()` 的局部输入计算，而非从 words.json 全量重建。多次局部更新后漂移累积。
+- **修复**：`gamification_v2.recalibrate_from_github()` — 从 GitHub words.json 全量重建 stats/streak/rank/nightmare_words。漂移时自动检测并修正。
+- **预防铁律**：
+  1. `health_monitor.py`、`daily_report.py`、所有 cron 脚本**必须读 GitHub words.json**，不读 gamification.json 的 stats/rank/streak
+  2. `chronicle_generator.py`、`nightmare_boss.py` 已改为从 GitHub API 读取 words.json（不再读 `/tmp/vocab/` 过期副本）
+  3. gamification.json 降级为**纯展示缓存**，仅 `gamification_v2.gen_panel()` 使用
+  4. 每个 quiz session 结束时调用 `gamification_v2.recalibrate_from_github()` 做完整性校验
+- **调用方式**：
+```python
+from gamification_v2 import recalibrate_from_github
+g, was_fixed = recalibrate_from_github()
+# was_fixed=True 表示 gamification.json 之前有漂移，已修复
+```
+
+### pitfall 8: `/tmp/vocab/` 过期本地副本（2026-06-06 已清理）
+- `chronicle_generator.py` 曾从 `/tmp/vocab/words.json` 和 `/tmp/vocab/progress.json` 读取——这些是旧版脚本写入的本地副本，不会自动更新
+- `nightmare_boss.py` 曾从 `/tmp/vocab/words.json` 读取
+- **已修复**：两者现均从 GitHub API 实时读取
+- **例外**：`bin/fast_vocab_round.py` 使用 `/tmp/vocab/words.json` 作为 1 小时缓存（从 GitHub 拉取后暂存），这是性能优化，可接受

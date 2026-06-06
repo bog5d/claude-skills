@@ -90,6 +90,23 @@ cron job：每天 9:00 发送日报。包含快照/进度环/今日单词/Boss�
 - 掌握 ▏█████░░░░░░░░░░░░░░░▏25.0%
 - 晋段 ▏███████████░░░░░░░░░▏52.4% → 白银
 
+## 连击火焰系统（2026-06-06 上线）
+
+`gamification_v2.gen_panel()` 内置，对标 Duolingo Streak Freeze：
+- 0-2天：🔥
+- 3-6天：🔥🔥🔥
+- 7-13天：🔥🔥🔥🔥🔥⚡ ON FIRE
+- 14+天：🔥🔥🔥🔥🔥🔥🔥🌈 LEGENDARY
+
+## Tier 1 战报系统
+
+勋章收藏室 (`chronicle_index.html`) 顶部新增「📊 战报中心」：
+- 📊 周战报 → `state/weekly_report.html`（Strava Weekly Recap 风格）
+- 🎯 弱点雷达 → `state/weakness_radar.html`（Khan Academy Mastery 风格 SVG）
+- 📸 战绩分享卡 → `state/share_card.html`（Zwift Ride Summary 风格）
+
+生成器：`state/weekly_report.py` + `state/weakness_share.py`。周日 health_monitor 自动触发。
+
 ## 常见坑
 
 1. **子里程碑洪水**：首次启动时从 step(3) 到 max_word(30) 的循环会触发所有跨越过的阈值。修复方案：启动时只保留最高值，后续逐级触发。
