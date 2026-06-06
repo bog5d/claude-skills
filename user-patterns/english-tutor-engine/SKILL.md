@@ -83,27 +83,45 @@ skills/vocab-batch-challenge/
 - 下一章预览（解锁条件清单）
 - 随机章节挑战
 
-**闯关流程：**
+**闯关流程（2026-06-06 升级为统一流水线）：**
 ```
-你答N词 → execute_code(单次调用):
-          1. GitHub API pull: words.json + progress.json + sessions.json
-          2. SM-2更新（每题）
-          3. 统计 + 子段位进度计算
-          4. 段位晋升检测 → 自动生成 chronicle HTML
-          5. gamification_v2 panel 生成
-          6. GitHub push: words.json + progress.json
-          7. 结果输出 → Hermes渲染
+Phase 1: fast_vocab_round.py → 出题（选27词，拆6/9/12三轮）
+         ↓
+Phase 2: session_pipeline.py → 一次性完成全部处理
+         ├── 判分（27词 keyword 表内置）
+         ├── SM-2 更新 + GitHub push
+         ├── 5层讲解（27词全库内置，不论对错全出）
+         ├── gamification_v2 更新 + 面板
+         ├── 段位晋升检测 → chronicle 生成 + cp至cache + 索引更新
+         └── Escalating 状态管理（轮次推进/结束清理）
+         ↓
+LLM 只需：terminal 调用 → relay 输出 → 不再手写 execute_code
 ```
 
-关键设计原则：
-- **单次往返**：全部逻辑在 1 次 execute_code 内完成
+**关键设计原则：**
+- **单次调用**：Phase 2 全部逻辑在 1 次 `terminal()` 或 `execute_code()` 内完成
+- **session_pipeline.py** 是游戏规则统一基座——判分/讲解/推送全部固化，不存在「LLM忘了」
 - **gamification_v2** 统一管理段位/子段位/噩梦词/面板
-- **Chronicle 稀缺性**：只在段位晋升时生成（每 3-5 天一次）
-- **GitHub是单一事实源**：words.json + progress.json 每次 push
+- **Chronicle** 从 `words.json` 的 `history[]` 数组重建战役记录（非 `progress.json` 旧格式）
+- **Chronicle 投递**：自动 `cp` 至 `~/.hermes/cache/documents/` + 更新索引
+- **GitHub是单一事实源**：words.json 每次 push，所有脚本从它读取
 
-## 完整闯关引擎模板（可复用到每次答题）
+### Phase 2 调用方式（LLM 标准操作）
 
-每次用户答完 2 词后，使用以下结构执行，在 1 次 `execute_code` 内完成全部处理：
+```bash
+python3 /Users/mac/.hermes/profiles/english-tutor/state/session_pipeline.py <round_number> '<json_answers>'
+```
+
+输出 JSON 含 `_formatted` 字段（Telegram-ready markdown），LLM 直接 relay。JSON 还含 `chronicle_cache_path`、`index_cache_path`、`ranked_up` 等标志，LLM 据此决定是否发送 MEDIA 文件。
+
+## 完整闯关引擎模板（已废弃 — 使用 session_pipeline.py 代替）
+
+> ⚠️ **以下模板已废弃**（2026-06-06）。当前标准流程：`bin/fast_vocab_round.py`（Phase 1 出题）+ `state/session_pipeline.py`（Phase 2 判分/SM-2/讲解/推送）。
+> **严禁手写 execute_code 做判分/SM-2/五层讲解**——这些逻辑已固化到 session_pipeline.py 的 ANSWER_KEYWORDS 和 FIVE_LAYER 字典中。
+> 仅在 session_pipeline.py 故障时作为 fallback。详见 `references/session-pipeline-architecture.md`。
+
+<details>
+<summary>Legacy execute_code 模板（点击展开，仅作参考）</summary>
 
 ```python
 # === 核心模板：单次调用闯关引擎 ===
@@ -168,6 +186,16 @@ push("words.json", wd, ws, "msg"); push("progress.json", pd, psha, "msg"); push(
 # 6. 输出结构化结果给 Hermes 渲染
 print(json.dumps({"results":...,"events":...,"bars":...,"next_round_words":...}, ensure_ascii=False))
 ```
+
+</details>
+
+---
+
+## 📐 架构文档
+
+完整系统架构：见 `state/ARCHITECTURE.md`（架构师白皮书）+ `state/PRODUCT_VISION.md`（产品愿景）。两份文档覆盖：数据基座、流水线设计、游戏规则表、维护指南、竞品定位、Tier 路线图。
+
+新 AI 接手只需：读 ARCHITECTURE.md → `fast_vocab_round.py` → `session_pipeline.py` → 跑通一条流水线。
 
 ## 六件事（按出现频率）
 
@@ -427,6 +455,7 @@ next_review = today + interval (答对) 或 today (答错)
 - `references/batch-quiz-template.md` — 6词冲刺包 execute_code 模板 + 交互协议 + 分类关键词表
 - `references/report-template.md` — 学习报告生成格式模板（用户批准的格式）
 - `references/report-code-template.py` — 工作版报告生成代码模板（2026-06-05 实战验证）
+- `references/session-pipeline-architecture.md` — 统一答题流水线架构：Phase 1/2 分离 + LLM 最小化角色 + 新词维护指南
 - `references/data-source-audit.md` — 2026-06-06 数据源审计：所有脚本的数据读取路径 + PAT 提取模式 + 死路径清单
 - `scripts/engine.py` — 旧版 SQLite 引擎（已废弃）
 
@@ -653,22 +682,16 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 
 ### pitfall 9: gamification.json 漂移（2026-06-06 真实事故 — 已修复）
 - **现象**：gamification.json 段位「白银·白银I」，但 words.json 真实数据只有「青铜II·49词覆盖率3.7%」。stats.total_correct=15 但 GitHub 真实值=55。
-- **根因**：`update_after_session()` 做加法累积，但基础数据从 `update_after_session()` 的局部输入计算，而非从 words.json 全量重建。多次局部更新后漂移累积。
-- **修复**：`gamification_v2.recalibrate_from_github()` — 从 GitHub words.json 全量重建 stats/streak/rank/nightmare_words。漂移时自动检测并修正。
-- **预防铁律**：
-  1. `health_monitor.py`、`daily_report.py`、所有 cron 脚本**必须读 GitHub words.json**，不读 gamification.json 的 stats/rank/streak
-  2. `chronicle_generator.py`、`nightmare_boss.py` 已改为从 GitHub API 读取 words.json（不再读 `/tmp/vocab/` 过期副本）
-  3. gamification.json 降级为**纯展示缓存**，仅 `gamification_v2.gen_panel()` 使用
-  4. 每个 quiz session 结束时调用 `gamification_v2.recalibrate_from_github()` 做完整性校验
-- **调用方式**：
-```python
-from gamification_v2 import recalibrate_from_github
-g, was_fixed = recalibrate_from_github()
-# was_fixed=True 表示 gamification.json 之前有漂移，已修复
-```
+- **根因**：`update_after_session()` 做加法累积，但基础数据从局部输入计算，非从 words.json 全量重建。多次局部更新后漂移累积。
+- **修复**：`gamification_v2.recalibrate_from_github()` — 从 GitHub words.json 全量重建 stats/streak/rank/nightmare_words。
+- **预防铁律**：所有脚本/cron/报告读 GitHub words.json，不信任 gamification.json 的 stats/rank/streak。gamification.json 降级为纯展示缓存。
 
-### pitfall 8: `/tmp/vocab/` 过期本地副本（2026-06-06 已清理）
-- `chronicle_generator.py` 曾从 `/tmp/vocab/words.json` 和 `/tmp/vocab/progress.json` 读取——这些是旧版脚本写入的本地副本，不会自动更新
-- `nightmare_boss.py` 曾从 `/tmp/vocab/words.json` 读取
-- **已修复**：两者现均从 GitHub API 实时读取
-- **例外**：`bin/fast_vocab_round.py` 使用 `/tmp/vocab/words.json` 作为 1 小时缓存（从 GitHub 拉取后暂存），这是性能优化，可接受
+### pitfall 10: chronicle 战役记录来源错误（2026-06-06 已修复）
+- **现象**：两份 chronicle HTML 数据互相矛盾——一份显示「102词交锋 81正确 白银I」，另一份显示完全不同的数字
+- **根因**：`chronicle_generator.build_timeline_events()` 从 `progress.json.history` 读取（旧格式摘要 `{word, last_review, mastery}`），而非从 `words.json[word].history[]` 读取（逐次逐笔完整记录）
+- **修复**：`build_timeline_events()` 改为遍历 `words.json.get('words',[])` 中每词的 `history[]` 数组，提取 `{ts, result, mastery_after, user_response}` 重建精确战役记录
+- **附加修复**：`rank_timeline.json` 中清理了 recalibration 前 gamification 误写的虚假「白银I」晋升条目，仅保留真实晋升路径
+
+### pitfall 11: 全对轮次漏出五层讲解（2026-06-06 用户纠正）
+- **错误做法**：Round 全对时只给「重点词速讲」→ 用户反馈「没有解读，没法学习新词」
+- **正确做法**：无论对错，每词都输出完整 5 层。session_pipeline.py 已固化此规则

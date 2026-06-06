@@ -7,15 +7,16 @@ description: 波总 Vocab Tracker 完整游戏化引擎 — 闯关循环、进�
 
 ## 核心约束（从用户反馈中提取）
 
-- **响应速度铁律**：全部数据操作（SM-2 + GitHub push + 下一轮词预取 + 讲解预生成）必须在 1 次 execute_code 内完成。首次启动有约 15-20 秒的 fetch+update 延迟是不可避免的，但之后的每轮操作只需 ~5 秒。不能在多轮 tool call 之间等待。
-- **判分结论显性化**：判分结果放在最后并用分隔线焊死，不能被 5 层讲解淹没。用户明确抱怨过"记忆断层"——答完找不到对错结论。
-- **每词必出完整 5 层讲解**：词根拆解+演化链+视觉锚点+原卡背景+考研锚，答对答错都出。
+- **响应速度铁律**：全部数据操作（SM-2 + GitHub push + 下轮词预取 + 讲解预生成）必须在 1 次 `terminal()` 调用内完成。**当前标准路径**：`session_pipeline.py` 一次性处理判分→SM-2→五层→gamification→push。LLM 不再手写 execute_code。
+- **判分结论显性化**：判分结果放在最前面并用分隔线焊死，不能被 5 层讲解淹没。
+- **每词必出完整 5 层讲解**：词根拆解+演化链+视觉锚点+原卡背景+考研锚，答对答错都出。session_pipeline.py 的 FIVE_LAYER 字典已内置 27 词全库。
 
 ## 架构
 
 ```
-用户答2词 → execute_code（SM-2 + 进度统计 + 里程碑/Boss/道具/段位检测 + GitHub push + 下轮预加载）
-         → 我展示结果（判分 + 5层讲解 + 进度环 + 事件 + 下一轮词）
+用户答完 → terminal: session_pipeline.py <round> '<answers>'
+         → 脚本输出 JSON（含 _formatted 字段）
+         → LLM relay 输出 + MEDIA 投递（如有 chronicle）
 ```
 
 ## config.json 新增模块
