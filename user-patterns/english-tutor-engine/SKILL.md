@@ -457,6 +457,7 @@ next_review = today + interval (答对) 或 today (答错)
 - `references/report-code-template.py` — 工作版报告生成代码模板（2026-06-05 实战验证）
 - `references/session-pipeline-architecture.md` — 统一答题流水线架构：Phase 1/2 分离 + LLM 最小化角色 + 新词维护指南
 - `references/data-source-audit.md` — 2026-06-06 数据源审计：所有脚本的数据读取路径 + PAT 提取模式 + 死路径清单
+- `references/cursor-acp-integration.md` — Cursor CLI ACP 桥接：delegate_task 调用方式 + Aider 备选 + 三线开发路由对比
 - `scripts/engine.py` — 旧版 SQLite 引擎（已废弃）
 
 ## ⚡ 性能铁律：单次调用流水线（2026-05-22 实战验证）

@@ -1,6 +1,6 @@
 ---
 name: cursor-default-executor
-description: 铁律——代码编写/修改/审查任务默认使用 Cursor CLI 作为执行后端，Hermes 原生仅作降级备用。
+description: 铁律——代码编写/修改/审查任务默认使用 Cursor CLI 作为执行后端，Hermes 原生仅作降级备用。强制视觉区分 + 模型优先。
 category: autonomous-ai-agents
 trigger: auto-load on session start, any code-related task
 priority: critical
@@ -14,15 +14,44 @@ load_on_startup: true
 **任何涉及代码编写、修改、审查、调试、重构的任务，默认使用 Cursor CLI 执行。**
 Hermes 原生子 agent 仅作为 Cursor 不可用时的降级备用方案。
 
-## 为什么
+## 🎯 视觉区分铁律（波总必须一眼看出谁在执行）
 
-Cursor Agent 在代码生成、跨文件重构、长链工具调用方面实测优于 Hermes 原生子 agent：
-- 完整的 hooks 系统、MCP 中继、subagent 级联
-- gRPC 直连 Cursor 后端，模型专为代码优化
-- 实测中代码审查报告 33KB 深度分析，原生子 agent 在此类任务上表现较弱
+**每次调用 Cursor 执行任务时，必须在输出中明确标注：**
 
-**Hermes 的角色 = 调度指挥官，Cursor 的角色 = 一线突击队。**
-各司其职，不要越界。
+### Hermes → 调度阶段：
+```
+🔴 [Cursor 执行中] delegating to cursor-agent...
+```
+
+### Cursor 返回结果后：
+```
+🔴 [Cursor 输出] — 以下内容由 Cursor Agent 生成
+---
+(cursor 的实际输出)
+---
+🔴 [Cursor 完成] — 耗时 Xs, token: X
+```
+
+### Hermes 原生降级时：
+```
+🟢 [Hermes 原生] Cursor 不可用，降级本地执行
+---
+(hermes 的实际输出)
+---
+```
+
+**绝对禁止：** Cursor 的输出和 Hermes 的输出混在一起不加区分。用户必须能一眼分辨。
+
+## 🤖 模型优先级
+
+Cursor Pro 用户自动享有以下模型优先级（服务端控制）：
+1. **Claude Opus 4** — 复杂代码重构、架构设计
+2. **Claude Sonnet 4** — 日常编码、代码审查
+3. **GPT-4 / Gemini** — 备选
+4. **Cursor 默认模型** — 仅当前三者不可用时降级
+
+> Cursor ACP 模式下，模型由后端智能路由自动选择，Pro 用户天然优先走最好的模型。
+> 无需手动传 `--model` 参数（ACP 协议不支持此 flag）。
 
 ## 路由规则（自动判定，无需用户指定）
 
