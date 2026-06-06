@@ -8,6 +8,8 @@ category: creative
 
 Convert structured HTML content (slides, articles, infographics) into narrated MP4 video. One-shot or batch production.
 
+> **💡 推荐配合 `taste-anti-slop` 使用。** 先加载 taste-anti-slop 做设计判读+反模板过滤，再进入 html-to-video 管线。顺序：`taste-anti-slop` → `html-to-video`。
+
 ## Architecture (the "director's cut")
 
 ```
