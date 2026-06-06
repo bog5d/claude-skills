@@ -154,7 +154,7 @@ done
      sleep 10 && launchctl list | grep <service>
      tail -3 <profile>/logs/gateway.error.log  # 不应有新错误
      ```
-- 关键原则：**永远从另一个 profile 的 gateway（或 launchctl 层面）来停掉问题 gateway，不要让 gateway 自己停自己**
+- 关键原则：**永远从另一个 profile 的 gateway（或 launchctl 层面）来停掉问题 gateway，不要让 gateway 自己停自己**。完整交叉重启策略见 `references/cross-gateway-restart.md`。
 
 **模式H：launchctl list exit code 误判 — 以为 gateway 挂了其实活着**
 - 症状：`launchctl list` 显示某个服务的 exit code 为 -9/1/75，诊断者据此判断"gateway 死了"，但实际 ps 显示进程在正常运行

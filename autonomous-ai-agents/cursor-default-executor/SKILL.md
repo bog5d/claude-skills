@@ -53,7 +53,22 @@ Cursor Pro 用户自动享有以下模型优先级（服务端控制）：
 > Cursor ACP 模式下，模型由后端智能路由自动选择，Pro 用户天然优先走最好的模型。
 > 无需手动传 `--model` 参数（ACP 协议不支持此 flag）。
 
-## 路由规则（自动判定，无需用户指定）
+## 🔴 执行引擎优先级链（两档，铁律）
+
+```
+1. Cursor (Claude Opus)  ── 默认，所有代码任务
+   ↓ 不可用时
+2. Hermes 原生 (DeepSeek) ── 降级备用
+   ↓ 特定场景手动指定
+3. Aider (DeepSeek)  ── 仅超大repo重构需repo-map索引时，手动调用
+```
+
+**Aider 不作为自动降级层。** 原因：Aider 底层也是 DeepSeek，与 Hermes 原生同模型，但工具链更窄（只有代码编辑），且多一层桥接开销。仅在需要 repo-map 索引的特定场景手动调用。
+
+Aider 调用方式（手动）：
+```bash
+python3 ~/aider_workspace/bridge_cmd.py "任务描述" --cwd /path/to/project
+```
 
 ### 走 Cursor 的任务（`acp_command="cursor-agent"`）
 以下任意条件满足即走 Cursor：

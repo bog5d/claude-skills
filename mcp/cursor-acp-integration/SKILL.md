@@ -138,6 +138,14 @@ Cursor Backend (gRPC)
 | `think` | askQuestion, reflect |
 | `other` | mcp, updateTodos, createPlan, task, truncate, generateImage, reportBugfixResults |
 
+## Caller Obligations (Hermes-side rules)
+
+When delegating to Cursor via ACP, the calling agent MUST:
+
+1. **Visual differentiation** — prefix cursor output with `🔴 [Cursor 执行中]` / `🔴 [Cursor 输出]` / `🔴 [Cursor 完成]`. When falling back to native, prefix with `🟢 [Hermes 原生]`.
+2. **Model priority** — Cursor Pro users auto-get Claude Opus → Sonnet → GPT-4 → default via server-side smart routing. No manual `--model` flag needed (ACP doesn't support it).
+3. **Graceful degradation** — if Cursor ACP fails 3 times, fall back to Hermes native subagent and annotate `⚠️ 已降级为 Hermes 原生执行`.
+
 ## Integration with Hermes
 
 ### Using ACP Subagent Transport
