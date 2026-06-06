@@ -221,7 +221,7 @@ done
   4. 等待下一个 defibrillator 巡检周期（10秒），确认不再报"离线"
 - 关键区分：**进程存活 ≠ defibrillator 认为存活**。当收到"Gateway X 自动复活 ❌"消息时，先检查该 gateway 的平台连接日志，不要直接假设进程挂了。
 
-**模式R：Launchd 崩溃节流 — KeepAlive=true 也不自动重启**
+### 模式R：Launchd 崩溃节流 — KeepAlive=true 也不自动重启
 
 - 症状：gateway/service 的 plist 有 `KeepAlive => true`，进程崩溃后 launchd **没有**自动重启。`launchctl list` 显示 PID 列为 `-`，exit code 非零。服务消失。
 - 根因：macOS launchd 有内置的**崩溃节流机制**（throttle interval）。如果进程在短时间内反复崩溃（通常 10 秒内 3 次以上），launchd 会暂停自动重启，防止无限 CPU 消耗。`KeepAlive => true` 和 `SuccessfulExit: false` 都无法绕过此限制。
@@ -265,6 +265,50 @@ done
   1. system-watchdog 加 FD 监控：任何 gateway fd > 2000 时告警 + 自动 kickstart
   2. defibrillator 的 launchd plist 加 `TimeOut => 30` + `ExitTimeOut => 5` 防止资源争抢时被杀
   3. 定期 cron：每 24h 检查所有 gateway fd 数，接近 2000 自动重启
+
+**模式T：MCP stdio 冻结 — Gateway 进程存活但 0% CPU + 完全无响应**
+
+- 症状：gateway 进程 PID 可见、`kill -0 <PID>` 返回成功，但 `ps -p <PID> -o %cpu` 显示 0.0%。所有日志停止输出（包括 kanban tick、cron 等周期性日志）。Telegram 完全不响应。持续时间无限——除非外部 kill，否则永远不会恢复。
+- 根因：Hermes 的 MCP 实现走 stdio 传输。当 MCP server 子进程（如 `headroom mcp serve`）内部阻塞时，stdin/stdout 管道阻塞 → gateway asyncio 事件循环冻结 → CPU 降为 0。常见触发：MCP server 尝试连接外部 HTTP 服务超时，或 MCP server 内部死锁。
+- 验证：
+  ```bash
+  # 1. 确认冻结
+  ps -p <PID> -o pid,state,%cpu,etime
+  # STATE=S, %CPU=0.0, 日志 60s+ 无输出 → 已冻结
+
+  # 2. 找肇事 MCP 子进程
+  ps aux | grep 'headroom mcp serve\|mcp.*serve'
+  # 每个 gateway 可能各 spawn 一个
+
+  # 3. 看 MCP stderr 日志
+  cat <profile>/logs/mcp-stderr.log
+  # 注意是否有 "Processing request of type ListToolsRequest" 后无后续
+  # ——说明 MCP server 在工具列表查询时就卡住了
+  ```
+- 修复：
+  1. **确认冻结根因是 MCP**：`ps aux | grep 'headroom mcp serve'` 看到对应 gateway 的僵尸进程
+  2. **移除 MCP 配置**（因 config.yaml 受保护，需用 venv python 直接编辑）：
+     ```bash
+     /Users/mac/.hermes/hermes-agent/venv/bin/python3 -c "
+     import yaml
+     for path in ['/Users/mac/.hermes/profiles/her-m2/config.yaml',
+                  '/Users/mac/.hermes/config.yaml',
+                  '/Users/mac/.hermes/profiles/english-tutor/config.yaml']:
+         with open(path) as f:
+             cfg = yaml.safe_load(f)
+         cfg['mcp_servers'].pop('headroom', None)
+         with open(path, 'w') as f:
+             yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+     "
+     ```
+  3. **杀僵尸 MCP 进程 + 卡死的 gateway**：
+     ```bash
+     kill -9 <mcp_PID> <gateway_PID>
+     launchctl kickstart -k gui/501/<service>
+     ```
+  4. **验证恢复**：新 gateway PID 应有正常 CPU（>0.3%），日志正常滚动
+- 预防：**不要在 Hermes 的 MCP 配置中使用 stdio 传输的 MCP server。** 尤其 `headroom mcp serve` 已知会触发此问题。如需使用 headroom，用 proxy 模式（HTTP 端口 8787）配合 `ANTHROPIC_BASE_URL` 环境变量，而非 MCP 工具。
+- 适用范围：此问题不仅限于 headroom。任何走 stdio 的 MCP server 如果内部有阻塞 I/O，都可能在 Hermes 下触发。经验法则：**给 Hermes 配的 MCP server 必须是纯计算/无阻塞的，任何含网络 I/O 的 MCP server 都改用 HTTP 接入。**
 
 - 症状：gateway 日志反复出现 `WARNING gateway.platforms.telegram: [Telegram] Telegram polling conflict (1/5) — previous session still held open on Telegram's servers`。bot 完全不响应消息。两个 gateway 交替抢到 polling session，"resumed after conflict" 和 "polling conflict" 交替出现
 - 根因：两个（或更多）gateway 实例使用了同一个 TELEGRAM_BOT_TOKEN。Telegram 的 getUpdates 是排他性的——同一 token 只能有一个活跃 polling session。当 profile A 的 gateway 持有 session 时，profile B 的 gateway 尝试连接就被踢，然后 B 重试抢回 session 又把 A 踢掉，形成永动冲突
