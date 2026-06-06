@@ -235,6 +235,8 @@ kill $(pgrep -f defibrillator_v2.py)
 
 4. **Skills sync 不覆盖新 profile** — 同步脚本需要显式添加新 SRC，不会自动发现。
 
+5. **api_server 端口冲突** — 新 profile 默认 platform `api_server.enabled: true`，端口 `8642`。如果其他 gateway 已占用此端口（如 default），会导致持续重连错误。设置 `enabled: false` **不阻止初始化**（gateway 仍会尝试连接并报错）。临时方案：直接删除或注释 platforms 下整个 `api_server:` 块。长期方案：改为不同端口或从模板中禁用。
+
 ## 参考
 
 - `references/dm-authorization-mechanism.md` — Hermes DM 授权环境变量链详解
