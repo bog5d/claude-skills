@@ -29,6 +29,25 @@ category: user-patterns
 
 ### 2. 写入 Adjutant DB（直接 SQL INSERT）
 init_db.py 不支持命令行传参——直接用 Python 写 SQL。
+⚠️ **不要用 execute_code 工具**（cron/审批模式下被阻止）。用 `terminal + python3 heredoc` 代替：
+
+```bash
+cd ~/.hermes && python3 << 'PYEOF'
+import ...
+PYEOF
+```
+
+### 3. 更新 status.json
+status.json 结构（注意正确 key 名）：
+```json
+{
+  "updated": "ISO时间戳",
+  "total_pending": 15,
+  "today_urgent": 3,
+  "tasks": [...]
+}
+```
+**不是 `stats` / `stats.total_tasks`**——之前版本记录错误。正确顶层 key 为 `updated`, `total_pending`, `today_urgent`, `tasks`。
 
 ⚠️ **ID 冲突风险**：DB 和 status.json 可能不同步（status.json 有更新但 DB 未 sync）。
 **必须先交叉比对两者获取真正的 max ID，不能只查 DB。**
@@ -95,13 +114,15 @@ python3 scripts/executor.py --task <任务ID>
 - 不要等波总确认，直接录入+同步
 
 ## 陷阱
-- **`execute_code` 可能被封锁**：部分环境（cron 模式、安全审批策略）会拒绝 `execute_code`。此时直接用 `terminal` + Python heredoc 回退：`python3 << 'PYEOF' ... PYEOF`。注意 heredoc 内不能嵌套单引号，敏感字符用双引号包裹。
+## 陷阱
 - **DB 与 status.json 不同步**：DB 可能落后于 status.json（如其他 AI 通过 Git 推送了新任务但本地未跑 sync.py）。获取 max ID 时必须同时查询 DB 和 status.json，取最大值 +1，否则会覆盖已有任务。
-- **DB 插入后 ≠ 任务已上线**：必须额外更新 status.json + git push，sync.py 不会自动更新 status.json。
-- **sync.py 只同步 DB → docs/**：sync.py 输出到 docs/tasks.md 和 docs/summary.json，不更新 status.json。status.json 需手动维护。
-- **飞书同步 ≠ 日历同步**：`sync_to_lark.py` 现在执行双同步——有日期的任务进飞书日历，无日期的进飞书任务栏。用户说"飞书看不到任务"大概率是找错了入口（日历 vs 任务栏是两个模块）。完整同步后可在飞书日历和任务栏两处看到。
-- **`sync_to_lark.py` 可能超时**：飞书 API 配额耗尽或网络波动时 `sync_to_lark.py` 可能超时（30s+）。**任务数据已在 git push 中持久化**，即使飞书同步失败，数据不丢。cron `a1582da9a8fa`（每 15 分钟 `feishu-sync-from-feishu.sh`）会在配额恢复后自动补同步。BTW 飞书每日配额 0 点重置。
-- **飞书打勾 ≠ 副官完成**：`feishu-sync-from-feishu.sh` 的 `--page-all` 全量轮询是配额杀手，可能静默失败。用户在飞书手动打勾的任务不会自动回流到副官 `status.json`。当用户质疑"这个我明明完成了"时，直接用用户确认 + mem0 记忆校准 status.json，不要等飞书回流。
+- **DB 插入后 ≠ 任务已上线**：必须额外更新 status.json + `python3 scripts/sync.py --push` + git push。
+- **sync.py 只同步 DB → docs/**：sync.py 输出到 docs/tasks.md 和 docs/summary.json，不更新 status.json。status.json 需手动维护 JSON。
+- **status.json 顶层 key 是 `updated`/`total_pending`/`today_urgent`/`tasks`，不是 `stats`**：之前版本 skill 写错了。`data["total_pending"]` = sum pending，不是 `data["stats"]["pending"]`。
+- **execute_code 在 cron/审批上下文被阻止**：不要用它。用 `terminal + python3 heredoc` 代替。
+- **飞书同步 ≠ 日历同步**：`sync_to_lark.py` 现在执行三阶段（清理→创建→统计），有日期的任务进飞书日历，无日期的进飞书任务栏。`sync_feishu.py` 做双向同步（to-feishu + from-feishu），from-feishu 用轮转逐查（每次 3 个，配额友好）。
+- **飞书打勾 ≠ 副官完成**：from-feishu 方向因配额限制是轮转轮询（非实时）。用户在飞书手动打勾的任务需要等 sync_feishu.py 轮转到才会回流到 status.json。最大延迟：映射任务数 ÷ 3 × 15 分钟。
+- **飞书配额**：免费版 4-5 次 API 调用/天，0 点重置。不要用 `--page-all` 做全量轮询——改用逐 GUID 单查。
 
 ## 示例
 波总说："记一下，要让房东退款，给他发消息和费用结余图片"

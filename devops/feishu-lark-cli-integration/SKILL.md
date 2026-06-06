@@ -564,14 +564,27 @@ lark-cli base +table-delete ... --yes     # 不加 --yes 会报 "requires confir
 - 无时间或纯行动项 → 飞书任务（Todo 待办清单，可打勾）
 - 有 `deadline` 的任务 → 任务附件截止日期 (`--due date:YYYY-MM-DD`)
 
-**技术细节：**
+**同步三阶段（v2，2026-06-06 升级）：**
+
+阶段一：🧹 清理已完成/已取消（新增）
+- completed/cancelled 且在映射中的任务 → 主动在飞书清理
+- 日历事件（GUID 带 `_0` 后缀）→ `lark-cli calendar events delete` + 移出映射
+- 飞书任务（纯 GUID）→ `lark-cli task +complete --task-id <guid>`
+
+阶段二：创建新任务（原有逻辑）
 - 读取 status.json → 筛选未完成 → 分类为 `calendar_tasks` 和 `task_items`
 - 日历事件：`lark-cli calendar events create`，使用 `uuid.uuid5(NAMESPACE_DNS, "adjutant-cal-{task_id}-{date}")` 作 idempotency_key
 - 任务待办：`lark-cli task +create`，使用 `uuid.uuid5(NAMESPACE_DNS, "adjutant-task-{task_id}")` 作 `--idempotency-key`
+
+阶段三：输出统计
 - 支持 `--dry-run` 预览模式
 - 按 priority 自动分配颜色：🔴critical 🟠high 🔵medium 灰色low
-- 过去日期/已完成/cancelled 的任务自动跳过
-- 运行后输出日历和任务各自的创建/跳过/失败统计
+- 运行后输出清理/日历/任务各自的创建/跳过/失败统计
+
+**技术细节：**
+- 日历事件删除语法：`lark-cli calendar events delete --params '{"calendar_id":"<cal_id>","event_id":"<event_id>"}'`
+- 已完成任务标记：`lark-cli task +complete --task-id <guid>`（不需要 --tasklist-id）
+- 映射文件中的 GUID 区分：带 `_0` 后缀 = 日历事件，纯 UUID = 飞书任务
 
 **⚠️ 去重机制（铁律）：飞书 API 幂等 key 不可靠，本地映射才是真正防线**
 

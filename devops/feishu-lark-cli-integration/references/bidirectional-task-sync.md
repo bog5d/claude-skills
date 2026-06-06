@@ -1,17 +1,19 @@
 # 飞书任务 ↔ 副官系统 双向同步
 
-## 架构
+## 架构 (v2, 2026-06-06 升级)
 
 ```
 波总口述 "完成了" 
   → Hermes 更新 status.json (completed) + git push
-  → perception.py 感知到 completed_tasks 
-  → sync_feishu.py --direction to-feishu 
-  → lark-cli task +complete → 飞书打勾 ✅
+  → sync_to_lark.py 阶段一：🧹 cleanup_completed()
+    - 日历事件 → lark-cli calendar events delete（映射移除）
+    - 飞书任务 → lark-cli task +complete（映射保留）
+  → sync_feishu.py --direction to-feishu（逐任务确认）
 
 波总飞书打勾 
-  → cron 每5分钟 
+  → cron 每15分钟 
   → sync_feishu.py --direction from-feishu 
+  → 轮转逐查（每次3个，配额友好）
   → 检测飞书 completed_at 
   → 更新 status.json + git push 
   → 副官已同步 ✅
@@ -21,10 +23,11 @@
 
 | 文件 | 用途 |
 |------|------|
-| `scripts/sync_feishu.py` | 双向同步引擎 |
+| `scripts/sync_to_lark.py` | Hermes→飞书单向同步（创建+清理），新增 cleanup_completed() |
+| `scripts/sync_feishu.py` | 双向同步引擎（逐任务查询，配额友好） |
 | `feishu_task_mapping.json` | 副官 T0XX ↔ 飞书 GUID 映射 |
-| `scripts/perception.py` | 检测到 completed_tasks 时触发 to-feishu 同步 |
-| cron job `a1582da9a8fa` | 每5分钟跑 from-feishu 方向 |
+| `.feishu_checkpoint.json` | from-feishu 轮转检查点（新增） |
+| cron job `a1582da9a8fa` | 每15分钟跑 sync_feishu.py --direction both |
 
 ## 映射表格式
 
@@ -73,28 +76,43 @@ done
 
 `lark-cli task +search` 用 `--query`（关键词搜索）、`--completed`（筛选已完成）、`--page-all`（全量分页），**不支持** `--data` flag（会报 `unknown flag: --data`）。
 
-## 关键 Pitfall：--page-all 配额消耗（2026-06 已验证）
+## 关键 Pitfall：--page-all 配额消耗（2026-06 已验证）→ 已修复
 
-`sync_feishu.py` 的 `sync_from_feishu()` 调用 `get_all_completed_tasks()` → `lark-cli task +search --completed --page-all`，每次翻页消耗 1 次 API 配额。飞书免费版 Base/文档/任务配额共享池，4-5 次长文即耗尽。当配额耗尽时：
+`sync_feishu.py` 旧版 `sync_from_feishu()` 调用 `get_all_completed_tasks()` → `lark-cli task +search --completed --page-all`，每次翻页消耗 1 次 API 配额。飞书免费版 Base/文档/任务配额共享池，4-5 次即耗尽。
 
-- `lark-cli task +search --completed --page-all` → 超时（无报错，静默失败）
-- `feishu-sync-from-feishu.sh` cron（每 15 分钟）→ 空转，飞书打勾不回流到副官
-- 用户感知：飞书打勾 ✓ ≠ 副官完成 ✓
-
-**解决方案：弃用全量轮询，改用按 GUID 单查**
+**2026-06-06 修复方案：逐任务查询 + 轮转检查点**
 
 ```python
-# ❌ 旧方案（配额杀手）
+# ❌ 旧方案（配额杀手，已删除）
 completed = get_all_completed_tasks()  # --page-all 翻页
 
-# ✅ 新方案（按 GUID 逐个查，每个 1 次调用）
-for t in pending_tasks:
-    guid = mapping["mapping"].get(t["id"])
-    if guid:
-        task = get_feishu_task_status(guid)  # +search --query <guid[:8]> 1次调用
-        if task.get("completed_at"):
-            mark_completed(t)
+# ✅ 新方案：轮转逐查，配额友好（最多 3 次/轮）
+cp = get_checkpoint()  # .feishu_checkpoint.json
+start_idx = cp["last_index"] % len(pending_mapped)
+for i in range(MAX_CHECKS):  # MAX_CHECKS = 3
+    idx = (start_idx + i) % len(pending_mapped)
+    t = pending_mapped[idx]
+    task = get_feishu_task_status(mapping["mapping"][t["id"]])  # 1 次 API 调用
+    if task.get("completed_at"):
+        mark_completed(t)
+cp["last_index"] = (start_idx + MAX_CHECKS) % len(pending_mapped)
+save_checkpoint(cp)
 ```
+
+**配额消耗对比：**
+
+| 方案 | 每次调用 | 覆盖全部任务 |
+|------|---------|-------------|
+| 旧：`--page-all` 全量 | N 次翻页 + 1 次（一次性耗尽配额，后续全天失效） | 1 轮 |
+| 新：轮转逐查 | 3 次（配额安全） | 22 任务需 ~8 轮（~2 小时@15min cron） |
+
+**检查点文件 (`.feishu_checkpoint.json`)：**
+```json
+{"last_index": 3, "last_run": "2026-06-06T19:30:00+08:00"}
+```
+- 存储在 `hermes-adjutant/` 仓库内
+- 每次运行后更新 `last_index` 为轮转结束位置
+- 下次运行从该位置继续，确保所有任务逐步覆盖
 
 ## 关键 Pitfall：同步脚本重复创建任务（2026-06 真实事故）
 
@@ -130,10 +148,18 @@ save_mapping(mapping)  # 立即写回，铁律！
 git_commit_push("update: feishu mapping {tid}")
 ```
 
-## 防误匹配
+## 防误匹配 + 映射 GUID 区分
 
-方向二（飞书→副官）轮询时，不能仅凭 GUID 匹配就标记完成——
-可能与其他飞书任务 GUID 冲突。必须验证 `summary` 包含 `[T0XX]`：
+映射中的 GUID 有两类，需区分处理：
+
+| GUID 特征 | 类型 | 清理方式 |
+|----------|------|---------|
+| 带 `_0` 后缀（如 `c7acb36b-..._0`） | 飞书日历事件 | `calendar events delete` + 映射移除 |
+| 纯 UUID（36字符，如 `47a14bbd-...`） | 飞书任务 | `task +complete` + 映射保留 |
+
+方向二（飞书→副官）轮询时，仅处理纯 UUID 的飞书任务，跳过日历事件。日历事件不参与 from-feishu 回流。
+
+同时，不能仅凭 GUID 匹配就标记完成——可能与其他飞书任务 GUID 冲突。必须验证 `summary` 包含任务 ID：
 
 ```python
 if guid in feishu_completed:
