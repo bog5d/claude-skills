@@ -99,7 +99,14 @@ cron job：每天 9:00 发送日报。包含快照/进度环/今日单词/Boss�
 - 7-13天：🔥🔥🔥🔥🔥⚡ ON FIRE
 - 14+天：🔥🔥🔥🔥🔥🔥🔥🌈 LEGENDARY
 
-## Tier 1 战报系统
+## 交付模式（2026-06-06 用户纠正 ⚠️ 铁律）
+
+**不要发 MEDIA 文件碎片。** Session 结束后只发 **1 个公网 URL**：
+- `{tunnel_url}/chronicle_index.html` — 点开全部页面可导航
+- URL 由 `state/tunnel_daemon.py` 守护 HTTP server + SSH 隧道
+- `session_pipeline.py` 输出自动注入 `tunnel_url` 字段
+- `_formatted` 输出自带 URL 行：`🌐 **实时档案馆**: {url}/chronicle_index.html`
+- 用户原话：「不是发 MEDIA 碎片，约定的是一个网址」
 
 勋章收藏室 (`chronicle_index.html`) 顶部新增「📊 战报中心」：
 - 📊 周战报 → `state/weekly_report.html`（Strava Weekly Recap 风格）

@@ -36,7 +36,7 @@
 LLM 只需：
 1. `terminal()` 调用 session_pipeline.py
 2. 解析 JSON，relay `_formatted` 字段
-3. 如有 `chronicle_cache_path` → `send_message(MEDIA:...)`
+3. 如有 `tunnel_url` → 发 `{url}/chronicle_index.html`（单一网址，不是 MEDIA 碎片）
 4. 如有 `next_round_words` → 展示下一轮题目
 
 **不再手写 execute_code 做答题处理。**

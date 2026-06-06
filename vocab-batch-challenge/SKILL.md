@@ -73,6 +73,9 @@ If script fails: fall back to inline execute_code (legacy path below).
 ## Pitfalls
 - **NEVER show Chinese meanings in Phase 1** — this is the #1 recurring error
 - **ALL words get full 5-layer explanations** — even if 9/9 correct. Never skip words with "重点词速讲" or brief highlights. User explicitly corrected this 2026-06-06: data loss when correct words don't get full breakdown.
+- **New words auto-generate 5-layer** — session_pipeline.py has `_generate_five_layer()` with prefix/root/suffix parsing. Words not in FIVE_LAYER dict get auto-generated explanations (no more blank fields). Pitfall: the auto-generated quality is decent but not as rich as hand-crafted ones — manually expand FIVE_LAYER for high-frequency words.
+- **Keyword matching for new words** — Words not in ANSWER_KEYWORDS use `meaning` field split as keyword fallback. Pitfall: `;` splitting creates coarse keywords ("批评的" won't match "批判"). Accept that some correct variant answers may be flagged wrong for now — this is better than the old behavior (all new words always flagged wrong).
+- **Word selection is frequency+difficulty weighted, NOT alphabetical** — `fast_vocab_round.py` `_priority()` now uses `(due, has_err, is_core, core_level, difficulty_bonus, random.random())`. `select_words()` uses unified `scatter_shuffle()`. Do NOT revert to old alphabetically-biased selection — user explicitly rejected alphabetical clustering as "无聊无趣".
 - After each session, update `gamification.json` streak/last_session_date and re-check badges
 - The repo path is `data/words.json` not root-level; use GitHub Contents API path `bog5d/bog-vocab-tracker/contents/data/words.json`
 - progress.json may have few entries; default new words to SM-2 initial state

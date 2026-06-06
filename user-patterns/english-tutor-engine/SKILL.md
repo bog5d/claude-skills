@@ -63,6 +63,9 @@ state/  (本地状态，gamification 经 GitHub 校准)
 ├── season_narrative.html      ← 生成的季节叙事
 ├── achievement_system.html    ← 生成的成就页面
 │
+├── tunnel_daemon.py             ← 公网隧道守护（HTTP 8765 + SSH localhost.run）
+├── tunnel_url.txt               ← 当前公网 URL（daemon 自动写）
+│
 └── chronicle_*.html           ← 晋升时自动生成的史诗页面
 
 scripts/
@@ -121,7 +124,9 @@ LLM 只需：terminal 调用 → relay 输出 → 不再手写 execute_code
 python3 /Users/mac/.hermes/profiles/english-tutor/state/session_pipeline.py <round_number> '<json_answers>'
 ```
 
-输出 JSON 含 `_formatted` 字段（Telegram-ready markdown），LLM 直接 relay。JSON 还含 `chronicle_cache_path`、`index_cache_path`、`ranked_up` 等标志，LLM 据此决定是否发送 MEDIA 文件。
+输出 JSON 含 `_formatted` 字段（Telegram-ready markdown），LLM 直接 relay。JSON 还含 `chronicle_cache_path`、`index_cache_path`、`ranked_up`、`tunnel_url` 等标志。
+- **session_complete 时**：检查 `result["tunnel_url"]`，有则发 `{url}/chronicle_index.html`（单一网址，不要 MEDIA 碎片）
+- **ranked_up 时**：输出 `_formatted` 自带 `MEDIA:路径` 指令行 + URL 行，LLM 照抄
 
 ## 完整闯关引擎模板（已废弃 — 使用 session_pipeline.py 代替）
 
@@ -296,6 +301,10 @@ print(json.dumps({"results":...,"events":...,"bars":...,"next_round_words":...},
 | **噩梦词通缉令** | Monster Hunter 图鉴 | `state/nightmare_wanted.py` | 手动 / 噩梦词≥2时自动 |
 | **季节叙事** | Fortnite Seasons | `state/season_narrative.py` | 手动 / 晋升时自动 |
 | **成就系统** | Xbox Achievements | `state/achievement_system.py` | 手动 / 晋升时自动 |
+
+**管线自刷新**：`session_pipeline.py` 在 Escalating State Management 之后（`session_complete` 已赋值）调用全部 4 个 Tier 2 脚本。触发条件：`session_complete or ranked_up`。每个脚本 20s timeout，失败不阻塞主流程（non-fatal）。stderr 打印 `[pipeline] Tier2 refreshed: skill_tree, nightmare_wanted, season_narrative, achievement_system`。
+
+**公网入口**：所有 HTML 页面（chronicle_index + tier1 + tier2）通过 HTTP 服务 + SSH 隧道暴露到公网，手机可完整导航。见 pitfall 14。
 
 **技能树**：25 技能 × 7 段位（青铜→考研战神），Habitica 风暗黑 HTML。已解锁技能金色发光+动画，未解锁灰色+🔒。顶部统计面板含段位/XP/正确率/连击/局数。底部进度条到下一段位。
 
@@ -741,6 +750,16 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - Python 脚本中直接 import token 常量也会被截断，必须走 shell 变量路径
 
 ### pitfall 14: chronicle_index 在 Telegram 预览器中链接全断（2026-06-06 已解决）
+
+见 pitfall 20 的最终方案（单一 URL 交付）。隧道守护由 `state/tunnel_daemon.py` 管理，不再手动启停。
+
+### pitfall 20: 不要发 MEDIA 碎片——约定是单一网址（2026-06-06 用户纠正 ⚠️ 铁律）
+
+- **用户原话**：「你发这个也行，但是我们这个约定的是一个网址哦」「不是发 MEDIA 碎片，约定的是一个网址」
+- **错误做法**：段位晋升后发多个 `MEDIA:chronicle_白银I.html`、`MEDIA:chronicle_白银II.html` 碎片 → 用户要点多个文件，不如一个 URL 全搞定
+- **正确做法**：Session 结束后只发 **1 个 URL**：`{tunnel_url}/chronicle_index.html`——点开即可访问全部页面（chronicle 史诗 + Tier 1 战报 + Tier 2 能力 + 勋章收藏室），手机/桌面均可完整导航
+- **持久化**：`state/tunnel_daemon.py` 后台守护 HTTP server（8765）+ SSH tunnel，断了自动重拉。`session_pipeline.py` 输出自动注入 `tunnel_url` 字段
+- **LLM relay 规则**：session_complete 后检查 `result.get("tunnel_url")`，如有则发 `{tunnel_url}/chronicle_index.html`。不要发 MEDIA 碎片。`_formatted` 输出已自带 URL 行（`🌐 **实时档案馆**: {url}/chronicle_index.html`），LLM 照抄即可
 - **现象**：chronicle_index.html 通过 MEDIA 标签发到 Telegram 后，打开文档预览器，所有 `<a href="skill_tree.html">` 相对链接全部 404——文件被孤立加载，无 HTTP 上下文
 - **解决方案**：HTTP 服务 + 公网隧道
   1. `python3 -m http.server 8765`（在 state/ 目录下，background mode）
@@ -749,6 +768,39 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
   4. 所有页面在 HTTP 上下文中，链接可正常跳转，手机/桌面均可
 - **隧道输出提取**：localhost.run 输出在 Hermes process log 中可能全空白，必须重定向到文件后 `cat` 提取 URL
 - **持久化**：HTTP server + SSH tunnel 均在 background mode 运行。隧道断开后 URL 会变
+
+### pitfall 16: 选题按字母扎堆 — fast_vocab_round 稳定排序缺陷（2026-06-06 已修复）
+- **现象**：Round 2 全是 a,a,a,c,c,c,c,c,c 开头，Round 3 全是 c,c,c,d,d,e,e… 用户强烈不满：'不能全是a开头，全是c开头的这种，很无聊很无趣。而且也没有戳中那个28原则'
+- **根因**：`_priority()` 返回 `(due, has_err, anki, -mastery, review_count)`，当所有词 priority 值相同时 Python 稳定排序保留 words.json 的字母序。`select_words()` 的 `random.shuffle(candidates[:n*3])` 在同质化池里效果不足
+- **修复**：重写 `_priority()` 和 `select_words()`：
+  - `_priority()` → `(due, has_err, is_core, core_level, difficulty_bonus, random.random())`
+  - `difficulty_bonus = (100-mastery)/20 + max(0, 2.5-ef)*2` — 低掌握度 + 低 EF（高难度）加权
+  - `select_words()` → 全局统一 `pool.sort(key=_priority, reverse=True)` + `_scatter_shuffle(pool, count)` — 取 top 3×n 后 shuffle 打破聚类
+  - 去掉 Anki/Other 分池（频率+核心+难度统一排序）
+- **验证**：3 次抽样 6 词，各轮首字母去重数从 1-2 → 4-5 个不同字母
+
+### pitfall 17: session_complete 未初始化导致管线崩溃（2026-06-06 已修复）
+- **现象**：`session_pipeline.py` 报 `UnboundLocalError: local variable 'session_complete' referenced before assignment`
+- **根因**：Tier 2 Feature Refresh 块（检查 `session_complete or ranked_up`）被插入在 `session_complete = False` 行之前（line 406 vs line 426）
+- **修复**：将 Tier 2 刷新块移到 Escalating State Management 之后（line 420+），确保 `session_complete` 已赋值
+- **教训**：新增代码段引用局部变量时，检查变量初始化顺序
+
+### pitfall 18: 新词 keyword 匹配过严——meaning 字段拆分问题（2026-06-06 已部分修复）
+- **现象**：`critical` 答「批判」被判错，因 `meaning="批评的；关键的"` 拆分 keyword 得到 `['批评的', '关键的']`，`"批判" in "批评的"` 是 False
+- **已修复**：当词不在 ANSWER_KEYWORDS 时，从 `meaning` 字段拆分 keyword 做 fallback
+- **遗留**：拆分粒度偏粗（`;` 分隔），如 `"批评的"` 不匹配 `"批判"`。下次优化方向：进一步拆到单字粒度或加同义词表
+- **解耦**：ANSWER_KEYWORDS + FIVE_LAYER 两表不再阻塞新词——新词有 meaning fallback 判分 + auto-generated 5层讲解
+
+### pitfall 19: 新词五层讲解为空——固化到代码（2026-06-06 已修复）
+- **现象**：Round 2 新词（adapt/assertion/comprehensive 等）5层讲解全部空白——root/evolution/anchor/exam 四字段为空字符串。用户暴怒：'每一个词新的词出来，要按照5层记忆的方式来学习新词，你这个里面屁都没有'
+- **根因**：`session_pipeline.py` 的 FIVE_LAYER 字典只有 27 个词。新词 `.get(w_name, {})` 返回空 `{}`，`fl.get("root","")` 全是空
+- **修复**：新增 `_generate_five_layer()` 函数 + 三张映射表（`_PREFIX_MAP` 18个前缀, `_ROOT_HINTS` 40+词根, `_SUFFIX_MAP` 15个后缀）：
+  - 自动检测 `前缀 → 词根 → 后缀`，拼装「ad-（朝向）+ apt → 适应」
+  - Evolution：`考研核心词 {word} —— {meaning}`
+  - Anchor：`💡 把 {word} 和 {meaning} 绑定记忆`
+  - Exam：根据 `is_core` 标注高频
+- **调用位置**：`session_pipeline.py` line ~347，`if not fl: fl = _generate_five_layer(tw)` —— FIVE_LAYER miss 时自动 fallback
+- **效果**：adapt → `ad-（朝向）→「适应」`，expose → `ex-（出/外）+ pos（放(拉丁 ponere)）→「暴露」`
 
 ### pitfall 15: MEDIA 标签不工作 → env var 缺失（2026-06-06 已修复）
 - **现象**：`send_message` + `MEDIA:<path>` 静默失败，文件不送达
