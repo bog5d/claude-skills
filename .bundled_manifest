@@ -43,6 +43,7 @@ cron-env-contextvars:6a3c559bcf49eeba3dad584cfe0db6b6
 cronjob-troubleshooting:0e4cf46b03c33cdc43b61690d2ae7554
 cross-profile-skills-sync:b882b612aee0a6380c5a18b984e7a5a4
 cursor-acp-integration:ffb8ac53e3cdfde5fcbe1533b57c319a
+cursor-default-executor:c1b6b01a8c0f8ede1d52b9228e031dec
 debt-screenshot-auto-update:850da2a32edd62d0faca259a69056a6f
 debugging-hermes-tui-commands:b093ceac961144fb3e72e57b12a5d354
 deepseek-cache-optimization:0c54d5098229af41ca43b808a4a42954
@@ -182,6 +183,7 @@ subagent-driven-development:f434c120ce9cc40fadb9ff970b45c1e7
 supplementary-document-checklist:f958d97715cf0f1e62382b56c927bc34
 systematic-debugging:55a23d83e936d3c7c04d4e5fa803558e
 task-graph-dag:4fdd5bc11b6833eac6c9bb0459cf34ff
+taste-anti-slop:de3cef95f889c6cd43510c8c9266a611
 teams-meeting-pipeline:810d4862830d1eb3daccf898f7c5ee85
 telegram-action-buttons:7448d317391a825cebeebaa441c0ef41
 telegram-file-delivery:354857f0e1540a83bfb56cc5c5f4970f
