@@ -1,62 +1,68 @@
-# Cross-Gateway Restart Strategy
+# 跨 Gateway 重启协调
 
-## Iron Rule
+## 核心原则
 
-**A gateway must NEVER restart itself.** If it tries to `launchctl kickstart` its own service
-or `kill -9` its own parent, the restart dies mid-operation and the session is lost.
+**永远不要让一个 gateway 重启自己。** 自杀式重启可能：
+- 主进程在 kill 信号到达前崩溃
+- launchd 的崩溃节流导致无法自动重启
+- 正在进行的对话丢失
 
-## Correct Pattern
+## 方法一：副官 Relay（推荐）
 
-When a gateway needs restart (code update, fd cleanup, memory pressure), use
-**another profile's gateway** to do it.
-
-| Target | Executor | Command |
-|--------|----------|---------|
-| her-m2 | 副官 (default) | `launchctl kickstart -k gui/501/ai.hermes.gateway-her-m2` |
-| 副官 (default) | her-m2 | `launchctl kickstart -k gui/501/ai.hermes.gateway` |
-| english-tutor | her-m2 or 副官 | `launchctl kickstart -k gui/501/ai.hermes.gateway-english-tutor` |
-
-## Implementation Flow (for her-m2 self-restart)
-
-her-m2 cannot restart itself. It sends a message to the user:
+当 her-m2 需要重启时，通过 Telegram relay 让副官执行：
 
 ```
-发给 @cosy_udbe_bot：
+her-m2 → 发送 Telegram 消息给用户 → 用户转发给 @cosy_udbe_bot → 副官执行 kickstart
+```
 
+发给副官的标准指令模板：
+
+```
 重启 her-m2 gateway，让它加载新代码。
 
 操作：
 launchctl kickstart -k gui/501/ai.hermes.gateway-her-m2
 
 等 10 秒验证：
-sleep 10 && ps aux | grep -E 'her-m2|gateway.*her-m2' | grep -v grep
+sleep 10 && ps aux | grep 'her-m2' | grep -v grep && echo "✅ her-m2 复活"
 
 检查 fd 数：
-PID=$(pgrep -f 'gateway.*her-m2' | head -1) && lsof -p $PID 2>/dev/null | wc -l
+PID=$(pgrep -f 'her-m2' | head -1) && lsof -p $PID 2>/dev/null | wc -l
 ```
 
-User forwards to 副官, 副官 executes, reports result.
-
-## Why This Works
-
-- `launchctl kickstart -k` forcefully stops old process + starts new one
-- The restarting gateway doesn't know it's being restarted — no cleanup race
-- The executor gateway remains alive throughout
-- After restart, the new PID has fresh fd count (typically < 150)
-
-## Verification After Restart
+## 方法二：直接 kickstart（gateway 不在当前对话时）
 
 ```bash
-# 1. New process exists
-ps aux | grep <profile_pattern> | grep -v grep
+launchctl kickstart -k gui/501/<service_name>
+```
 
-# 2. fd count healthy
-lsof -p <NEW_PID> | wc -l  # should be < 200
+## 方法三：bootstrap + kickstart（服务未加载时）
 
-# 3. No CLOSED sockets
-lsof -p <NEW_PID> | grep CLOSED  # should be empty
+```bash
+launchctl bootstrap gui/501 /Users/mac/Library/LaunchAgents/<plist> && \
+launchctl kickstart gui/501/<service>
+```
 
-# 4. Gateway log shows startup
-tail -3 <profile>/logs/gateway.log
-# Should show: "Gateway running with N platform(s)" + "Cron ticker started"
+## 服务名映射
+
+| Gateway | launchd service | plist | 
+|---------|----------------|-------|
+| her-m2 | `ai.hermes.gateway-her-m2` | `ai.hermes.gateway-her-m2.plist` |
+| 副官 default | `ai.hermes.gateway` | `ai.hermes.gateway.plist` |
+| English tutor | `ai.hermes.gateway-english-tutor` | `ai.hermes.gateway-english-tutor.plist` |
+
+## 重启后验证
+
+```bash
+# 1. 进程存活
+kill -0 <PID> 2>&1 && echo "alive" || echo "dead"
+
+# 2. fd 健康（< 200 正常，> 300 有问题）
+lsof -p <PID> 2>/dev/null | wc -l
+
+# 3. Telegram 连接正常
+tail -3 <profile>/logs/gateway.log | grep "Gateway running"
+
+# 4. 无 CLOSED socket 残留
+lsof -p <PID> 2>/dev/null | grep CLOSED | wc -l  # 应为 0
 ```

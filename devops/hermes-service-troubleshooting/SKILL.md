@@ -310,7 +310,12 @@ done
                  input=pwd + '\n', capture_output=True, text=True)
   ```
   ⚠️ 注意：terminal 工具直接 `echo '密码' | sudo -S` 会被安全策略拦截，必须通过 Python subprocess 且密码从 .env 读取而非明文在命令中。
-- 预防：如果用 launchd 管理 gateway，在 plist 的 `EnvironmentVariables` 或 `LaunchOnlyOnce` 配合 wrapper script 中设 `ulimit -n 4096`
+- ⚠️ **致命陷阱**：`sudo launchctl limit maxfiles 4096 8192` 只对新进程生效。已经运行的 gateway **不会自动继承新限制**。提高 ulimit 后必须 `launchctl kickstart -k` 重启每个 gateway，否则它们仍用旧限制（256），继续 FD 耗尽。验证方法：
+  ```bash
+  # 对每个 gateway PID 检查实际 ulimit
+  lsof -p <PID> 2>/dev/null | wc -l  # 接近 256 就该重启了
+  ```
+- 预防：系统级 `sudo launchctl limit maxfiles 4096 8192` + 所有 gateway 重启后生效。
 
 ### FD 泄漏根因定位（lsof 侦查法）
 
