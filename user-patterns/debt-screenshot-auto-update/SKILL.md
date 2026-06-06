@@ -1,7 +1,7 @@
 ---
 name: debt-screenshot-auto-update
-description: 波总发截图时自动识别类型——平台债务页 → debits.json更新+还款日提取；微信/支付宝账单 → expenses.json消费追踪
-trigger: 波总发送截图 且 提及"花呗""拿去花""度小满""借呗""还款""账单""微信""支付宝"或直接发图未说明
+description: 波总发截图时自动识别类型——平台债务页 → debts.json更新+还款日提取；微信/支付宝账单 → expenses.json消费追踪
+trigger: 波总发送截图 且 提及"花呗""拿去花""度小满""借呗""还款"或直接发图未说明，或发送微信/支付宝账单截图/CSV文件
 category: user-patterns
 ---
 
@@ -166,6 +166,39 @@ Cron 每天 21:00 自动 `due-check`，5 天内到期自动预警。
 - 检查 `expenses.json` → `screenshots` 数组是否含昨日数据
 - 昨日无截图 → 输出催收 → cron 推送 Telegram
 - 已有数据 → 静默退出
+
+## 消费账单处理（v2.0 新增）
+
+### CSV 文件导入（优先于截图 OCR）
+
+当波总发送支付宝或微信导出的账单文件时，使用 `import_csv.py`：
+
+```bash
+cd ~/.hermes/adjutant/finance
+python3 scripts/import_csv.py <文件路径>
+```
+
+**支付宝 CSV**：GBK 编码，需先转换
+```bash
+iconv -f GBK -t UTF-8 alipay.csv > alipay_utf8.csv
+python3 scripts/import_csv.py alipay_utf8.csv
+```
+
+**微信账单**：xlsx 格式，`import_csv.py` 直接用 openpyxl 读取。
+
+导入器自动完成：平台识别、日期解析、噪音过滤（转账/红包/理财/信用卡还款）、去重、分类、入库。
+
+### 微信/支付宝账单截图
+
+截图包含消费明细时，走 OCR → batch 导入流程：
+```bash
+# OCR
+swift ~/.hermes/scripts/ocr_apple.swift screenshot.jpg
+# 解析 → 批量入库
+python3 scripts/expenses.py batch --items '<JSON>' -s "微信" --sid "wx_bill_20260606"
+```
+
+⚠️ CSV 数据质量优于截图 OCR，优先使用 CSV。截图仅作补充（CSV 日期范围不够时）。
 
 ## 注意事项
 

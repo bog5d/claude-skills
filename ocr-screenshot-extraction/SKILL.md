@@ -25,21 +25,31 @@ brew install tesseract-lang   # 中文语言包，685MB
 tesseract --list-langs | grep chi_sim   # 应输出 chi_sim
 ```
 
-## 使用
+## OCR 引擎（v3.0 — 2026-06-06 升级）
 
+### 🥇 双引擎编排器（推荐）
 ```bash
-python3 -c "
-import pytesseract
-from PIL import Image
-img = Image.open('/path/to/screenshot.jpg')
-text = pytesseract.image_to_string(img, lang='chi_sim+eng')
-print(text)
-"
+python3 /Users/mac/.hermes/scripts/ocr_orchestrator.py /path/to/screenshot.jpg
+```
+输出 JSON，含 Apple Vision Pro + EasyOCR 双结果对比 + 差异标记。
+
+### 🥈 Apple Vision Pro（快速模式）
+```bash
+swift /Users/mac/.hermes/scripts/ocr_pro.swift /path/to/screenshot.jpg --preprocess
+```
+- Vision Revision 3（CJK 优化）+ Lanczos 2× 缩放 + 自动增强 + 锐化
+- 每行：`文本<TAB>置信度`
+- 脚本：`~/.hermes/scripts/ocr_pro.swift`
+
+### 🥉 EasyOCR
+```python
+import easyocr
+reader = easyocr.Reader(["ch_sim", "en"])
+results = reader.readtext("/path/to/img.jpg")
 ```
 
-## 注意
-- 聊天截图通常 576x1280 左右，竖屏
-- `chi_sim+eng` 同时识别中文和英文
-- OCR 结果会有少量识别错误（如把 "王总" 识别成 "王总"，把特殊符号识别错），需结合上下文修正
-- 图片路径通常在 `/Users/mac/.hermes/image_cache/img_*.jpg`
-- 如果聊天记录跨多屏，可能需要用户发送多张截图
+### ⚠️ Tesseract（仅紧急备选）
+```bash
+python3 -c "import pytesseract; from PIL import Image; print(pytesseract.image_to_string(Image.open('/path/to/img.jpg'), lang='chi_sim+eng'))"
+```
+已知 Bug：数字 5→9 误读，开头 "1" 被吞。金额需波总确认。
