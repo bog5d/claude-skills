@@ -1,13 +1,21 @@
 ---
 name: debt-screenshot-auto-update
-description: 波总发送花呗/拿去花/度小满/借呗等平台截图时，自动 OCR 识别 + 平台检测 + 更新 debts.json
-trigger: 波总发送截图 且 提及"花呗""拿去花""度小满""借呗""还款"或直接发图未说明
+description: 波总发截图时自动识别类型——平台债务页 → debits.json更新+还款日提取；微信/支付宝账单 → expenses.json消费追踪
+trigger: 波总发送截图 且 提及"花呗""拿去花""度小满""借呗""还款""账单""微信""支付宝"或直接发图未说明
 category: user-patterns
 ---
 
-# 债务截图自动识别 & 更新
+# 截图自动识别 & 更新（v2.0 双管线）
 
-## OCR 引擎（铁律：优先 Apple Vision）
+截图现在有**两个目的地**，先判断类型再走对应管线：
+
+**类型判断：**
+- 平台债务页关键词 → `debts.json`：剩余未还本金、全部待还、查账还款、待还本金
+- 微信/支付宝账单关键词 → `expenses.json`：微信支付、支付宝、交易记录、账单明细
+
+## 管线 A：平台债务截图（已有，新增还款日提取）
+
+### OCR 引擎（铁律：优先 Apple Vision）
 
 **🥇 Apple Vision OCR（macOS 系统级，必用）：**
 ```bash
@@ -108,6 +116,56 @@ git add -A && git commit -m "finance: 花呗截图更新 ¥XXX" && git push orig
 📅 更新时间：YYYY-MM-DD HH:MM
 ✅ debts.json 已更新 + Git 已推送
 ```
+
+## 🆕 管线 B：消费账单截图（微信/支付宝）
+
+收到微信或支付宝账单截图时：
+
+### Step 1: OCR 提取（Apple Vision 优先）
+
+### Step 2: 逐行解析
+从 OCR 文本中提取每笔交易：日期 + 金额 + 商户名
+
+### Step 3: 批量导入
+```bash
+cd ~/.hermes/adjutant/repo/hermes-adjutant
+python3 finance/scripts/expenses.py batch --items '[
+  {"date":"2026-06-05","amount":35.50,"merchant":"美团外卖"},
+  {"date":"2026-06-05","amount":128.00,"merchant":"滴滴出行"}
+]' -s "微信" --sid "截图文件名"
+```
+
+### Step 4: 去重检查
+expenses.py 自动去重逻辑：日期相同 + 金额差 ≤¥2 + 商户名相似度 >50%
+
+### Step 5: 反馈
+```json
+{"added": [...], "duplicates": [...], "errors": [...]}
+```
+告诉波总：新增N笔、去重M笔、错误K笔
+
+### Step 6: Git push
+
+## 🆕 还款日提取
+
+平台截图 OCR 后检查：
+- 花呗：`还款日：每月(\\d+)日` → 设为 `YYYY-MM-DD`
+- 拿去花：`还款日(\\d+)月(\\d+)日`
+- 度小满：`到期日[：:]\\s*(\\d{4}-\\d{2}-\\d{2})`
+
+提取后执行：
+```bash
+python3 finance/scripts/finance.py set-duedate -c "花呗" -d 2026-06-10
+```
+
+Cron 每天 21:00 自动 `due-check`，5 天内到期自动预警。
+
+## 🆕 暴力催收联动
+
+`nag_screenshots.py`（cron `7857946435ae`，10:00/14:00/18:00）：
+- 检查 `expenses.json` → `screenshots` 数组是否含昨日数据
+- 昨日无截图 → 输出催收 → cron 推送 Telegram
+- 已有数据 → 静默退出
 
 ## 注意事项
 

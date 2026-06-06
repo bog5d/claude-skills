@@ -1,8 +1,8 @@
 ---
 name: finance-hub
-description: 波总个人财务中枢 — 债务追踪、还款记录、里程碑游戏化、每周大盘推送。当你收到"还了XX YY元""花呗清了""我的债务"等财务相关指令时使用。
+description: 波总个人财务中枢 v2.0 — 债务追踪 + 消费分析 + 还款日预测 + 暴力催收。当你收到"还了XX YY元""花呗清了""我的债务""截图""消费"等财务相关指令时使用。
 category: productivity
-trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|清债
+trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|清债|消费|截图|账单|支付宝|微信账单|报销|基金
 ---
 
 # 财务中枢 (Finance Hub)
@@ -22,7 +22,10 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 | `config.json` | 12 个里程碑 + 8 个成就定义 |
 | `transactions.json` | 还款流水（每条一笔记录） |
 | `snapshots/YYYY-MM-DD.json` | 每周自动快照 |
-| `scripts/finance.py` | 核心引擎（repay / report / snapshot / milestones） |
+| `scripts/finance.py` | 核心引擎（repay / report / daily / snapshot / milestones / set-duedate / due-check） |
+| `scripts/expenses.py` | 🆕 消费追踪引擎（add / batch / report / summary / recat / screenshot） |
+| `scripts/nag_screenshots.py` | 🆕 暴力催收脚本（检查昨日截图到位否，没到位输出催收消息） |
+| `expenses.json` | 🆕 消费数据 + 17 类别规则引擎 + 截图记录 |
 
 ## 交互模式：三种消息，不会搞混
 
@@ -33,6 +36,10 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 | 「花呗清了」「XX还完了」 | 全额清空该债，移入 `cleared` | Git push |
 | 「我的债务」「财务报告」 | 运行 `finance.py report` 输出大盘 | — |
 | 「XX新增 ZZ 元」「借了 XX ZZ」 | 手动追加到 `debts.json` active 列表 | Git push |
+| **「发截图」（微信/支付宝账单）** | **OCR → 去重 → 分类 → 写入 expenses.json** | `expenses.json` → Git push |
+| **「发截图」（花呗/拿去花/度小满）** | **OCR → 更新 debts.json 金额 + 提取还款日** | `debts.json` → Git push |
+| 「消费分析」「这个月花了多少」 | 运行 `expenses.py report -t monthly` | — |
+| 「设置花呗还款日」 | `finance.py set-duedate -c "花呗" -d YYYY-MM-DD` | `debts.json` → Git push |
 
 ## 还款记录流程（铁律）
 
@@ -89,10 +96,41 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 🎯 ¥50,000  → 👑 ¥0 Zero Day
 ```
 
-## 自动推送
+## 🆕 v2.0 自动推送（4 条 Cron 火力线）
 
-- **每周日晚 21:00**：Cron `1fa49ed0087e` 自动生成大盘 + Git push + Telegram 推送
-- 报告内容：总负债 / 进度条 / 本周还款 / 同期对比 / 预测清债日 / 下个里程碑
+| 推送 | Cron ID | 时间 | 内容 | 模式 |
+|------|---------|------|------|------|
+| 🌅 财务早报 | `5e07746c917a` | 每天 09:00 | 债务全景 + 还款计划追问 + 还款日预警 + 催促发截图 | Agent |
+| 📸 暴力催截图 | `7857946435ae` | 每天 10:00, 14:00, 18:00 | 检查昨日微信/支付宝截图是否到位，没发就催 | 脚本(no_agent) |
+| 🌙 财务晚报 | `697505ea2288` | 每天 21:00 | 今日还款结果 + 昨日消费小结 + 进度更新 + 还款预警 | Agent |
+| 📊 财务周报 | `2e4dfc29dcd8` | 每周日 21:00 | 完整周报：债务+消费+快照+里程碑+Git push | Agent |
+
+- **催收逻辑**：`nag_screenshots.py` 检查 `expenses.json` 的 `screenshots` 数组 → 昨日无数据 → 输出催收消息 → cron 自动推送。已有数据 → 脚本静默退出 → cron 不发任何消息
+- **日报包含**：债务进度条 + 还款预警 + 昨日消费（如有）+ 下一里程碑
+- **周报包含**：债务周报 + 消费周报 + 快照创建 + Git push
+
+## 核心命令（v2.0）
+
+所有操作通过 Python 脚本完成（禁止手改 JSON）：
+
+```bash
+# === 债务 ===
+FINANCE_DIR=~/.hermes/adjutant/finance
+cd ~/.hermes/adjutant/repo/hermes-adjutant
+python3 finance/scripts/finance.py repay -c "花呗" -a 2000
+python3 finance/scripts/finance.py update -c "花呗" -a 15446 -s "截图"
+python3 finance/scripts/finance.py report --daily
+python3 finance/scripts/finance.py report --json
+python3 finance/scripts/finance.py daily                   # 综合日报
+python3 finance/scripts/finance.py set-duedate -c "花呗" -d 2026-06-10
+python3 finance/scripts/finance.py due-check
+
+# === 消费（🆕）===
+python3 finance/scripts/expenses.py add -d 2026-06-05 -a 35.50 -m "美团外卖" -s "微信"
+python3 finance/scripts/expenses.py batch --items '<JSON>' -s "OCR"
+python3 finance/scripts/expenses.py report -t monthly -y 2026 -m 6
+python3 finance/scripts/expenses.py summary -d 30
+```
 
 ## 归途驿站 — 显示铁律
 
@@ -111,3 +149,7 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 - **投资款不是债权**——陈春兰投资款、王林投资款等不应出现在 debts.json 中
 - **波总维护 Excel（石墨文档）作为原始记录**，系统追踪进度——双轨共存，不冲突
 - **归途驿站禁止归并**——每笔亲友债独立成行，禁止合并展示
+- **⚠️ Profile 路径解析（血坑）**：在 finance profile 运行时，`~` 和 `HERMES_HOME` 指向 `/Users/mac/.hermes/profiles/finance/home/`，不是真实 home。脚本中需检测 `.hermes/profiles/` 并强制回退到 `/Users/mac`。否则 expenses.json/debts.json 会写入到 profile sandbox 而不是全局工作目录，导致 categories 丢失、数据不可见
+- **⚠️ 消费分类为"其他"？** 先检查 expenses.json 的 `categories` 字段是否为空。profile 路径问题会导致加载了空壳文件
+- **OCR 提取金额后必须波总确认**——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）
+- **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
