@@ -311,6 +311,38 @@ done
   ```
   ⚠️ 注意：terminal 工具直接 `echo '密码' | sudo -S` 会被安全策略拦截，必须通过 Python subprocess 且密码从 .env 读取而非明文在命令中。
 - 预防：如果用 launchd 管理 gateway，在 plist 的 `EnvironmentVariables` 或 `LaunchOnlyOnce` 配合 wrapper script 中设 `ulimit -n 4096`
+
+### FD 泄漏根因定位（lsof 侦查法）
+
+不只是看总 fd 数，更要看**哪些类型的 fd 在泄露**。详细侦查命令和泄露模式见 `references/fd-leak-debugging.md`。
+
+快速摘要：
+
+```bash
+# 1. 按类型统计 fd（找到泄露大户）
+lsof -p <PID> 2>/dev/null | awk '{print $5,$NF}' | sort | uniq -c | sort -rn | head -20
+
+# 2. 找 CLOSED socket — httpx 连接池泄露的标志
+lsof -p <PID> 2>/dev/null | grep CLOSED
+# 典型输出：localhost:52577->localhost:7897 (CLOSED)
+# localhost:7897 = Clash 代理端口，每次代理抖动就多一个 CLOSED socket
+
+# 3. 找残留 PIPE — subprocess 未清理的标志  
+lsof -p <PID> 2>/dev/null | grep PIPE | grep -v '    1\|    2'
+# 排除 stdin(1)/stdout(2)，其余 PIPE 即为泄露
+```
+
+**已知的两大泄露源**：
+
+| 泄露源 | 文件 | 泄露类型 | 触发条件 | 代码修复 |
+|--------|------|----------|----------|----------|
+| httpx 连接池 | `gateway/platforms/telegram.py` | CLOSED socket | Clash 代理抖动重连 | `_drain_polling_connections` 排空全部两个 request pool（原只排空 polling 池） |
+| subprocess PIPE | `tools/environments/base.py` | PIPE fd | 终端命令超时/中断/KeyboardInterrupt | `_wait_for_process` 的所有 exit path 加 `proc.stdout.close()`（原只在 normal completion 路径关） |
+
+**修复代码**（已 commit `ac74fe1ce`）：
+- `telegram.py`: `_drain_polling_connections()` 遍历 `_request` 全部索引，general pool 加 0.3s 延迟避免打断飞行请求
+- `base.py`: interrupt/timeout/KeyboardInterrupt 三个路径各加 `try: proc.stdout.close() except: pass`
+
 - ⚠️ **致命陷阱**：`sudo launchctl limit maxfiles 4096 8192` 只对新进程生效。已经运行的 gateway **不会自动继承新限制**。提高 ulimit 后必须 `launchctl kickstart -k` 重启每个 gateway，否则它们仍用旧限制（256），继续 FD 耗尽。验证方法：
   ```bash
   # 对每个 gateway PID 检查实际 ulimit
