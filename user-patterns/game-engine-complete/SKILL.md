@@ -108,6 +108,21 @@ cron job：每天 9:00 发送日报。包含快照/进度环/今日单词/Boss�
 
 生成器：`state/weekly_report.py` + `state/weakness_share.py`。周日 health_monitor 自动触发。
 
+## Tier 2 能力系统（2026-06-06 上线）
+
+勋章收藏室新增「🌳 Tier 2 · 新能力」按钮区，4 项独立 HTML 页面：
+
+| 能力 | 脚本 | 对标 | 说明 |
+|------|------|------|------|
+| **技能树** | `state/skill_tree.py` | Habitica | 25 技能 × 7 段位，暗黑 HTML，已解锁金色发光+动画 |
+| **噩梦词通缉令** | `state/nightmare_wanted.py` | Monster Hunter | WANTED 海报，SSS~E 评级，含犯罪证据+赏金 XP |
+| **季节叙事** | `state/season_narrative.py` | Fortnite | 5 季 Battle Pass，按段位解锁，含赛季任务 |
+| **成就系统** | `state/achievement_system.py` | Xbox | 22 成就 × 5 稀有度，Gamerscore 体系 |
+
+**开发模式**：所有 Tier 2 脚本独立运行，遵循 `weekly_report.py` 模式——`_get_token()`（git config）+ `_fetch()`（GitHub API）+ 生成 HTML。不依赖 session_pipeline.py 的答题流程。
+
+**注册**：`chronicle_index_generator.py` 已追加 4 个 Tier 2 入口链接，位于「📊 战报中心」下方。
+
 ## 常见坑
 
 1. **子里程碑洪水**：首次启动时从 step(3) 到 max_word(30) 的循环会触发所有跨越过的阈值。修复方案：启动时只保留最高值，后续逐级触发。
@@ -116,3 +131,5 @@ cron job：每天 9:00 发送日报。包含快照/进度环/今日单词/Boss�
 4. **Boss 生存期**：Boss 跨 round 存活——每次答对扣 1 HP，不是每轮扣 1。
 5. **item earn_interval**：需要用 `while earned < should_have` 循环补发，不能只判断一次。
 6. **不要 clone 整个 repo**：GitHub API 直取单个 JSON 文件，约 600KB。Python urllib 可能被截断——沙箱内用 execute_code 的 urllib 加 SSL 兼容。
+7. **Aider bridge 不可用于 english-tutor 开发**：`bridge_cmd.py` 硬绑 Cangjie 路径，english-tutor 脚本直接手写。
+8. **Telegram Bot Token 被过滤器截断**：`write_file`/`execute_code` 中含 `TELEGRAM_BOT_TOKEN=*** 的行会被截断。发送文件到 Telegram 必须用 shell 变量 + curl。
