@@ -21,6 +21,16 @@ category: creative
 
 ## Pipeline
 
+### Step 0: 图片源（Phase 3a — 真实照片背景）
+
+> 📄 详见: `references/pexels-integration.md`
+
+当分镜的 `visual_type` 为 `ai_concept_art` 或 `corporate_visual` 时，自动从 Pexels 搜索真实照片作为背景，叠加 60% 暗色遮罩 + 1.5px 高斯模糊 + 文字卡。
+
+**能力矩阵**：Pexels → `ai_concept_art` / `corporate_visual`；PIL 原渲染 → `gradient_text` / `cinematic_text` / `tech_abstract` / `motion_infographic`
+
+**关键 Pitfall**：Pexels API 要求 User-Agent header（无则 403）；中文搜索返回 0 结果，必须用英文关键词；下载 CDN 图片同样需要 UA。
+
 ### Step 1: 写分镜（最关键）
 
 每帧定义：`text`（旁白文字）、`big_text`（屏幕大标题）、`subtext`（副标题/补充）、`bg_color`（背景色）、`duration_extra`（留白秒数）。

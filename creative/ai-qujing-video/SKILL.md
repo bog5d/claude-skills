@@ -3,7 +3,7 @@ name: ai-qujing-video
 description: 用 AI 取经记管线将文章转为专业视频。全链路：文章分析 → 脚本改编 → 分镜生成 → 多视觉渲染 → 字幕/BGM/转场 → MP4。输出观众可交付级别视频。
 ---
 
-# AI 取经记 — 完整视频生产管线 v2
+# AI 取经记 — 完整视频生产管线 v3
 
 ## 触发条件
 - 用户说"做AI取经记"、"文字转视频"、"html转视频"、"ai qujing"、"文章转视频"
@@ -20,7 +20,7 @@ description: 用 AI 取经记管线将文章转为专业视频。全链路：文
 3. 做分镜规划（每帧：看到什么 → 听到什么 → 情绪是什么）
 4. 才进入画面生产
 
-## v2 管线架构
+## v3 管线架构
 
 ```
 Phase 0-2: 预生产 (preprod.py)
@@ -29,8 +29,12 @@ Phase 0-2: 预生产 (preprod.py)
 Phase 4: TTS (tts.py)
   storyboard.json → Edge TTS → MP3 音频段
 
+Phase 3a: 图片源 (imagesourcer.py) ← 🆕 v3
+  storyboard.json → Pexels API 搜索 → 下载高清图 → 注入 scene["sourced_image"]
+
 Phase 3: 视觉生产 (visual/producer.py)
   storyboard.json → 多类型画面渲染 → PNG 帧序列
+  (ai_concept_art / corporate_visual 优先使用真实照片背景)
 
 Phase 5: 编码+后期 (encoder.py + postproc.py)
   PNG帧+MP3 → ffmpeg编码 → 字幕烧录 → BGM混音 → 转场 → 最终 MP4
@@ -40,16 +44,17 @@ Phase 5: 编码+后期 (encoder.py + postproc.py)
 
 ```
 ~/.hermes/tools/ai-qujing/
-├── build.py               ← 编排器 (v2 全链路)
+├── build.py               ← 编排器 (v3 全链路, 含 Pexels 图片源)
 ├── preprod.py             ← Phase 0-2: 文章分析+脚本+分镜
+├── imagesourcer.py        ← Phase 3a: Pexels API 搜索+下载 (v3)
 ├── tts.py                 ← Phase 4: TTS 语音合成
 ├── encoder.py             ← Phase 5: ffmpeg 编码+合片
 ├── postproc.py            ← Phase 5: 字幕/BGM/转场
 ├── visual/
 │   ├── __init__.py
-│   └── producer.py        ← Phase 3: 6 种视觉类型渲染器
+│   └── producer.py        ← Phase 3: 6 种视觉类型 + 真实照片背景
 ├── config.json            ← 场景数据（改这里出新集）
-└── templates/slide.html   ← Jinja2 模板 (v1 遗留, v2 用 PIL 直绘)
+└── templates/slide.html   ← Jinja2 模板 (v1 遗留, v3 用 PIL 直绘)
 ```
 
 ## 产出新一集
@@ -70,8 +75,8 @@ python build.py --config episode-03.json --bgm ~/Music/bgm.mp3
 | `cinematic_text` | 开篇/结尾/高潮 | 暗色+暗角+光晕+粒子+文字推入 |
 | `tech_abstract` | 技术概念 | 暗色网格+扫描线+数据节点 |
 | `motion_infographic` | 数据/流程图 | 动态线框+脉动节点 |
-| `ai_concept_art` | 抽象概念（如唐僧） | 暗色调+纹理+光晕（后期可替换AI生图） |
-| `corporate_visual` | 金融/商务 | 暗蓝+金色几何线+数据点 |
+| `ai_concept_art` | 抽象概念（如唐僧） | Pexels 真实照片背景 (v3) / PIL 纹理+光晕 |
+| `corporate_visual` | 金融/商务 | Pexels 真实照片背景 (v3) / PIL 暗蓝+金色几何 |
 
 分镜生成器（preprod.py）会根据场景内容**自动推断**合适的 visual_type。
 
@@ -120,7 +125,9 @@ python build.py --config episode-03.json --bgm ~/Music/bgm.mp3
 2. **Playwright 用 Python API 不用 CLI** — `npx playwright screenshot` 对本地 HTML 不稳定（`[RTK:PASSTHROUGH]` 解析全败），`sync_playwright()` 稳定。
 3. **ffmpeg concat 必须用绝对路径** — `-f concat` 相对路径相对于 concat 列表文件位置，不是 cwd。用 `path.resolve()`。
 4. **Playwright 装包 ≠ 装浏览器** — `pip install playwright` 后必须 `playwright install chromium`。
-5. **图片不强用** — 文章中的图是备选，不符合场景的跳过。v2 的 6 种视觉类型覆盖了所有场景。
+5. **图片不强用** — 文章中的图是备选，不符合场景的跳过。v3 的 6 种视觉类型 + Pexels 照片背景覆盖了所有场景。
+6. **Pexels API 必须有 User-Agent** — 搜索和下载都返回 403 无 UA。`headers={"User-Agent": "ai-qujing/1.0"}` 必须带。
+7. **Pexels 中文搜索无效** — 中文关键词返回 0 结果，必须用英文。默认映射见 `imagesourcer.py` 的 `TYPE_KEYWORDS`。
 
 ## 字幕生成
 
