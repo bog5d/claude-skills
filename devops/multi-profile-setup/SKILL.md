@@ -155,10 +155,86 @@ cronjob create \
 
 ---
 
-## 验证清单
+### 5d. 授权配置（关键！）
+
+🚨 **新 profile 默认拒绝所有 Telegram DM，必须手动授权。** 症状：gateway 日志出现 `Unauthorized user: <chat_id> (<name>) on telegram`，bot 不响应用户消息。
+
+**根因**：Hermes 的 DM 授权走环境变量检查链。Telegram adapter 没有 `enforces_own_access_policy` 属性（只有 WeCom/Weixin/Yuanbao/QQBot/WhatsApp 有），所以当未设置任何 allowlist 环境变量时，fallback 到 `GATEWAY_ALLOW_ALL_USERS` 检查。而新 profile 的 `.env` 中没有此变量 → 返回 False → Unauthorized。
+
+> **⚠️ 注意**：config.yaml 的 `allowed_chats` 只控制**群聊**白名单，不影响 DM 授权。DM 授权完全通过环境变量控制。详见 `references/dm-authorization-mechanism.md`。
+
+**修复**：在新 profile 的 `.env` 末尾追加：
+
+```bash
+python3 -c "
+import os
+env_path = '/Users/mac/.hermes/profiles/<name>/.env'
+with open(env_path, 'r') as f:
+    lines = f.readlines()
+if not any('GATEWAY_ALLOW_ALL_USERS' in l for l in lines):
+    lines.append('\nGATEWAY_ALLOW_ALL_USERS=true\n')
+    with open(env_path, 'w') as f:
+        f.writelines(lines)
+    print('Done')
+"
+```
+
+然后重启 gateway：`launchctl kickstart -k gui/501/ai.hermes.gateway-<name>`
+
+如果只允许特定用户，用 `TELEGRAM_ALLOWED_USERS=<chat_id>` 替代。
+
+### 5e. Defibrillator 注册
+
+新 profile 必须注册到 defibrillator，否则挂了不会自动复活。
+
+编辑 `~/.hermes/profiles/her-m2/bin/defibrillator_v2.py`：
+
+1. 在 `PROFILES` dict 中添加新条目：
+```python
+"<name>": (
+    PROFILES_ROOT / "<name>" / ".env",
+    PROFILES_ROOT / "<name>" / "gateway.pid",
+),
+```
+
+2. 在 `LAUNCHD_SERVICES` dict 中添加：
+```python
+"<name>": ("ai.hermes.gateway-<name>", HOME / "Library" / "LaunchAgents" / "ai.hermes.gateway-<name>.plist"),
+```
+
+### 5f. 重启 Defibrillator
+
+```bash
+# 找到 defibrillator PID 并重启
+kill $(pgrep -f defibrillator_v2.py)
+# launchd 会自动拉起新实例（defibrillator 由 launchd KeepAlive 管理）
+```
+
+验证：`pgrep -fl defibrillator` 应返回新 PID。
+
+---
+
+## 待验证
 
 - [ ] `hermes profile list` 显示新 profile，gateway running
 - [ ] `sync_skills_cross_profile.sh` 已更新并包含新 SRC
-- [ ] 用户已给新 bot 发首条消息（否则 cron 静默失败）
+- [ ] `defibrillator_v2.py` 已注册新 profile
+- [ ] defibrillator 已重启（新 PID）
+- [ ] 用户已给新 bot 发首条消息
+- [ ] `GATEWAY_ALLOW_ALL_USERS=true` 已写入 .env 且 gateway 已重启
 - [ ] 新 bot 在 Telegram 上能响应
-- [ ] SOUL.md 已定制（可选但推荐）
+- [ ] SOUL.md 已定制（可选）
+
+## 常见陷阱
+
+1. **`allowed_chats` 不管 DM** — config.yaml 的 `allowed_chats` 只过滤群聊消息。设了 `allowed_chats: '8447296166'` 仍然报 Unauthorized 是因为 DM 授权走的是环境变量链，与 `allowed_chats` 无关。正确做法：Phase 5d。
+
+2. **Defibrillator 不会自动发现新 profile** — 必须手动编辑 `defibrillator_v2.py` 的 `PROFILES` 和 `LAUNCHD_SERVICES`，然后重启 defibrillator 进程。
+
+3. **Cron 在用户发首条消息前静默失败** — Telegram bot 不能主动发第一条消息。如果用户没发过消息，`deliver: origin` 的 cron job 会静默丢弃推送。
+
+4. **Skills sync 不覆盖新 profile** — 同步脚本需要显式添加新 SRC，不会自动发现。
+
+## 参考
+
+- `references/dm-authorization-mechanism.md` — Hermes DM 授权环境变量链详解
