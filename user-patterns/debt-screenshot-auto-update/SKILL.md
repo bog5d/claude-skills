@@ -15,22 +15,38 @@ category: user-patterns
 
 ## 管线 A：平台债务截图（已有，新增还款日提取）
 
-### OCR 引擎（铁律：优先 Apple Vision）
+### OCR 引擎（v3.0 双引擎管线，2026-06-06 升级）
 
-**🥇 Apple Vision OCR（macOS 系统级，必用）：**
+**🥇 双引擎编排器（推荐，默认使用）：**
 ```bash
-swift /Users/mac/.hermes/scripts/ocr_apple.swift /path/to/screenshot.jpg
+python3 /Users/mac/.hermes/scripts/ocr_orchestrator.py /path/to/screenshot.jpg
 ```
-- 和系统「实况文本」同一引擎，数字 5/9/1 不会混淆
-- 中文识别精准，1-2 秒出结果，无需下载模型
-- 脚本位置：`~/.hermes/scripts/ocr_apple.swift`
+- 同时跑 Apple Vision Pro (Revision 3) + EasyOCR
+- 自动对比两个引擎结果，标记差异金额
+- 输出 JSON，含 `recommendation`: `auto_accept` / `human_review`
 
-**🥈 Tesseract 备选（仅 Apple Vision 不可用时）：**
+**🥈 Apple Vision Pro 单独使用（快速模式）：**
+```bash
+swift /Users/mac/.hermes/scripts/ocr_pro.swift /path/to/screenshot.jpg --preprocess
+```
+- Vision Revision 3（CJK 优化）+ Lanczos 2× 缩放 + 自动增强 + 锐化
+- 每行输出：`文本<TAB>置信度`
+- 脚本位置：`~/.hermes/scripts/ocr_pro.swift`
+
+**🥉 EasyOCR 单独使用：**
+```python
+import easyocr
+reader = easyocr.Reader(["ch_sim", "en"])
+results = reader.readtext("/path/to/img.jpg")
+```
+- CRAFT 检测 + CRNN 识别，中文效果优于 Tesseract
+
+**⚠️ Tesseract 已降级为紧急备选（仅前三者都不可用时）：**
 ```bash
 python3 -c "import pytesseract; from PIL import Image; print(pytesseract.image_to_string(Image.open('/path/to/img.jpg'), lang='chi_sim+eng'))"
 ```
-- ⚠️ 已知 Bug：数字 5 误读为 9、开头 "1" 被吞掉（如 19432→9432）
-- ⚠️ 用 Tesseract 提取的金额必须波总肉眼确认，不可直接写入
+- 已知 Bug：数字 5 误读为 9、开头 "1" 被吞掉（如 19432→9432）
+- ⚠️ Tesseract 提取的金额必须波总肉眼确认，不可直接写入
 
 ---
 

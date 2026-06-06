@@ -27,29 +27,24 @@ tesseract --list-langs | grep chi_sim   # 应输出 chi_sim
 
 ## OCR 引擎（v3.0 — 2026-06-06 升级）
 
+详见 `references/ocr-v3-architecture.md` — 完整双引擎架构文档。
+
 ### 🥇 双引擎编排器（推荐）
 ```bash
 python3 /Users/mac/.hermes/scripts/ocr_orchestrator.py /path/to/screenshot.jpg
 ```
-输出 JSON，含 Apple Vision Pro + EasyOCR 双结果对比 + 差异标记。
+输出 JSON，含 Apple Vision Pro + EasyOCR 双结果对比 + auto_accept/human_review 建议。
 
 ### 🥈 Apple Vision Pro（快速模式）
 ```bash
 swift /Users/mac/.hermes/scripts/ocr_pro.swift /path/to/screenshot.jpg --preprocess
 ```
-- Vision Revision 3（CJK 优化）+ Lanczos 2× 缩放 + 自动增强 + 锐化
-- 每行：`文本<TAB>置信度`
-- 脚本：`~/.hermes/scripts/ocr_pro.swift`
+Vision Revision 3 + Lanczos 2× 缩放 + 自动增强 + 锐化。
 
 ### 🥉 EasyOCR
 ```python
-import easyocr
-reader = easyocr.Reader(["ch_sim", "en"])
-results = reader.readtext("/path/to/img.jpg")
+reader = easyocr.Reader(["ch_sim", "en"]); reader.readtext("/path/to/img.jpg")
 ```
 
 ### ⚠️ Tesseract（仅紧急备选）
-```bash
-python3 -c "import pytesseract; from PIL import Image; print(pytesseract.image_to_string(Image.open('/path/to/img.jpg'), lang='chi_sim+eng'))"
-```
-已知 Bug：数字 5→9 误读，开头 "1" 被吞。金额需波总确认。
+数字 5→9 误读，开头 "1" 被吞。金额需波总确认。
