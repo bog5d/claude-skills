@@ -649,6 +649,19 @@
     "use_count": 1,
     "view_count": 1
   },
+  "equity-penetration-due-diligence": {
+    "archived_at": null,
+    "created_at": "2026-06-07T07:13:06.985373+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-06-07T07:13:35.451300+00:00",
+    "last_used_at": "2026-06-07T07:14:05.766671+00:00",
+    "last_viewed_at": "2026-06-07T07:14:05.763688+00:00",
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "evaluating-llms-harness": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.055966+00:00",
@@ -1979,14 +1992,14 @@
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.218477+00:00",
     "created_by": null,
-    "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
-    "patch_count": 0,
+    "last_patched_at": "2026-06-07T07:14:00.938698+00:00",
+    "last_used_at": "2026-06-07T07:12:29.840464+00:00",
+    "last_viewed_at": "2026-06-07T07:12:29.835355+00:00",
+    "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "sketch": {
     "archived_at": null,
