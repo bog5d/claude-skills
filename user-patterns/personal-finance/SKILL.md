@@ -3,7 +3,7 @@ name: personal-finance
 title: "波总个人财务中枢 — 债务追踪 + 游戏化还款"
 description: "管理波总的亲友债务和平台债务，记录还款，生成周报，游戏化激励。一句话交互：'还了XX N元'。"
 category: user-patterns
-trigger: "波总说还款、债务、财务、花呗、借呗、度小满、还钱、还了XX，或要求看债务进度/周报/财报"
+trigger: "波总说还款、债务、财务、花呗、借呗、度小满、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察，或要求整合支付宝微信数据打成JSON"
 ---
 
 # 波总个人财务中枢
@@ -284,6 +284,36 @@ GitHub: hermes-adjutant/finance/（双副本，AI 可接盘）
 HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 样式暗黑主题（`--bg: #0d0f18`），深色卡布局，金色暖色系。
 
+## JSON 输出与 AI 交接
+
+当波总要求"打成 JSON 给另一个 AI 接盘"时，需区分两种输出类型：
+
+### 类型一：消费流水深度分析（优先）
+
+**触发词**：消费流水、深度分析、洞察、整合支付宝微信、过去一年消费
+
+产物：`reports/consumption_deep_analysis.json`（10 维结构，~19K chars）
+
+包含：overview / category_ranking / monthly_trend / relationship_flows / business_flows / top_merchants / deep_insights / recommendations / current_month / debt_context
+
+**铁律**：波总说"整合消费数据"→ 直接出深度分析，不要混债务数据。分析要有洞察（收入画像、消费模式、出差指纹、风险信号），不是数据罗列。
+
+### 类型二：完整财务画像（含债务）
+
+**触发词**：全部数据、完整 JSON、财务全景、另一 AI 接盘（无"消费"关键词）
+
+产物：`reports/bog_finance_portrait_handoff.json`
+
+包含：subject + debt(全量) + consumption(摘要) + game_state + meta_context
+
+### ⚠️ 区分陷阱
+
+- 波总说"把数据打成 JSON"但上下文在讨论消费流水 → 出类型一，不是类型二
+- 波总说"深度洞察和分析" → 必须出类型一，类型二不够
+- 不确定时：先问"要消费深度分析还是全量财务画像？"，不要猜
+
+详细 JSON schema 见 `references/consumption-analysis-schema.md`
+
 ## 陷阱
 
 1. **不要手改 JSON，用 finance.py / expenses.py** — 脚本已处理元数据更新、去重、清债转移、交易记录
@@ -300,3 +330,4 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 12. **CSV 日期范围** — 微信账单导出时注意终止时间要选当前日期，否则会漏掉最近几天的数据
 13. **截图 vs CSV 优先级** — 同一笔交易 CSV 的商户名更准确（截图 OCR 可能误读"明红蹄花"的供应商名），优先保留 CSV 版本
 14. **分类关键字自动学习** — 每次发现新的商户名模式（如"蹄花""龙森园""相思椒"），立即追加到 `expenses.json` 的 categories 关键字库
+15. **JSON输出类型混淆** — 波总说"打成JSON"时若上下文中提到"消费流水""深度分析""洞察"，必须出 `consumption_deep_analysis.json`（类型一），不要出 `bog_finance_portrait_handoff.json`（类型二）。类型一是深度洞察，类型二是全景快照。判断标准：看波总是否在讨论消费数据。
