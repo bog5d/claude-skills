@@ -193,15 +193,76 @@ python3 ~/.hermes/adjutant/finance/scripts/finance.py due-check       # 检查�
 python3 ~/.hermes/adjutant/finance/scripts/finance.py snapshot
 python3 ~/.hermes/adjutant/finance/scripts/finance.py milestones
 
-# 消费追踪
+# 消费追踪 (v2.0 — 支持 layer + sub_category)
 python3 ~/.hermes/adjutant/finance/scripts/expenses.py add -d 2026-06-01 -a 35.50 -m "美团外卖" -s "微信"
+python3 ~/.hermes/adjutant/finance/scripts/expenses.py add -d 2026-06-01 -a 2069 -m "龙森园餐饮" --layer business --sub business
 python3 ~/.hermes/adjutant/finance/scripts/expenses.py batch --items '<JSON数组>' -s "微信"
 python3 ~/.hermes/adjutant/finance/scripts/expenses.py report -t daily|weekly|monthly
-python3 ~/.hermes/adjutant/finance/scripts/expenses.py recat <ID> <新类别>
+python3 ~/.hermes/adjutant/finance/scripts/expenses.py recat E001 -c "商务-招待" --layer business
+python3 ~/.hermes/adjutant/finance/scripts/expenses.py recat E005 --sub business  # 仅改子分类
 
 # CSV 导入
 python3 ~/.hermes/adjutant/finance/scripts/import_csv.py <文件路径>
 ```
+
+## 三层账户体系（v2.0，基于外部AI分析报告迭代）
+
+每笔消费自动归入四个 layer 之一，月报自动出四层占比：
+
+| Layer | 含义 | 自动归类规则 |
+|-------|------|-------------|
+| `basic_living` | 基础生活盘 | 餐饮、日用、交通、住房、医疗、数码、娱乐、通讯、保险（默认） |
+| `relationship` | 关系责任盘 | 家庭-老婆、家庭-哥哥、家庭-亲属 |
+| `event_reserve` | 事件储备盘 | 税费、还款-债务、旅行-酒店 |
+| `business` | 经营独立盘 | 经营-代记账、经营-支付网关、经营-公司服务、商务-招待、经营 |
+
+### 餐饮子分类（sub_category）
+
+餐饮自动推断子分类，关键字驱动：
+
+| 子分类 | 触发关键字 |
+|--------|-----------|
+| `business` | 招待、宴请、商务、客户、龙森园、凯宾斯基、松沪名灶、余家农庄、思见茶苑 |
+| `travel` | 火车、高铁、机场、航站楼、服务区、高速、携程、汉庭、亚博 |
+| `personal` | 默认（不符合以上任一） |
+
+### 手动覆盖
+
+```bash
+# 录入时指定
+expenses.py add ... --layer business --sub business
+
+# 事后纠正
+expenses.py recat E001 --layer event_reserve
+expenses.py recat E005 --sub travel
+expenses.py recat E003 -c "商务-招待" --layer business --sub business
+```
+
+### 月报输出
+
+`expenses.py report -t monthly` 现在包含 `by_layer` 字段：
+```json
+{
+  "period": "2026-06",
+  "total": 5158.98,
+  "by_layer": {"basic_living": 5158.98},
+  "by_category": {...}
+}
+```
+
+设计原则：**先跑满3个月数据 → 看真实四层分布 → 再定各层合理阈值**。不要拍脑袋设额度（如"基础生活¥18-20K"），那是另一AI的主观估算，不是实测数据。
+
+## 外部AI报告处理流程
+
+当波总发来外部AI的分析报告（如消费洞察、财务建议）时：
+
+1. **先判断合理部分** — 逐条对照数据验证，区分「洞察」和「建议」
+2. **筛选可落地的** — 能自动化的不改行为，能改系统的不改习惯
+3. **拒绝主观建议** — 外部AI的金额估算（如"月¥18-20K"）是拍脑袋，必须实测验证
+4. **落地到系统** — 合理建议 → expenses.py/finance.py 字段/命令迭代 → git push
+5. **汇报边界** — 哪些采纳了、哪些不采纳及原因，必须明确回复波总
+
+⚠️ 外部报告质量参差不齐。好的洞察（如"责任型支出人格""压力来自事件堆叠"）值得参考，但具体金额建议必须跑历史数据反推，不盲从。
 
 ## 消费追踪子系统（v2.0）
 
