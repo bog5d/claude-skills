@@ -127,7 +127,7 @@ CREATE VIRTUAL TABLE tasks_fts USING fts5(
 | Recording brain dumps as tasks | `references/adjutant-brain-dump.md` |
 | Adding a new Phase/module | `references/adjutant-add-phase.md` |
 | Blueprint decomposition | `references/blueprint-decomposition.md` |
-| Finance module requirements | `references/finance-module-requirements.md` |
+| perception.py troubleshooting | `references/perception-troubleshooting.md` |
 
 ## 工作流（完整版 — Phase 1-5）
 
@@ -383,3 +383,4 @@ Q3 审计引擎连续多天报 T021/T011-T013 假阳性，根因是 **两个数�
 18. **任务描述里的分析方案要沉淀** — 波总说"你的思路也可以沉淀下来"。复杂分析（如 FOS 部署方案 A/B/C）不应只口头说，写入任务的 `description` 字段，让后续 AI 接手时直接读取。
 19. **API Key 绝不能进 Git** — 存 `.env` 文件 + chmod 600 + `.gitignore`。直接写入环境变量或 `.env` 文件，绝不出现在 commit message 或代码注释中。
 20. **僵尸检测误报未来日程** — advisor.py 的 `check_stale_tasks` 只看创建>7天且 pending，不看 `date` 字段是否指向未来。T034（6/19长沙理工）被 Q3 感知引擎每30分钟重复告警。修复：在 advisor.py 僵尸判断中加入 date 检查——若任务的 `date` 字段 >= 今天，跳过不予告警。未来日程是排期提醒，不是僵尸任务。
+21. **perception.py 的 `HERMES_HOME` 依赖陷阱** — perception.py 用 `HERMES_HOME` 环境变量解析 adjutant 仓库路径（`HERMES_HOME / "adjutant" / "repo" / "hermes-adjutant"`）。如果 cron job 在不同 profile 下触发（如 `HERMES_HOME=/Users/mac/.hermes/profiles/finance` 但 adjutant 仓库实际在 `her-m2` 下），git fetch/advisor 都会静默失败。**修复方案**：cron 命令中显式 `export HERMES_HOME=/Users/mac/.hermes` 或在 perception.py 中用脚本自身路径（`Path(__file__).resolve().parents[2]`）回退。
