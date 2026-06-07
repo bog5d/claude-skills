@@ -463,7 +463,10 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 7. **金额超额保护** — finance.py 自动 cap 到 0，超额的差额会提示
 8. **Excel 双轨不同步** — 以波总口头确认为准，Excel 是历史参考
 9. **归途驿站禁止归并** — 每笔亲友债必须独立一行
-10. **⚠️ Profile 路径陷阱** — Hermes profile 的 `HOME` 环境变量指向 `~/.hermes/profiles/<name>/home/`，导致 `os.path.expanduser("~")` 解析到沙盒路径。finance.py 和 expenses.py 已内置检测：检测到 `.hermes/profiles/` 在路径中时，强制使用 `/Users/mac` 作为真实 home
+10. **⚠️ Profile 路径陷阱（两态都要防）** — finance.py 用 `os.environ.get("HERMES_HOME", os.path.expanduser("~"))` 解析 home。两种错误态：
+    - **态A（交互会话）**: `HERMES_HOME` = `~/.hermes/profiles/<name>/home/` → 脚本内 `".hermes/profiles/" in str(_HOME)` 检测命中 → 自动修正。✅ 已有防护
+    - **态B（Cron 会话）**: `HERMES_HOME` = `/Users/mac/.hermes`（顶层 hermes 目录，不含 `profiles/`）→ 检测**不命中** → `FINANCE_DIR` 变成 `/Users/mac/.hermes/.hermes/adjutant/finance/`（双重 `.hermes`）→ FileNotFoundError。❌ 无防护
+    - **态B 解法**: Cron job 中运行 finance.py 前必须显式设置 `HERMES_HOME=/Users/mac FINANCE_DIR=/Users/mac/.hermes/adjutant/finance`。不要依赖脚本内的自动检测。态B 的 `$HOME` 正确（`/Users/mac`）但 `HERMES_HOME` 覆盖了它。症状是路径中出现双重 `.hermes`
 11. **支付宝 CSV 编码** — 支付宝导出的 CSV 是 **GBK** 编码，不是 UTF-8。需先 `iconv -f GBK -t UTF-8` 转换再处理
 12. **CSV 日期范围** — 微信账单导出时注意终止时间要选当前日期，否则会漏掉最近几天的数据
 13. **截图 vs CSV 优先级** — 同一笔交易 CSV 的商户名更准确（截图 OCR 可能误读"明红蹄花"的供应商名），优先保留 CSV 版本
@@ -476,3 +479,7 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
 21. **截图 OCR 管线** — DeepSeek 模型不支持 vision。截图识别优先级：① 双引擎编排器 `ocr_orchestrator.py` ② Apple Vision Pro `ocr_pro.swift --preprocess` ③ EasyOCR ④ Tesseract（仅紧急备选，数字易误读）。识别出的平台还款记录 → 交叉检查 debts.json → 发现未知债主 → 主动询问波总。
 22. **数据文件双重同步** — `~/.hermes/adjutant/finance/scripts/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/scripts/` 是两个独立目录。修改脚本后必须 cp 到 repo 目录再 git push。expenses.json、income.json 同理。漏 sync 会导致 git push 只提交了旧版本。
+23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
+24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
+23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
+24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
