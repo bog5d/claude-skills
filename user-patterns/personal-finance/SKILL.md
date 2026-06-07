@@ -3,7 +3,7 @@ name: personal-finance
 title: "波总个人财务中枢 — 债务追踪 + 游戏化还款"
 description: "管理波总的亲友债务和平台债务，记录还款，生成周报，游戏化激励。一句话交互：'还了XX N元'。"
 category: user-patterns
-trigger: "波总说还款、债务、财务、花呗、借呗、度小满、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察，或要求整合支付宝微信数据打成JSON"
+trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分付、微粒贷、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察，或要求整合支付宝微信数据打成JSON，或发来账单截图"
 ---
 
 # 波总个人财务中枢
@@ -82,8 +82,10 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、还�
 ```
 波总: 还了花呗 2000
 波总: 还了妈妈 5000
+波总: 还了分付 500       ← 新增平台债类型
 波总: 拿去花清了          ← 等同于还清该笔余额
 波总: 花呗清算            ← 同上
+波总: [发来微信/支付宝/平台账单截图]  ← 触发 OCR → 自动识别 + 发现新债
 ```
 
 **处理流程：**
@@ -394,3 +396,5 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 15. **JSON输出类型混淆** — 波总说"打成JSON"时若上下文中提到"消费流水""深度分析""洞察"，必须出 `consumption_deep_analysis.json`（类型一），不要出 `bog_finance_portrait_handoff.json`（类型二）。类型一是深度洞察，类型二是全景快照。判断标准：看波总是否在讨论消费数据。
 16. **Layer 默认值** — 新录入的消费默认 layer 为 `basic_living`。商务招待/经营相关必须在录入时手动指定 `--layer business`，或事后 `expenses.py recat` 纠正。
 17. **外部AI金额建议不盲从** — 外部报告提出的具体金额阈值（如"月¥18-20K"）是主观估算，不是实测数据。必须先跑满3个月 layer 分布再定阈值，不要直接写入系统配置。
+18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
+19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图中的还款记录但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。

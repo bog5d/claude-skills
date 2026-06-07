@@ -63,6 +63,7 @@ state/  (本地状态，gamification 经 GitHub 校准)
 ├── season_narrative.html      ← 生成的季节叙事
 ├── achievement_system.html    ← 生成的成就页面
 │
+├── diary_vocab_importer.py  ← 日记词汇导入器（GitHub写入+更新）
 ├── tunnel_daemon.py             ← 公网隧道守护（HTTP 8765 + SSH localhost.run）
 ├── tunnel_url.txt               ← 当前公网 URL（daemon 自动写）
 │
