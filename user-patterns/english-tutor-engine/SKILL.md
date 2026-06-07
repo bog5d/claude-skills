@@ -344,12 +344,36 @@ print(json.dumps({"results":...,"events":...,"bars":...,"next_round_words":...},
 python3 state/diary_vocab_importer.py '[{"word":"deprivation","phonetic":"...","meaning":"剥夺","diary_context":"sleep deprivation...","diary_date":"2026-06-06","diary_title":"雅都酒店"}, ...]'
 ```
 
+**⚠️ 导入后强制刷新缓存（铁律）**：
+```bash
+# 1. 删除旧缓存
+rm -f /tmp/vocab/words.json
+# 2. 用 Python 直接从 GitHub 拉取最新 → 写入缓存（绕过 fast_vocab_round 的旧 proxy curl）
+python3 -c "
+import json, subprocess, urllib.request, ssl, base64, os
+token = subprocess.check_output(['git','-C','/Users/mac/bog-vocab-tracker','config','--get','remote.origin.url'], text=True).strip().split('@')[0].split(':')[-1]
+ctx = ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+req = urllib.request.Request('https://api.github.com/repos/bog5d/bog-vocab-tracker/contents/data/words.json',
+    headers={'Authorization':f'token {token}','Accept':'application/vnd.github.v3.raw'})
+with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+    wd = json.loads(resp.read())
+os.makedirs('/tmp/vocab', exist_ok=True)
+with open('/tmp/vocab/words.json','w') as f: json.dump(wd, f)
+print(f\"Cached {len(wd.get('words',[]))} words\")
+"
+```
+不刷新缓存 → diary 词不会出现在下一局（被旧缓存覆盖）。
+
 **优先级设计（加权优先，不独占）**：
 `fast_vocab_round.py` 的 `_priority()` 中 `is_diary` 为独立优先级层级：
 ```
 due > diary > errors > core > difficulty > random
 ```
 日记词排在错误词之前、到期词之后——确保加权优先但仍有随机性。不独占选题池，剩余位置从 Anki 词库补满。
+
+**每轮最低保障**：`select_words()` 保证每轮至少 `min(2, len(diary_pool))` 个 diary 词。先取 2 个 diary 词，再从 shuffled top candidates 填充剩余 4 个位置。
+
+**显示格式**：`format_challenge()` 已改为 `选题：日记优先 X/6 · Anki Y/6`（旧显示「Anki优先」已废弃）。
 
 **五层讲解适配**：
 `session_pipeline.py` 在生成 explanation 时检测 `source == "diary"` 且 `diary_context` 存在，则第四层"原卡时空"输出为：
@@ -881,3 +905,39 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 ### pitfall 23: fast_vocab_round 数据拉取改 urllib (2026-06-06 已修复)
 - curl-through-proxy 失败 → 改 `urllib.request.urlopen()` 直取 GitHub
 - 需要 `import urllib.request`
+
+### pitfall 24: fast_vocab_round 的 GitHub token 取不到 (2026-06-06 已修复)
+- **现象**：`_github_token()` 返回空字符串，GitHub fetch 静默失败，fallback 到旧本地缓存 → diary 词不在缓存中 → 出题时 diary 词不出现
+- **根因**：旧代码只查 env var (`GITHUB_TOKEN`, `GH_TOKEN`) 和 .env，不读 git config。english-tutor 环境无这些 env var
+- **修复**：增加 git config fallback（同 diary_vocab_importer.py 模式）：
+  ```python
+  url = subprocess.check_output(
+      ["git", "-C", "/Users/mac/bog-vocab-tracker", "config", "--get", "remote.origin.url"],
+      text=True).strip()
+  return url.split("@")[0].split(":")[-1]
+  ```
+- **注意**：不能用 `Path.home()` — profile 内 `Path.home()` 解析为 `/Users/mac/.hermes/profiles/english-tutor/home`，必须用绝对路径 `/Users/mac/bog-vocab-tracker`
+
+### pitfall 25: diary 词出题只出现 0-1 个 (2026-06-06 已修复)
+- **现象**：13 个 diary 词在 priority top 13，但 `_scatter_shuffle` 随机从 top 18 选 6 → 偶然性导致 diary 词只出现 1 个。用户暴怒：「你tmd这个顺序明显就是就是没有改嘛」
+- **根因**：`_scatter_shuffle` 纯随机，不作最低保障。18 个候选取 6 个，13 个 diary → 理论上可能只抽到 0-1 个（实际 100 次模拟中曾出现）
+- **修复**：`select_words()` 保证每轮至少 `min(2, len(diary_pool))` 个 diary 词：
+  ```python
+  min_diary = min(2, len(diary_pool))
+  selected = diary_pool[:min_diary]  # 保证取 2 个 diary
+  # 剩余从 shuffled top candidates 填充
+  fill_pool = [w for w in pool if w["word"].lower() not in seen][:remaining_count * 4]
+  random.shuffle(fill_pool)
+  ```
+- **验证**：100 次模拟全部 ≥2 diary 词/轮
+
+### pitfall 26: 日记导入后必须强制刷新缓存 (2026-06-06 铁律)
+- **现象**：`diary_vocab_importer.py` 写入 GitHub 成功，但「来一局」出题时 diary 词不出现
+- **根因**：`fast_vocab_round.py` 使用 `/tmp/vocab/words.json` 缓存（1 小时 TTL）。新鲜 GitHub 数据未拉取，使用了不含 diary 词的旧缓存
+- **修复**：日记导入后立即删除缓存 + 重新 fetch：
+  ```python
+  # 步骤 1: diary_vocab_importer.py → GitHub
+  # 步骤 2: rm /tmp/vocab/words.json
+  # 步骤 3: 用 urllib 直接从 GitHub API 拉取最新 → 写回 /tmp/vocab/words.json
+  ```
+- **预防**：`_fetch_words_json` 已改为 urllib 直取（不用 curl proxy），`--refresh` 强制重拉
