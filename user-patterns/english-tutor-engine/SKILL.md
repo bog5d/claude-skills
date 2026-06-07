@@ -319,6 +319,63 @@ print(json.dumps({"results":...,"events":...,"bars":...,"next_round_words":...},
 
 **开发模式**：所有 Tier 2 脚本遵循 weekly_report.py 的独立脚本模式——`_get_token()`（git config 提取 PAT）+ `_fetch()`（GitHub API 直取）+ 生成 HTML。
 
+### 3.3 日记词汇协作系统（2026-06-06 上线）
+
+用户在 Telegram 发英文日记 → 日记触发的核心词汇 → Hermes 导入 GitHub words.json → 下次闯关加权优先出现 → 五层讲解"原卡时空"使用日记回忆替代 Anki 卡片。
+
+**数据流**：
+```
+用户写日记 → 触发词汇 → 发给我(日记原文+词汇列表)
+                              │
+                    diary_vocab_importer.py 写入 GitHub
+                    ├── 新词: source="diary", core_level=5
+                    ├── 已存在词: 更新 source="diary", 升级 core_level
+                    └── 写入 diary_context + diary_date + diary_title
+                              │
+                    下次「来一局」→ diary 词加权优先（异步 2 层）
+                              │
+                    答题后五层讲解 → "原卡时空"=日记回忆段落
+                              │
+                    SM-2 正常调度 → 融入常规复习
+```
+
+**导入器用法**：
+```bash
+python3 state/diary_vocab_importer.py '[{"word":"deprivation","phonetic":"...","meaning":"剥夺","diary_context":"sleep deprivation...","diary_date":"2026-06-06","diary_title":"雅都酒店"}, ...]'
+```
+
+**优先级设计（加权优先，不独占）**：
+`fast_vocab_round.py` 的 `_priority()` 中 `is_diary` 为独立优先级层级：
+```
+due > diary > errors > core > difficulty > random
+```
+日记词排在错误词之前、到期词之后——确保加权优先但仍有随机性。不独占选题池，剩余位置从 Anki 词库补满。
+
+**五层讲解适配**：
+`session_pipeline.py` 在生成 explanation 时检测 `source == "diary"` 且 `diary_context` 存在，则第四层"原卡时空"输出为：
+```
+[📅 2026-06-06 · 雅都酒店 -> 雁湖生态公园]
+I had been suffering from sleep deprivation, getting only four hours...
+```
+替代 Anki 词的 `original_anki_content`。
+
+**日记词与 Anki 词兼容共存**：
+- 两者不是二选一，是同一次闯关中混合出现
+- diary 词加权优先但不垄断——一轮 6 词中 diary 词占 1-3 个
+- SM-2 调度、复习周期、连击系统对两种来源一视同仁
+- gamification 统计不区分来源
+
+**新增数据字段**（words.json 每词新增，仅 diary 来源有）：
+```json
+{
+  "source": "diary",
+  "core_level": 5,
+  "diary_context": "日记原文段落",
+  "diary_date": "2026-06-06",
+  "diary_title": "日记标题"
+}
+```
+
 ### 4. 词根能力树
 
 「能力树」/「词根」→ `game_master.gen_skill_tree_panel()`
@@ -810,3 +867,17 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
   `HERMES_MEDIA_ALLOW_DIRS=/Users/mac/.hermes/profiles/english-tutor/state,/tmp`
 - 修复后需 `hermes gateway restart` 生效
 - 验证：`send_message(action='send', message='MEDIA:<path>')` 返回 `"mirrored": true`
+
+### pitfall 21: 隧道 URL 必须先自测再发送（2026-06-06 用户纠正 ⚠️ 铁律）
+- **用户原话**：「你自测一下再发」「打不开」「no tunnel here :(」
+- **错误做法**：隧道重启后直接发 URL → 用户打开 503/空白
+- **正确做法**：`curl -s -o /dev/null -w "%{http_code}" "$URL/chronicle_index.html"` → HTTP 200 确认后再发
+
+### pitfall 22: SSH 隧道保活 (2026-06-06)
+- **可用**：`ssh -o ServerAliveInterval=10 -o TCPKeepAlive=yes -R 80:localhost:8765 nokey@localhost.run`
+- **不可用**：ngrok (需 auth)、cloudflared (VPN 挡 QUIC)
+- `state/tunnel_daemon.py` 守护 HTTP+隧道常活
+
+### pitfall 23: fast_vocab_round 数据拉取改 urllib (2026-06-06 已修复)
+- curl-through-proxy 失败 → 改 `urllib.request.urlopen()` 直取 GitHub
+- 需要 `import urllib.request`

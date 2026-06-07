@@ -1,8 +1,8 @@
 ---
 name: personal-finance
-title: "波总个人财务中枢 — 债务追踪 + 游戏化还款"
-description: "管理波总的亲友债务和平台债务，记录还款，生成周报，游戏化激励。一句话交互：'还了XX N元'。"
-category: user-patterns
+title: "波总个人财务中枢 v3.1 — 债务 + 消费 + 收入 + 报销四维追踪"
+description: "管理波总的亲友债务和平台债务，记录还款，追踪消费（三层账户+子分类+可报销标记），月度收入记录，净现金流分析，游戏化激励。一句话交互：'还了XX N元'。"
+trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分付、微粒贷、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察/收入/报销/净现金流，或要求整合支付宝微信数据打成JSON，或发来账单截图/平台截图/收入口述"
 trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分付、微粒贷、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察，或要求整合支付宝微信数据打成JSON，或发来账单截图"
 ---
 
@@ -25,14 +25,16 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 ├── debts.json              ← 债务主数据（active + cleared 列表）
 ├── config.json             ← 里程碑阈值 + 成就定义
 ├── transactions.json       ← 还款流水 [{date, creditor, amount, ...}]
-├── expenses.json           ← 🆕 消费数据（17类规则引擎 + 截图追踪）
+├── expenses.json           ← 消费数据（17类规则引擎 + layer + sub_category + reimbursable）
+├── income.json             ← v3.1 收入记录（月度salary/bonus/other_income）
 ├── snapshots/YYYY-MM-DD.json  ← 初始 + 周度快照
-├── reports/                ← 周报生成区
+├── reports/                ← 周报 + 深度分析JSON 生成区
 └── scripts/
     ├── finance.py          ← 核心引擎（repay / report --daily / daily / set-duedate / due-check / snapshot / milestones）
-    ├── expenses.py         ← 🆕 消费追踪引擎（add / batch / report / recat / summary / screenshot）
-    ├── import_csv.py       ← 🆕 CSV导入器（支付宝/微信CSV → 自动解析+过滤+分类+去重）
-    └── nag_screenshots.py  ← 🆕 暴力催收脚本（cron 用，检查昨日截图是否到位）
+    ├── expenses.py         ← v3.1 消费引擎（add / batch / report / recat / summary / screenshot, 三层账户 + 可报销）
+    ├── income.py           ← v3.1 收入引擎（log / net / show, 净现金流计算）
+    ├── import_csv.py       ← CSV导入器（支付宝/微信CSV → 自动解析+过滤+分类+去重）
+    └── nag_screenshots.py  ← 暴力催收脚本（cron no_agent, 检查昨日截图是否到位）
 ```
 
 **GitHub 双副本**：`hermes-adjutant/finance/`（和副官同一仓库）。每次变更 git push，任何 AI 可通过 `git pull` 接盘。
@@ -178,6 +180,7 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 所有操作通过 `finance.py` 完成（不要手改 JSON）：
 
 ```bash
+# ── 债务管理 ──
 # 记录还款
 python3 ~/.hermes/adjutant/finance/scripts/finance.py repay -c "花呗" -a 2000
 
@@ -195,7 +198,7 @@ python3 ~/.hermes/adjutant/finance/scripts/finance.py due-check       # 检查�
 python3 ~/.hermes/adjutant/finance/scripts/finance.py snapshot
 python3 ~/.hermes/adjutant/finance/scripts/finance.py milestones
 
-# 消费追踪 (v2.0 — 支持 layer + sub_category)
+# ── 消费追踪 (v3.1 — layer + sub_category + reimbursable) ──
 python3 ~/.hermes/adjutant/finance/scripts/expenses.py add -d 2026-06-01 -a 35.50 -m "美团外卖" -s "微信"
 python3 ~/.hermes/adjutant/finance/scripts/expenses.py add -d 2026-06-01 -a 2069 -m "龙森园餐饮" --layer business --sub business
 python3 ~/.hermes/adjutant/finance/scripts/expenses.py batch --items '<JSON数组>' -s "微信"
@@ -205,6 +208,11 @@ python3 ~/.hermes/adjutant/finance/scripts/expenses.py recat E005 --sub business
 
 # CSV 导入
 python3 ~/.hermes/adjutant/finance/scripts/import_csv.py <文件路径>
+
+# ── 收入追踪 (v3.1) ──
+python3 ~/.hermes/adjutant/finance/scripts/income.py log -y 2026 -m 6 -o 14002 -n "妈妈冷秀芳转回"
+python3 ~/.hermes/adjutant/finance/scripts/income.py net -y 2026 -m 6   # 净现金流
+python3 ~/.hermes/adjutant/finance/scripts/income.py show               # 全部记录
 ```
 
 ## 三层账户体系（v2.0，基于外部AI分析报告迭代）
@@ -266,7 +274,74 @@ expenses.py recat E003 -c "商务-招待" --layer business --sub business
 
 ⚠️ 外部报告质量参差不齐。好的洞察（如"责任型支出人格""压力来自事件堆叠"）值得参考，但具体金额建议必须跑历史数据反推，不盲从。
 
-## 消费追踪子系统（v2.0）
+## 可报销追踪（v3.1）
+
+差旅/商务消费次月报销（延迟1个月到账）。系统自动标记可报销项，月底生成预估报销额。
+
+### 自动标记规则
+
+以下自动标记为 `reimbursable: true`：
+
+| 触发条件 | 示例 |
+|---------|------|
+| 旅行-酒店 / 交通-火车票 / 商务-招待 类别 | 汉庭 ¥876、12306 ¥248 |
+| 经营-* 类别 | 代记账 ¥3,440 |
+| 餐饮 sub_category = business 或 travel | 龙森园 ¥2,069 |
+| 商户名含关键词：携程、滴滴、12306、铁路、机票、酒店、凯宾斯基、松沪名灶 | 携程 ¥816、滴滴 ¥50 |
+
+### 月报输出
+
+`expenses.py report -t monthly` 含 `reimbursable` 区块：
+```json
+{
+  "reimbursable": {
+    "total": 3662.74,
+    "count": 7,
+    "items": [...],
+    "note": "预估可报销（次月到账），实际以发票为准"
+  }
+}
+```
+
+### 精度说明
+
+- 80-90% 准确。老婆垫付的部分不在波总支付宝/微信数据中，会漏。
+- 误标纠正：`expenses.py recat E030 --sub personal`（龙森园是家庭聚餐不是商务）
+- 次月报销到账后记收入：`income.py log -o 3663 -n "6月报销到账"`
+
+## 收入追踪（v3.1）
+
+粗颗粒度月收入记录。波总每月口述一句即可。
+
+### 波总收入结构（深度记忆）
+
+- 长沙公司月薪 ~¥20,000
+- 广州公司月薪 ~¥10,000
+- 年度奖金 ¥100,000-150,000（月均摊 ~¥10,400）
+- 其他工作外收入 → 打入妈妈（冷秀芳）银行卡 → 妈妈微信转回
+- **冷秀芳 = 妈妈**，不是借款关系。她转回的是波总自己的其他收入
+- 月收入粗估 ¥40,000-50,000+
+
+### 额外流出（未在支付宝/微信体现）
+
+- 每月银行卡转老婆 Dily ~¥20,000+（家庭支配 + 还债，偶尔周转回来）
+- 支付宝/微信另有 ~¥5,000/月流向老婆（布尔乔亚商户）
+- 老婆总流向 ~¥25,000/月
+
+### CLI
+
+```bash
+# 记录其他收入（妈妈转回、报销到账等）
+income.py log -y 2026 -m 6 -o 14002 -n "妈妈转回"
+
+# 净现金流 = 收入 - 消费 + 预估报销
+income.py net -y 2026 -m 6
+# → {"income": 54402, "expenses": 5158.98, "reimbursable_estimate": 3662.74, "net_after_reimburse": 52905.76}
+```
+
+净现金流公式：`net_after_reimburse = income - expenses + reimbursable_estimate`
+
+正数 = 有盈余，负数 = 当月透支。不追求精确，粗颗粒度趋势判断。
 
 ### 两条输入通道
 
@@ -398,3 +473,6 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 17. **外部AI金额建议不盲从** — 外部报告提出的具体金额阈值（如"月¥18-20K"）是主观估算，不是实测数据。必须先跑满3个月 layer 分布再定阈值，不要直接写入系统配置。
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
 19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图中的还款记录但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。
+20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
+21. **截图 OCR 管线** — DeepSeek 模型不支持 vision。截图识别优先级：① 双引擎编排器 `ocr_orchestrator.py` ② Apple Vision Pro `ocr_pro.swift --preprocess` ③ EasyOCR ④ Tesseract（仅紧急备选，数字易误读）。识别出的平台还款记录 → 交叉检查 debts.json → 发现未知债主 → 主动询问波总。
+22. **数据文件双重同步** — `~/.hermes/adjutant/finance/scripts/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/scripts/` 是两个独立目录。修改脚本后必须 cp 到 repo 目录再 git push。expenses.json、income.json 同理。漏 sync 会导致 git push 只提交了旧版本。
