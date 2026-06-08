@@ -99,9 +99,11 @@ cron job：每天 9:00 发送日报。包含快照/进度环/今日单词/Boss�
 - 7-13天：🔥🔥🔥🔥🔥⚡ ON FIRE
 - 14+天：🔥🔥🔥🔥🔥🔥🔥🌈 LEGENDARY
 
-## 交付模式（2026-06-06 用户纠正 ⚠️ 铁律）
+## 交付模式（2026-06-08 升级）
 
-**不要发 MEDIA 文件碎片。** Session 结束后只发 **1 个公网 URL**：
+**升段 chronicle 自动推送**：`session_pipeline.py` 内置 Telegram Bot API `sendDocument` 直推——升段即推，零 LLM 中转。
+
+**Session 结束后**：发 **1 个公网 URL**：
 - `{tunnel_url}/chronicle_index.html` — 点开全部页面可导航
 - URL 由 `state/tunnel_daemon.py` 守护 HTTP server + SSH 隧道
 - `session_pipeline.py` 输出自动注入 `tunnel_url` 字段

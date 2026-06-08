@@ -116,7 +116,7 @@ LLM 只需：terminal 调用 → relay 输出 → 不再手写 execute_code
 - **session_pipeline.py** 是游戏规则统一基座——判分/讲解/推送全部固化，不存在「LLM忘了」
 - **gamification_v2** 统一管理段位/子段位/噩梦词/面板
 - **Chronicle** 从 `words.json` 的 `history[]` 数组重建战役记录（非 `progress.json` 旧格式）
-- **Chronicle 投递**：自动 `cp` 至 `~/.hermes/cache/documents/` + 更新索引
+- **Chronicle 投递**：自动 `cp` 至 `~/.hermes/cache/documents/` + 更新索引 **+ Telegram Bot API 直推 HTML 文档**（不再依赖 LLM 手动 relay MEDIA）
 - **GitHub是单一事实源**：words.json 每次 push，所有脚本从它读取
 
 ### Phase 2 调用方式（LLM 标准操作）
@@ -932,12 +932,12 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **验证**：100 次模拟全部 ≥2 diary 词/轮
 
 ### pitfall 26: 日记导入后必须强制刷新缓存 (2026-06-06 铁律)
-- **现象**：`diary_vocab_importer.py` 写入 GitHub 成功，但「来一局」出题时 diary 词不出现
-- **根因**：`fast_vocab_round.py` 使用 `/tmp/vocab/words.json` 缓存（1 小时 TTL）。新鲜 GitHub 数据未拉取，使用了不含 diary 词的旧缓存
-- **修复**：日记导入后立即删除缓存 + 重新 fetch：
-  ```python
-  # 步骤 1: diary_vocab_importer.py → GitHub
-  # 步骤 2: rm /tmp/vocab/words.json
-  # 步骤 3: 用 urllib 直接从 GitHub API 拉取最新 → 写回 /tmp/vocab/words.json
-  ```
-- **预防**：`_fetch_words_json` 已改为 urllib 直取（不用 curl proxy），`--refresh` 强制重拉
+
+### pitfall 27: 升段 chronicle 不自动发送 — LLM 接力断链 (2026-06-08 已修复)
+- **现象**：升段后 chronicle HTML 已生成并复制到 cache，但用户追问「升级了该怎么样」「为什么没有默认发」
+- **根因**：pipeline 仅设 `chronicle_cache_path` 字段期望 LLM 手动 relay → LLM 不定注意到 → delivery 断链
+- **修复**：`session_pipeline.py` 内置 Telegram Bot API `sendDocument` 直推 chronicle HTML（读 TELEGRAM_BOT_TOKEN + multipart 上传），升段即推零人工
+
+### pitfall 28: ANSWER_KEYWORDS 匹配粒度导致误判 (2026-06-08 待优化)
+- 例：生产制造商→manufacturer（正解「制造商」）、关停→shut（正解「关闭」）、可实现的→feasible（正解「可行的」）皆被判错
+- 应对：LLM 人工复查 pipeline JSON，对明显误判标「✅ 误判✗」并手写正解

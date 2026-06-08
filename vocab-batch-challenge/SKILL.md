@@ -256,12 +256,16 @@ After every session's gamification sync, if `ranked_up = True`:
    - Each card links to full chronicle HTML
    - Auto-generated on every rank-up
 
-3. **Delivery**: `cp` chronicle HTMLs to `~/.hermes/cache/documents/` → send via Telegram MEDIA tag.
+3. **Delivery**: Pipeline auto-sends chronicle HTML via Telegram Bot API `sendDocument` (2026-06-08 upgrade — no longer relies on LLM to manually relay MEDIA). Files also `cp` to `~/.hermes/cache/documents/` as backup.
 
 4. **Report fields**: Read `sub_rank` (not `rank`) + `stats.anki_words_encountered` + `stats.mastery50_count`.
 
 ### Additional Pitfalls
-- **Telegram formatting**: Code blocks can misrender on some clients (e.g. "exhaust" displays wrong). Use plain text for word lists; reserve code blocks only for gamification panels.
+- **Collocation display**: fast_vocab_round shows 1 word/round as collocation fill-in-blank (📝). _COLLOC_SNIPPETS maps word to sentence template.
+- **Keyword false negatives**: Pipeline may flag correct variants as wrong (e.g. 生产制造商->manufacturer). LLM should review and override with ✅误判✗ notation.
+- **Chronicle auto-delivery**: session_pipeline.py now embeds Telegram Bot API sendDocument for rank-up chronicles. No manual MEDIA relay needed.
+- **Progress 0.0%**: Happens after rank-up reset. Explain BOTH sub-rank bar AND overall journey bar.
+- **Session cleanup**: Delete state/vocab_escalating.json after Round 3. Check for stale state before new session. (e.g. "exhaust" displays wrong). Use plain text for word lists; reserve code blocks only for gamification panels.
 - **Progress 0.0%**: Happens after rank-up reset. Explain BOTH sub-rank bar (0/25=0%) AND overall journey bar (5/25=20%) to prevent confusion.
 - **Session cleanup**: Delete `state/vocab_escalating.json` after Round 3 full processing. Check for stale state before new session.
 
