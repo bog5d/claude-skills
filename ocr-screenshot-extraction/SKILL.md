@@ -35,13 +35,15 @@ python3 /Users/mac/.hermes/scripts/ocr_orchestrator.py /path/to/screenshot.jpg
 ```
 输出 JSON，含 Apple Vision Pro + EasyOCR 双结果对比 + auto_accept/human_review 建议。
 
-### 🥈 Apple Vision Pro（快速模式）
-```bash
-swift /Users/mac/.hermes/scripts/ocr_pro.swift /path/to/screenshot.jpg --preprocess
-```
-Vision Revision 3 + Lanczos 2× 缩放 + 自动增强 + 锐化。
+⚠️ **已知坑**：EasyOCR 可能未安装（`ModuleNotFoundError: No module named 'easyocr'`）。如果编排器因为 EasyOCR 缺失而失败，**直接用 Apple Vision Pro 单引擎**（见下方 🥈）。
 
-### 🥉 EasyOCR
+### 🥈 Apple Vision Pro（快速模式 — 最可靠）
+```bash
+swift /Users/mac/.hermes/scripts/ocr_pro.swift /path/to/screenshot.jpg
+```
+Vision Revision 3 + Lanczos 2× 缩放 + 自动增强 + 锐化。**无需任何 Python 依赖，macOS 原生可用。**
+
+### 🥉 EasyOCR（需额外安装）
 ```python
 reader = easyocr.Reader(["ch_sim", "en"]); reader.readtext("/path/to/img.jpg")
 ```

@@ -230,9 +230,12 @@ HERMES_HOME=~/.hermes/profiles/<name> hermes gateway start
 # 找到 defibrillator PID 并重启
 kill $(pgrep -f defibrillator_v2.py)
 # launchd 会自动拉起新实例（defibrillator 由 launchd KeepAlive 管理）
+sleep 3
+# 验证新 PID 已加载新配置
+pgrep -fl defibrillator
 ```
 
-验证：`pgrep -fl defibrillator` 应返回新 PID。
+> ⚠️ 重启后必须验证 defib 日志中出现了新 profile 的巡检记录（`巡检: 4/4 在线` 而不是 `3/3`），否则说明新配置未生效。
 
 ---
 

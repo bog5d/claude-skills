@@ -205,7 +205,49 @@ done
   3. 重新 bootstrap：`launchctl bootstrap gui/501 <plist_path> && launchctl kickstart gui/501/<service>`
 - 预防：不要在任何 launchd plist 中使用 RSS 限制。macOS 不支持。支持的 key 仅限：`Core`, `CPU`, `Data`, `FileSize`, `MemoryLock`, `NumberOfFiles`, `NumberOfProcesses`, `ResidentSetSize`, `Stack`
 
-**模式N：Defibrillator 误报"离线" — 进程存活但缺平台凭证**
+**模式N：Memory char limit → 级联错误 → Gateway 不稳定甚至被 SIGKILL**
+
+- 症状：gateway error.log 反复出现 `Memory at X/Y chars. Adding this entry would exceed the limit`，agent 反复尝试 replace/compact memory 消耗额外 token。最终 gateway 被 macOS 因内存压力 SIGKILL(-9) 或 DeepSeek 连接 stale 180s broken pipe
+- 根因：profile `config.yaml` 中 `memory_char_limit` 设置过小（如 2,200），低于实际需要的存储容量。Agent 每次写 memory 都触发 limit error → 反复尝试替换 → 浪费 API 调用 → 对话上下文膨胀 → 内存压力上升
+- 验证：
+  1. `grep "Memory at" <profile>/logs/gateway.error.log | tail -20` — 大量 limit error
+  2. `grep memory_char_limit <profile>/config.yaml` — 看设置值
+  3. 对比 default profile 的 5,000 字符限制 — 如果差距大，就是问题
+- 修复：将 `memory_char_limit` 提高到 5,000，`user_char_limit` 提高到 3,000
+  ```yaml
+  memory:
+    memory_char_limit: 5000
+    user_char_limit: 3000
+  ```
+- 预防：新 profile 创建时默认使用 5,000/3,000 限制，不要降低
+
+**模式O：Gateway 重启后无日志 → 进程秒退（SIGKILL on restart）**
+
+- 症状：`launchctl kickstart -k` 后新 PID 出现但 exit code 仍为 -9，gateway 日志无任何新输出。进程在 import/初始化阶段就被 kill
+- 根因：通常是 macOS 内存压力持续存在（上一个 gateway 耗尽了可用内存，新进程启动时系统直接 SIGKILL）。也可能 config.yaml 有语法错误导致 Python import 阶段崩溃
+- 验证：
+  1. `launchctl list | grep <service>` — 确认 PID 和 exit code
+  2. `tail -5 <profile>/logs/gateway.log` — 如果最后一行仍是旧会话的 shutdown 消息 → 新进程从未成功启动
+  3. `lsof -ti :<port>` — 确认端口空闲
+- 修复：
+  1. 先释放内存：检查是否有其他重进程（浏览器、IDE、Docker），必要时 kill
+  2. 手动启动以获取错误：`cd ~/.hermes/hermes-agent && source venv/bin/activate && python -m hermes_cli.main --profile <name> gateway run --replace 2>&1 | head -50`
+  3. 如果手动启动成功 → 说明是 launchd 环境问题（环境变量、PATH 等）
+  4. 如果手动启动也失败 → 看报错定位根因
+- 教训：不要只看 `launchctl list` 的 PID 列，必须交叉验证 `gateway.log` 是否有新条目
+
+**模式P：重启后上下文丢失 → 用 cron job 注入唤醒 prompt**
+
+- 场景：gateway 因崩溃重启后，上下文完全清空。用户期望 agent 恢复之前的工作记忆
+- 方法：从其他 profile（或手动）创建一个一次性 cron job，用目标 profile 执行，让 agent 自行搜索记忆系统恢复上下文
+  ```bash
+  cronjob action=create profile=<target> schedule="2026-06-08T09:12:00" repeat=1 \
+    prompt="你刚刚被 SIGKILL 重启。之前你在做XXX。请查 TencentDB Agent Memory 恢复上下文，然后主动给波总发消息汇报状态。" \
+    deliver=telegram
+  ```
+- 注意：API server 如果有 auth 要求（api_key 非空），无法直接通过 HTTP POST 注入消息；cron 是更可靠的注入方式
+
+**模式Q：Defibrillator 误报"离线" — 进程存活但缺平台凭证**
 
 - 症状：`defibrillator.log` 反复报告 `[default] 离线但冷却中，跳过` 或 `❌ 复活失败，进程可能未正常启动`，巡检显示 `活: ['her-m2', 'english-tutor'] | 死: ['default']`。但 `ps` 和 `launchctl list` 确认进程 PID 存活、exit code 为 0。
 - 根因：defibrillator 判断 gateway "存活"的标准不仅仅是 PID 存在，还包括平台连接状态。当 default gateway 的 Telegram 连接因 `TELEGRAM_BOT_TOKEN` 未配置而失败时（日志：`[Telegram] No bot token configured`），defibrillator 将其判为"离线"。复活尝试也因相同原因（token 仍然缺失）而失败 → 进入 15 分钟冷却期 → 反复报"离线但冷却中"。
