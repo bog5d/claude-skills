@@ -15,38 +15,41 @@ category: user-patterns
 
 ## 管线 A：平台债务截图（已有，新增还款日提取）
 
-### OCR 引擎（v3.0 双引擎管线，2026-06-06 升级）
+### OCR 引擎（v3.1，2026-06-08 实测校准）
 
-**🥇 双引擎编排器（推荐，默认使用）：**
+⚠️ `ocr_orchestrator.py`、`ocr_pro.swift`、EasyOCR 均未部署。以下为当前可用的实际工具：
+
+**🥇 Apple Vision (Swift) — 首选，临时脚本调用：**
 ```bash
-python3 /Users/mac/.hermes/scripts/ocr_orchestrator.py /path/to/screenshot.jpg
+# 编译一次
+swiftc -o /tmp/ocr_vision /tmp/ocr_vision.swift
+# 对每个截图运行
+/tmp/ocr_vision /path/to/screenshot.jpg
 ```
-- 同时跑 Apple Vision Pro (Revision 3) + EasyOCR
-- 自动对比两个引擎结果，标记差异金额
-- 输出 JSON，含 `recommendation`: `auto_accept` / `human_review`
+- Swift 源码见下方「Vision OCR Swift 模板」
+- 对微信账单效果最好（日期+金额+商户清晰），对支付宝账单较差（复杂布局+图标干扰）
+- ⚠️ 支付宝截图经常乱码，优先让波总口述而非反复 OCR
 
-**🥈 Apple Vision Pro 单独使用（快速模式）：**
+**🥈 Tesseract (`chi_sim`) — 备选：**
 ```bash
-swift /Users/mac/.hermes/scripts/ocr_pro.swift /path/to/screenshot.jpg --preprocess
+tesseract /path/to/img.jpg stdout -l chi_sim 2>&1
 ```
-- Vision Revision 3（CJK 优化）+ Lanczos 2× 缩放 + 自动增强 + 锐化
-- 每行输出：`文本<TAB>置信度`
-- 脚本位置：`~/.hermes/scripts/ocr_pro.swift`
-
-**🥉 EasyOCR 单独使用：**
-```python
-import easyocr
-reader = easyocr.Reader(["ch_sim", "en"])
-results = reader.readtext("/path/to/img.jpg")
-```
-- CRAFT 检测 + CRNN 识别，中文效果优于 Tesseract
-
-**⚠️ Tesseract 已降级为紧急备选（仅前三者都不可用时）：**
-```bash
-python3 -c "import pytesseract; from PIL import Image; print(pytesseract.image_to_string(Image.open('/path/to/img.jpg'), lang='chi_sim+eng'))"
-```
-- 已知 Bug：数字 5 误读为 9、开头 "1" 被吞掉（如 19432→9432）
+- 可尝试 PSM 3/4/6/11 不同模式
+- 已知 Bug：数字 5→9、开头 "1" 被吞（19432→9432）
+- 对支付宝截图几乎不可用（乱码严重）
 - ⚠️ Tesseract 提取的金额必须波总肉眼确认，不可直接写入
+
+**Vision OCR Swift 模板：**
+```swift
+import Vision; import AppKit
+let img = NSImage(contentsOfFile: CommandLine.arguments[1])!
+let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil)!
+let req = VNRecognizeTextRequest()
+req.recognitionLevel = .accurate
+req.recognitionLanguages = ["zh-Hans", "zh-Hant", "en"]
+try VNImageRequestHandler(cgImage: cg).perform([req])
+for obs in req.results! { print(obs.topCandidates(1).first!.string) }
+```
 
 ---
 
@@ -208,8 +211,8 @@ python3 scripts/import_csv.py alipay_utf8.csv
 
 截图包含消费明细时，走 OCR → batch 导入流程：
 ```bash
-# OCR
-swift ~/.hermes/scripts/ocr_apple.swift screenshot.jpg
+# OCR（Apple Vision 临时脚本 — ocr_apple.swift 未部署）
+/tmp/ocr_vision screenshot.jpg
 # 解析 → 批量入库
 python3 scripts/expenses.py batch --items '<JSON>' -s "微信" --sid "wx_bill_20260606"
 ```

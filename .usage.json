@@ -2213,14 +2213,14 @@
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.248584+00:00",
     "created_by": null,
-    "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
-    "patch_count": 0,
+    "last_patched_at": "2026-06-08T01:12:20.764775+00:00",
+    "last_used_at": "2026-06-08T01:11:39.642880+00:00",
+    "last_viewed_at": "2026-06-08T01:11:39.640178+00:00",
+    "patch_count": 13,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 3,
+    "view_count": 3
   },
   "test-driven-development": {
     "archived_at": null,

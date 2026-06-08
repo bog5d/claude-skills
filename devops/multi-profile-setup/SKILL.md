@@ -81,7 +81,15 @@ print(json.loads(r.stdout)['result']['username'])  # 必须匹配你的 bot
 
 ---
 
-## Phase 3: 启动 Gateway
+## Phase 3: 启动前检查 + 启动 Gateway
+
+### 3a. 禁用 api_server（如不需要）
+
+新 profile 默认开启 `api_server`（端口 8642），多 profile 环境必冲突。对于纯 Telegram bot（不需要 REST API 的场景），启动前先禁用：
+
+编辑 `config.yaml`，在 `platforms:` 下删除或注释 `api_server:` 整个块。
+
+### 3b. 启动
 
 ```bash
 HERMES_HOME=~/.hermes/profiles/<name> hermes gateway start
@@ -179,7 +187,21 @@ if not any('GATEWAY_ALLOW_ALL_USERS' in l for l in lines):
 "
 ```
 
-然后重启 gateway：`launchctl kickstart -k gui/501/ai.hermes.gateway-<name>`
+然后重启 gateway：
+
+🚨 **不能用 `kickstart`！** `launchctl kickstart -k` 发送 SIGKILL 后以**相同进程环境**重启，`.env` 修改不会被重新加载。必须用完整的 bootout + bootstrap：
+
+```bash
+# 1. 彻底杀死
+launchctl bootout gui/501/ai.hermes.gateway-<name> 2>/dev/null
+sleep 2
+# 2. 删除 plist（避免 launchd 缓存旧环境）
+rm -f /Users/mac/Library/LaunchAgents/ai.hermes.gateway-<name>.plist
+# 3. 重新创建 plist + 启动（会重新读取 .env）
+HERMES_HOME=~/.hermes/profiles/<name> hermes gateway start
+```
+
+> ⚠️ 如果 bootstrap 报 `Bootstrap failed: 5: Input/output error`：先 `pgrep -fl "hermes.*<name>"` 确认进程已死，sleep 3 后再试。反复失败就删 plist → `hermes gateway start`（会自动重建 plist）。
 
 如果只允许特定用户，用 `TELEGRAM_ALLOWED_USERS=<chat_id>` 替代。
 
@@ -235,7 +257,11 @@ kill $(pgrep -f defibrillator_v2.py)
 
 4. **Skills sync 不覆盖新 profile** — 同步脚本需要显式添加新 SRC，不会自动发现。
 
-5. **api_server 端口冲突** — 新 profile 默认 platform `api_server.enabled: true`，端口 `8642`。如果其他 gateway 已占用此端口（如 default），会导致持续重连错误。设置 `enabled: false` **不阻止初始化**（gateway 仍会尝试连接并报错）。临时方案：直接删除或注释 platforms 下整个 `api_server:` 块。长期方案：改为不同端口或从模板中禁用。
+5. **api_server 端口冲突** — 新 profile 默认 platform `api_server.enabled: true`，端口 `8642`。如果其他 gateway 已占用此端口，会导致持续重连错误日志刷屏。
+
+   - ❌ **`enabled: false` 不够**：gateway 仍然会初始化 api_server adapter 并尝试连接，日志持续出现 `ERROR gateway.platforms.api_server: Port 8642 already in use`。
+   - ✅ **正确做法（Telegram-only 网关）**：直接从 config.yaml 的 `platforms:` 段删除或注释整个 `api_server:` 块，然后 bootout + bootstrap 重启。
+   - 如果确实需要 api_server：改为不同端口（如 `8643`），确认端口未被占用后再启动。
 
 ## 参考
 

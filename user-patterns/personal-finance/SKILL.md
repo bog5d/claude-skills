@@ -477,7 +477,12 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
 19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图中的还款记录但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
-21. **截图 OCR 管线** — DeepSeek 模型不支持 vision。截图识别优先级：① 双引擎编排器 `ocr_orchestrator.py` ② Apple Vision Pro `ocr_pro.swift --preprocess` ③ EasyOCR ④ Tesseract（仅紧急备选，数字易误读）。识别出的平台还款记录 → 交叉检查 debts.json → 发现未知债主 → 主动询问波总。
+21. **截图 OCR 管线** — DeepSeek 模型不支持 vision。可用工具及其实际表现：
+    - 🥇 **Apple Vision (Swift)** — 通过临时 `VNRecognizeTextRequest` 脚本调用，对微信账单效果最好（清晰识别日期+金额+商户），对支付宝账单较差（复杂布局+图标干扰）
+    - 🥈 **Tesseract (`chi_sim`)** — 对微信有一定效果但不如 Vision，对支付宝几乎不可用（乱码严重）。可尝试多 PSM 模式（3/4/6/11）但改善有限
+    - ⚠️ `ocr_orchestrator.py` 和 `ocr_pro.swift` 当前未部署，需创建
+    - 📸 **支付宝截图特殊处理** — 支付宝账单布局复杂（图标多、字体小、背景干扰），双引擎均效果差。遇到支付宝截图优先让波总口述，不要反复 OCR 浪费时间
+    - 识别出的平台还款记录 → 交叉检查 debts.json → 发现未知债主 → 主动询问波总。
 22. **数据文件双重同步** — `~/.hermes/adjutant/finance/scripts/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/scripts/` 是两个独立目录。修改脚本后必须 cp 到 repo 目录再 git push。expenses.json、income.json 同理。漏 sync 会导致 git push 只提交了旧版本。
 23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
 24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
