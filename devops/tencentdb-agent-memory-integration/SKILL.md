@@ -188,10 +188,11 @@ const memoryRaw = obj(fileConfig, "memory");
 
 **yaml 配置**（`~/.memory-tencentdb/tdai-gateway.yaml`）：
 ```yaml
-memory:
-  embedding:
-    enabled: true
-    provider: "local"
+# embedding 放在顶层，与 server/data/offload 同级（NOT 嵌套在 memory: 下）
+# 因为 gateway/config.ts 已改为传 fileConfig 顶层给 parseMemoryConfig
+embedding:
+  enabled: true
+  provider: "local"
 ```
 
 ### 完整修复流程（已验证通过，2026-06-08）
