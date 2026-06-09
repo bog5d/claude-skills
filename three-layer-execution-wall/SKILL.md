@@ -411,11 +411,12 @@ author: AnyGen
 
 ---
 
-# 推荐搭配文件
+## 推荐搭配文件
 
 - `references/tool-risk-matrix.md`
 - `templates/final-delivery-templates.md`
 - `references/preflight-checklist.md`
+- `references/a-share-spv-structuring.md` — A股控制权收购SPV结构化方案领域知识（出资人/配资/GP waterfall模板）
 
 先读这些文件，再执行会更稳。
 
