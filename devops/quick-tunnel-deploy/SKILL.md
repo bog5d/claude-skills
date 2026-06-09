@@ -15,19 +15,15 @@ description: 快速把本地 Web 应用暴露到公网（测试用）。依次�
 
 ### 1. ngrok（首选，已认证，URL 固定）
 
+**⚠️ 免费版警告页坑**：ngrok 免费版会在用户首次访问时弹出 "ngrok-skip-browser-warning" 页面，用户需手动点击 "Visit Site"。这在手机端体验很差。
+
 ```bash
-# 检查是否已有隧道
-curl -s http://localhost:4040/api/tunnels | python3 -c "
-import sys,json; d=json.load(sys.stdin)
-print(len(d.get('tunnels',[])), '条隧道')
-[t for t in d['tunnels']]
-"
+# 启动隧道
+nohup ngrok http <本地端口> --log=stdout > /tmp/ngrok_url.log 2>&1 &
 
-# 如果空闲，启动新隧道
-ngrok http <本地端口>
+# 提取 URL
+sleep 4 && cat /tmp/ngrok_url.log | grep -o 'https://[a-zA-Z0-9.-]*\.ngrok-free\.\w*' | head -1
 ```
-
-**限制：免费版只允许 1 条在线隧道。** 如果已有隧道指向其他端口，看能否共用或跳过。
 
 ### 2. localhost.run SSH 隧道（备选，无需安装）
 

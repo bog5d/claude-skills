@@ -49,7 +49,7 @@ chmod +x install.sh start.sh stop.sh
 
 ### 简历打分引擎：`boss_resume_scorer.py`
 
-位置：`~/.hermes/scripts/boss_resume_scorer.py`
+位置：`~/.hermes/scripts/boss_resume_scorer.py`（skill 内副本：`scripts/boss_resume_scorer.py`）
 
 六维打分：学习力(25%) / 专业力(20%) / 商务力(20%) / 销售属性(15%) / 抗压(10%) / 开放心态(10%)
 
@@ -108,4 +108,47 @@ URL 格式：`https://<随机ID>.lhr.life`
 - ❌ 不要尝试 headless 模式——BOSS 直接白屏
 - ❌ 不要用 AppleScript `open location` 开新标签——登录态会丢
 - ❌ 不要指望 BOSS 官方 API——他们不提供
-- ✅ 唯一稳定路径：非 headless Chrome + Web UI + 一次扫码
+- ❌ **Web UI 菜单名与 README 不一致**：README 说「自动化向导」，实际 UI 显示「快速启动」。给波总指路前必须 API/OCR/截图三重验证
+- ❌ **ngrok 免费版有警告插页**："You are about to visit..." 首次访问需手动点 "Visit Site"。优先用 localhost.run SSH 隧道
+- ✅ **优先用 REST API 而非 Web UI**：API 端点 `/api/automation/init`、`/login`、`/check-ready-state` 更可靠，不被 UI 翻译问题困扰
+- ✅ 唯一稳定路径：非 headless Chrome + REST API + 一次扫码
+- ✅ **OCRsight 验证模式**：用 Swift Apple Vision OCR + PIL 白屏检测双重确认页面内容，不靠猜测
+
+## REST API 操控（推荐，替代 Web UI）
+
+不用让波总在手机上点界面——从命令行全程操控：
+
+```bash
+# 初始化浏览器（非 headless）
+curl -X POST "http://localhost:27421/api/automation/init?headless=false&manual_mode=false"
+
+# 等 Chrome 导航到 BOSS 直聘
+sleep 8
+
+# 截图 + OCR 验证页面
+screencapture -x /tmp/boss_page.png
+swift ~/.hermes/scripts/ocr_pro.swift /tmp/boss_page.png | grep "扫码登录"
+
+# 检查状态
+curl "http://localhost:27421/api/automation/check-ready-state"
+# → current_url 变成 web/chat/index 说明已登录
+```
+
+## OCR 截图验证步骤
+
+```bash
+# 1. 截图
+screencapture -x /tmp/page.png
+
+# 2. 白屏检测
+python3 -c "
+from PIL import Image; import collections
+im=Image.open('/tmp/page.png')
+p=list(im.get_flattened_data())[:5000]
+w=collections.Counter(p).get((255,255,255),0)
+print(f'white={w}/5000 ({w*100//5000}%)')
+"
+
+# 3. OCR 内容抽取
+swift ~/.hermes/scripts/ocr_pro.swift /tmp/page.png | grep -E "BOSS|直聘|扫码|登录"
+```
