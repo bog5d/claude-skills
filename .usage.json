@@ -82,13 +82,13 @@
     "created_at": "2026-06-05T12:53:12.005436+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-09T09:13:01.920729+00:00",
-    "last_viewed_at": "2026-06-09T09:13:01.918284+00:00",
+    "last_used_at": "2026-06-09T18:03:28.752093+00:00",
+    "last_viewed_at": "2026-06-09T18:03:28.749565+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 7,
-    "view_count": 2
+    "use_count": 9,
+    "view_count": 3
   },
   "agent-evening-diary-cron": {
     "archived_at": null,
