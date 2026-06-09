@@ -2,7 +2,7 @@
 name: personal-finance
 title: "波总个人财务中枢 v3.1 — 债务 + 消费 + 收入 + 报销四维追踪"
 description: "管理波总的亲友债务和平台债务，记录还款，追踪消费（三层账户+子分类+可报销标记），月度收入记录，净现金流分析，游戏化激励。一句话交互：'还了XX N元'。"
-trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分付、微粒贷、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察/收入/报销/净现金流，或要求整合支付宝微信数据打成JSON，或发来账单截图/平台截图/收入口述"
+trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分付、微粒贷、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察/收入/报销/净现金流/固定支出/保险分析，或要求整合支付宝微信数据打成JSON，或发来账单截图/平台截图/收入口述/支付宝CSV"
 trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分付、微粒贷、还钱、还了XX，或要求看债务进度/周报/财报/消费分析/消费流水/深度洞察，或要求整合支付宝微信数据打成JSON，或发来账单截图"
 ---
 
@@ -26,7 +26,8 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 ├── config.json             ← 里程碑阈值 + 成就定义
 ├── transactions.json       ← 还款流水 [{date, creditor, amount, ...}]
 ├── expenses.json           ← 消费数据（17类规则引擎 + layer + sub_category + reimbursable）
-├── income.json             ← v3.1 收入记录（月度salary/bonus/other_income）
+│ ├── income.json             ← v3.1 收入记录（月度salary/bonus/other_income）
+│ ├── recurring.json           ← v3.2 固定支出清单（社保/房租/保险/电话费等）
 ├── snapshots/YYYY-MM-DD.json  ← 初始 + 周度快照
 ├── reports/                ← 周报 + 深度分析JSON 生成区
 └── scripts/
@@ -221,6 +222,35 @@ python3 ~/.hermes/adjutant/finance/scripts/income.py log -y 2026 -m 6 -o 14002 -
 python3 ~/.hermes/adjutant/finance/scripts/income.py net -y 2026 -m 6   # 净现金流
 python3 ~/.hermes/adjutant/finance/scripts/income.py show               # 全部记录
 ```
+
+## 固定支出追踪（v3.2 — recurring.json）
+
+波总每月刚性固定支出。数据越全，现金流预测越准。波总口述 + 支付宝年度CSV 双重来源。
+
+### 已确认固定项
+
+| 项目 | 金额 | 周期 | 支付方式 |
+|------|------|------|----------|
+| 👩‍⚕️ 媳妇社保 | ¥2,715 | 每月9日前 | 银行卡 |
+| 🏠 房租 | ¥2,600 | 月均（两月一付 ¥5,200） | 银行转账 |
+| 📱 电话费 | ¥260 | 每月 | 自动扣 |
+| 🛡️ 保险（全家） | ¥1,302 | 月均（多保单分散扣） | 支付宝自动扣 |
+| 💰 **合计** | **¥6,877/月** | | |
+
+### 保险明细（由支付宝年度CSV提取）
+
+波总支付宝蚂蚁保 19+ 份保单，覆盖 5 人（*波、**林、**瓅、**汗、**芳），全年 ¥15,627，月均 ¥1,302。
+
+月缴（每笔<¥50）：健康福重疾1号(大病版)×2人、全民保定期寿险、无忧保意外、好医保门诊险、好医保长期医疗
+月缴（¥50-150）：好医保长期医疗(0免赔)×3人、好医保住院医疗、健康福重疾(保20/30年)、臻爱定期寿险
+月缴（>¥150）：健康福重疾(保1年)、好医保长期医疗(0免赔)-**芳
+年缴：车险 川SLG920 ¥2,668（10月）
+
+详细提取脚本见 `references/insurance-policy-analysis.md`
+
+### ⚠️ 重要：保险数据不在 import_csv 结果里
+
+`import_csv.py` 的过滤规则包含「保险」→ 全部被跳过。需要保险数据时必须直接 grep 原始 CSV，不走 import_csv。详见 pitfall #26。
 
 ## 三层账户体系（v2.0，基于外部AI分析报告迭代）
 
@@ -490,7 +520,9 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
     - ⚠️ `ocr_orchestrator.py` 和 `ocr_pro.swift` 当前未部署，需创建
     - 📸 **支付宝截图特殊处理** — 支付宝账单布局复杂（图标多、字体小、背景干扰），双引擎均效果差。遇到支付宝截图优先让波总口述，不要反复 OCR 浪费时间
     - 识别出的平台还款记录 → 交叉检查 debts.json → 发现未知债主 → 主动询问波总。
-22. **数据文件双重同步** — `~/.hermes/adjutant/finance/scripts/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/scripts/` 是两个独立目录。修改脚本后必须 cp 到 repo 目录再 git push。expenses.json、income.json 同理。漏 sync 会导致 git push 只提交了旧版本。
+22. **数据文件双重同步** — `~/.hermes/adjutant/finance/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/` 是两个独立目录。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。每次数据修改后必须 `cp` 到 repo 再 commit+push。漏 sync 会导致 git push 只提交了旧版本。
+26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，必须在解压支付宝 ZIP（GBK 编码）→ `iconv -f GBK -t UTF-8` 转码后，直接用 `grep -i "保险"` 从原始 CSV 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
+27. **支付宝 ZIP 解压编码问题** — 支付宝导出的 ZIP 文件名含中文，Windows 端创建导致编码不兼容。`unzip -P <密码>` 可能报 `Illegal byte sequence`。优先用 Python `zipfile` 模块：`zf.setpassword(b'密码')` + `zf.extract()` 可绕开中文文件名编码问题。
 23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
 24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
 25. **⚠️ Batch 去重误杀：同日同金额段交易** — `expenses.py batch` 去重逻辑为 `日期相同 + 金额差≤¥2 + 商户名相似度>0.5`。同品类同日相近金额会被误判。**真实案例**：6/8 滴滴快车-宋师傅 ¥18.90 被误判为 滴滴专车-袁师傅 ¥19.00 的重复（similarity 0.75），实际是两笔独立行程。**解法**：确认非真重复后，用 `python3 -c` 手动追加到 expenses.json 再 cp+push。常见误杀场景：滴滴×N、美团外卖×N、同一商户多笔近距离消费。手动插入模板：
