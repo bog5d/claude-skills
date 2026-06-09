@@ -350,6 +350,19 @@
     "use_count": 1,
     "view_count": 1
   },
+  "candidate-resume-screening": {
+    "archived_at": null,
+    "created_at": "2026-06-09T12:37:26.806543+00:00",
+    "created_by": "agent",
+    "last_patched_at": null,
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
   "cangjie-fos-project": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.026488+00:00",
@@ -770,10 +783,10 @@
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.065195+00:00",
     "created_by": null,
-    "last_patched_at": null,
+    "last_patched_at": "2026-06-09T12:36:54.550852+00:00",
     "last_used_at": "2026-06-09T12:36:18.170069+00:00",
     "last_viewed_at": "2026-06-09T12:36:18.168509+00:00",
-    "patch_count": 0,
+    "patch_count": 2,
     "pinned": false,
     "state": "active",
     "use_count": 3,

@@ -107,7 +107,11 @@ r.font.color.rgb = RGBColor(180, 180, 180)
 
 ## Phase 3: 生成 PDF
 
-工具链：pandoc + weasyprint（LibreOffice 通常未安装，不依赖它）
+两条路径，按场景选择：
+
+### 路径 A：Markdown → weasyprint（纯文本场景）
+
+适用：内容以文字为主、无复杂表格时。
 
 ```bash
 pandoc input.md -o output.pdf --pdf-engine=weasyprint \
@@ -134,9 +138,41 @@ CSSEOF
 )
 ```
 
-weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略即可**，不影响 PDF 输出。
+### 路径 B：DOCX → HTML → weasyprint（表格/格式复杂场景）
 
-**不要在 .docx 上浪费时间转 PDF** — docx 转 PDF 需要 LibreOffice（brew install ~500MB），首次安装慢且 sandbox 可能受限。用 markdown → weasyprint 是更可靠的路径。
+适用：已生成精致 DOCX（含表格、着色、复杂排版），需要保留全部格式时。
+
+```bash
+# Step 1: Convert DOCX to HTML
+pandoc input.docx -t html -o /tmp/report.html
+
+# Step 2: Inject CJK fonts into HTML, then render PDF
+python3 -c "
+from weasyprint import HTML
+with open('/tmp/report.html') as f:
+    html = f.read()
+css = '''<style>
+  @page { size: A4; margin: 2cm; }
+  body { font-family: 'STHeiti', 'PingFang SC', 'Hiragino Sans GB', sans-serif; }
+  h1, h2, h3 { font-family: 'STHeiti', 'PingFang SC', sans-serif; }
+  table { font-family: 'PingFang SC', 'STHeiti', sans-serif; }
+</style>'''
+html = html.replace('</head>', css + '</head>')
+HTML(string=html).write_pdf('output.pdf')
+print('✅ PDF generated')
+"
+```
+
+### 字体选择
+
+| 平台 | 中文字体 | 英文/数字字体 |
+|------|----------|---------------|
+| macOS | STHeiti（黑体）、PingFang SC | Helvetica Neue |
+| Windows | SimHei（黑体）、SimSun（宋体） | Calibri |
+
+**关键**: weasyprint 使用系统字体，不需要预先声明 @font-face。只需在 CSS 中指定 font-family 即可，weasyprint 自动查找系统安装的字体并嵌入 PDF。1.6MB 左右的 PDF 说明 CJK 字体已正确嵌入。
+
+weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略即可**，不影响 PDF 输出。
 
 ## Phase 4: 输出
 
@@ -149,7 +185,7 @@ weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略
 - **SyntaxError on Chinese quotes**: `\u201c明股实债\u201d` inside Python single-quoted strings WILL cause `SyntaxError: invalid syntax`. Use Unicode escapes `\u201c\u201d` or double-quote the outer string, or use the parts-list pattern.
 - **DO NOT use docx built-in heading styles** — they override font settings. Build headings manually with `add_paragraph()` + custom runs.
 - **`element.rPr.rFonts.set(qn('w:eastAsia'), ...)` is MANDATORY** — without it, Chinese text renders in default font on Windows, ruining the document for recipients.
-- **LibreOffice is a trap on macOS sandbox** — `brew install --cask libreoffice` takes 3-5 min and ~500MB. Just use markdown → weasyprint for PDF.
+- **LibreOffice 不是唯一路径** — DOCX → PDF 可走 `pandoc docx → HTML → weasyprint` 路径（见 Phase 3 路径 B），无需安装 500MB 的 LibreOffice。
 - **pandoc CSS warnings are harmless** — `text-rendering`, `overflow-x`, `gap` warnings from weasyprint do not affect output quality.
 - **关键数字遗漏**：生成后人工检查一遍，确保所有估值/比例/利率都已加粗。
 - **内部稿有红色标记**：机密印章和底部防盗警示用红色，区别于外发稿的灰色声明。
