@@ -171,7 +171,7 @@ cronjob create \
 
 > **⚠️ 注意**：config.yaml 的 `allowed_chats` 只控制**群聊**白名单，不影响 DM 授权。DM 授权完全通过环境变量控制。详见 `references/dm-authorization-mechanism.md`。
 
-**修复**：在新 profile 的 `.env` 末尾追加：
+**修复**：在新 profile 的 `.env` 末尾追加两行：
 
 ```bash
 python3 -c "
@@ -181,9 +181,11 @@ with open(env_path, 'r') as f:
     lines = f.readlines()
 if not any('GATEWAY_ALLOW_ALL_USERS' in l for l in lines):
     lines.append('\nGATEWAY_ALLOW_ALL_USERS=true\n')
-    with open(env_path, 'w') as f:
-        f.writelines(lines)
-    print('Done')
+if not any('TELEGRAM_ALLOW_ALL_USERS' in l for l in lines):
+    lines.append('TELEGRAM_ALLOW_ALL_USERS=true\n')
+with open(env_path, 'w') as f:
+    f.writelines(lines)
+print('Done')
 "
 ```
 

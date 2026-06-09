@@ -95,7 +95,14 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 2. 执行 `python3 ~/.hermes/adjutant/finance/scripts/finance.py repay -c "债主" -a 金额`
 3. 读 JSON 输出判断：是否清零、是否触发里程碑
 4. 即时反馈：总负债 + 进度条 + 里程碑状态
-5. ⚠️ **必须 git commit + push**（`cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "finance: 还XX YY元" && git push`）
+5. ⚠️ **同步数据 + git push**（scripts 写入 `~/.hermes/adjutant/finance/`，repo 在 `hermes-adjutant/finance/`）：
+   ```bash
+   # 先同步数据文件到 repo（参见 pitfall #22）
+   cp ~/.hermes/adjutant/finance/debts.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/
+   cp ~/.hermes/adjutant/finance/transactions.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/
+   # 提交
+   cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "finance: 还XX YY元" && git push
+   ```
 
 ### 查询债务
 ```
@@ -391,7 +398,7 @@ income.py net -y 2026 -m 6
 
 `scripts/nag_screenshots.py` 通过 cron 以 `no_agent=true` 模式每 4 小时运行一次（10:00、14:00、18:00）。检查 `expenses.json` 的 `meta.last_screenshot_date` — 如果不是昨天 → 输出催收消息（空输出 = 静默，不推送）。超过 3 次会追加语气加重的消息。
 
-每次还款即时处理：`git commit + push`（不等 cron）。
+每次还款即时处理：先 `cp` 数据文件到 repo 再 `git commit + push`（不等 cron，参见 pitfall #22）。
 
 ### 部署架构
 

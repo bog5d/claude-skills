@@ -15,11 +15,23 @@ category: user-patterns
 
 ## 管线 A：平台债务截图（已有，新增还款日提取）
 
-### OCR 引擎（v3.1，2026-06-08 实测校准）
+## OCR 引擎（v3.1，2026-06-08 实测校准）
 
 ⚠️ `ocr_orchestrator.py`、`ocr_pro.swift`、EasyOCR 均未部署。以下为当前可用的实际工具：
 
-**🥇 Apple Vision (Swift) — 首选，临时脚本调用：**
+### 批量截图：并行 OCR
+
+波总常一次发送多张截图。**必须并行运行 OCR**（每张图一个 terminal 调用），不要串行等待：
+```bash
+# 🥇 全部并行发起
+/tmp/ocr_vision /path/to/img1.jpg &
+/tmp/ocr_vision /path/to/img2.jpg &
+/tmp/ocr_vision /path/to/img3.jpg &
+wait
+```
+或使用 `terminal()` 分别调用（后台不阻塞）。Apple Vision 是独立进程，4 张图并行 ~3 秒，串行 ~12 秒。
+
+### 🥇 Apple Vision (Swift) — 首选，临时脚本调用：
 ```bash
 # 编译一次
 swiftc -o /tmp/ocr_vision /tmp/ocr_vision.swift
@@ -123,7 +135,10 @@ python3 finance/scripts/finance.py update-debt -c "花呗" -a <提取金额> --s
 
 ### Step 5: Git push
 ```bash
-git add -A && git commit -m "finance: 花呗截图更新 ¥XXX" && git push origin main
+# 先同步数据文件到 repo（scripts 写入 adjutant/finance/，repo 在 hermes-adjutant/finance/）
+cp ~/.hermes/adjutant/finance/debts.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/
+cp ~/.hermes/adjutant/finance/transactions.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/
+cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "finance: 平台截图更新" && git push origin main
 ```
 
 ## 反馈模板
@@ -223,6 +238,7 @@ python3 scripts/expenses.py batch --items '<JSON>' -s "微信" --sid "wx_bill_20
 
 ### OCR 陷阱（真实案例）
 - **⚠️ 铁律：提取金额后必须向波总确认！人眼比 OCR 可靠**
+- **OCR 完全失败不追问**：Apple Vision + Tesseract 双引擎都读不出的截图（如模糊截图、局部裁剪），直接告诉波总"这张读不出"，不要反复重试。波总会自己说是什么
 - 度小满：`19432.55` 被 Tesseract 读成 `9432.55`（吞掉开头 "1"）→ 波总纠正
 - 拿去花：`5303.51` 被 Tesseract 读成 `9303.51`（5→9 误读）→ 波总纠正
 - 拿去花：Apple Vision 正确读出 `5,303.51`，验证了引擎升级的必要性

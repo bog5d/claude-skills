@@ -5,7 +5,63 @@ description: 为 Hermes Agent 创建 REST API 网关，用 HTTP + Bearer Token �
 
 # Hermes REST API Gateway
 
-## 是什么
+## ⭐ 首选方案：内置 api_server（已生产可用）
+
+Hermes 内置的 `api_server` 平台是生产级的 REST API，**无需写代码，已随 gateway 启动**。优先级远高于下面的自定义方案。
+
+### 配置
+
+`config.yaml` 中 `platforms.api_server` 段，`.env` 中 `API_SERVER_KEY=<token>`。默认端口 8642。
+
+### 已验证端点（2026-06-09）
+
+| 端点 | 方法 | 鉴权 | 说明 |
+|------|:--:|:--:|------|
+| `/health` | GET | ❌ 无需 | 健康检查，返回 `{"status":"ok"}` |
+| `/v1/capabilities` | GET | ✅ Bearer | 功能清单（chat/streaming/runs/tools） |
+| `/v1/models` | GET | ✅ Bearer | 可用模型列表 |
+| `/api/sessions` | GET | ✅ Bearer | 列出所有会话 |
+| `/api/sessions` | POST | ✅ Bearer | 创建新会话，body: `{"title":"..."}` |
+| `/api/sessions/{id}` | GET | ✅ Bearer | 获取会话详情 |
+| `/api/sessions/{id}/chat` | POST | ✅ Bearer | 发送消息，body: `{"message":"..."}` |
+| `/api/sessions/{id}/chat/stream` | POST | ✅ Bearer | SSE 流式对话 |
+
+### 验证流程
+
+```bash
+# 健康检查（无需鉴权）
+curl http://127.0.0.1:8642/health
+
+# 创建会话
+curl -X POST http://127.0.0.1:8642/api/sessions \
+  -H "Authorization: Bearer <API_SERVER_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"test"}'
+
+# 对话
+curl -X POST http://127.0.0.1:8642/api/sessions/<session_id>/chat \
+  -H "Authorization: Bearer <API_SERVER_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"今天星期几"}'
+```
+
+返回格式：`{"object":"hermes.session.chat.completion","session_id":"...","message":{"role":"assistant","content":"..."},"usage":{...}}`
+
+### 多 profile 端口冲突
+
+多 gateway 环境默认都尝试绑定 8642。对于纯 Telegram bot（不需要 REST API），禁用：
+- ❌ `enabled: false` **不够** — gateway 仍会初始化 adapter 并持续报错重连
+- ✅ 从 config.yaml `platforms:` 段**整块删除** `api_server:` 配置，然后 bootout+bootstrap 重启
+
+### 微信 AI 等外部集成
+
+微信 AI "开发模式" → 小程序云函数 → HTTP POST → 本 API。需要公网可达（ngrok/cloudflare tunnel/或部署到公网服务器）。
+
+---
+
+## 是什么（自定义方案说明）
+
+以下内容描述 `tools/hermes_api.py` 自定义实现——仅在内置 api_server 不可用或不满足需求时使用。
 
 把 Hermes Agent 的全部工具暴露为标准 HTTP REST 接口。外部程序（包括其他 AI 智能体如 AnyGen/Coze/Manus）通过 `POST /call` + `Bearer Token` 即可调用 Hermes 工具。
 
