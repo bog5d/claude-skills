@@ -313,13 +313,25 @@ author: AnyGen
 
 如果其中任一回答是否定的，先停。
 
+## ⛔ 铁律：给用户的任何东西必须先自测
+
+如果交付物是让用户操作的（链接、界面、指令、按钮），在告诉用户之前必须自己先验证一遍。宁可慢一步验证，不要让用户做小白鼠。
+
+**自测检查清单**：
+- 链接 → `curl -s -o /dev/null -w "%{http_code}" <URL>` 确认 HTTP 200
+- 界面 → `screencapture` 截屏 + `ocr_pro.swift` 验证页面内容
+- API → `curl` 调一遍确认返回结构和预期一致
+- 菜单/按钮 → 截图 OCR 确认文字存在，不要靠 README 猜测
+
+**禁止行为**：告诉用户"点 XX 按钮"、"打开 XX 页面"、"看到 XX 了吗"——除非你自己已经验证了 XX 确实在那里。
+
 ## 第二层验收
 
 正式执行前，要能说清：
 
 - 为什么选这个工具，不选别的
 - 风险在哪里
-- 我先做了什么低风险验证
+- 我先做了什么低风险验证（含自测）
 - 如果失败，下一步怎么切换
 
 ---
@@ -412,11 +424,12 @@ author: AnyGen
 
 ---
 
-## 推荐搭配文件
+### 推荐搭配文件
 
 - `references/tool-risk-matrix.md`
 - `templates/final-delivery-templates.md`
 - `references/preflight-checklist.md`
+- `references/boss-automation-patterns.md` — BOSS直聘/招聘平台自动化实战经验
 - `references/a-share-spv-structuring.md` — A股控制权收购SPV结构化方案领域知识（出资人/配资/GP waterfall模板）
 
 先读这些文件，再执行会更稳。
