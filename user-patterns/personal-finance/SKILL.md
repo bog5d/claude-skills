@@ -493,5 +493,25 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 22. **数据文件双重同步** — `~/.hermes/adjutant/finance/scripts/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/scripts/` 是两个独立目录。修改脚本后必须 cp 到 repo 目录再 git push。expenses.json、income.json 同理。漏 sync 会导致 git push 只提交了旧版本。
 23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
 24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
+25. **⚠️ Batch 去重误杀：同日同金额段交易** — `expenses.py batch` 去重逻辑为 `日期相同 + 金额差≤¥2 + 商户名相似度>0.5`。同品类同日相近金额会被误判。**真实案例**：6/8 滴滴快车-宋师傅 ¥18.90 被误判为 滴滴专车-袁师傅 ¥19.00 的重复（similarity 0.75），实际是两笔独立行程。**解法**：确认非真重复后，用 `python3 -c` 手动追加到 expenses.json 再 cp+push。常见误杀场景：滴滴×N、美团外卖×N、同一商户多笔近距离消费。手动插入模板：
+    ```bash
+    python3 -c "
+    import json; p='/Users/mac/.hermes/adjutant/finance/expenses.json'
+    with open(p) as f: d=json.load(f)
+    d['expenses'].append({'id':f'E{len(d[\"expenses\"])+1:03d}','date':'...','amount':...,'merchant':'...','category':'...','layer':'basic_living','source':'支付宝','dedup_key':'...','created_at':'...','reimbursable':True})
+    d['meta']['total_expenses']=len(d['expenses']); d['meta']['total_amount']=round(sum(e['amount'] for e in d['expenses']),2)
+    with open(p,'w') as f: json.dump(d,f,ensure_ascii=False,indent=2)
+    "
+    ```
 23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
 24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
+25. **⚠️ Batch 去重误杀：同日同金额段交易** — `expenses.py batch` 去重逻辑为 `日期相同 + 金额差≤¥2 + 商户名相似度>0.5`。同品类同日相近金额会被误判。**真实案例**：6/8 滴滴快车-宋师傅 ¥18.90 被误判为 滴滴专车-袁师傅 ¥19.00 的重复（similarity 0.75），实际是两笔独立行程。**解法**：确认非真重复后，用 `python3 -c` 手动追加到 expenses.json 再 cp+push。常见误杀场景：滴滴×N、美团外卖×N、同一商户多笔近距离消费。手动插入模板：
+    ```bash
+    python3 -c "
+    import json; p='/Users/mac/.hermes/adjutant/finance/expenses.json'
+    with open(p) as f: d=json.load(f)
+    d['expenses'].append({'id':f'E{len(d[\"expenses\"])+1:03d}','date':'...','amount':...,'merchant':'...','category':'...','layer':'basic_living','source':'支付宝','dedup_key':'...','created_at':'...','reimbursable':True})
+    d['meta']['total_expenses']=len(d['expenses']); d['meta']['total_amount']=round(sum(e['amount'] for e in d['expenses']),2)
+    with open(p,'w') as f: json.dump(d,f,ensure_ascii=False,indent=2)
+    "
+    ```
