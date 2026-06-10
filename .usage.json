@@ -56,13 +56,13 @@
     "created_at": "2026-06-05T12:53:12.002965+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-10T17:53:05.434737+00:00",
-    "last_viewed_at": "2026-06-10T17:53:05.431847+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 0,
+    "view_count": 0
   },
   "adjutant-brain-dump": {
     "archived_at": null,
@@ -524,13 +524,13 @@
     "created_at": "2026-06-03T14:21:37.621188+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-05T11:29:39.639312+00:00",
-    "last_used_at": "2026-06-10T14:10:22.527021+00:00",
-    "last_viewed_at": "2026-06-10T13:07:34.434456+00:00",
+    "last_used_at": "2026-06-10T21:00:21.413996+00:00",
+    "last_viewed_at": "2026-06-10T15:12:54.817468+00:00",
     "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 321,
-    "view_count": 13
+    "use_count": 336,
+    "view_count": 15
   },
   "cursor-acp-integration": {
     "archived_at": null,
@@ -563,12 +563,12 @@
     "created_at": "2026-05-30T13:40:19.264244+00:00",
     "created_by": null,
     "last_patched_at": "2026-05-30T13:40:19.264272+00:00",
-    "last_used_at": "2026-06-10T02:16:42.496957+00:00",
+    "last_used_at": "2026-06-10T20:20:36.418421+00:00",
     "last_viewed_at": "2026-06-10T02:16:42.494234+00:00",
     "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 54,
+    "use_count": 56,
     "view_count": 14
   },
   "design-md": {
@@ -992,12 +992,12 @@
     "created_at": "2026-06-03T16:04:31.353475+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-10T10:00:11.361334+00:00",
+    "last_used_at": "2026-06-10T16:10:08.253907+00:00",
     "last_viewed_at": "2026-06-05T12:53:46.140268+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 28,
+    "use_count": 29,
     "view_count": 1
   },
   "hermes-audit-report": {
