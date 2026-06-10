@@ -1247,6 +1247,19 @@
     "use_count": 0,
     "view_count": 0
   },
+  "jd-aligned-candidate-screening": {
+    "archived_at": null,
+    "created_at": "2026-06-10T10:46:52.054660+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-06-10T10:47:10.123728+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
   "jupyter-live-kernel": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.118029+00:00",
