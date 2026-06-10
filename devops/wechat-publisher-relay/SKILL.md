@@ -250,6 +250,16 @@ bash /tmp/push.sh'
 
    见 `references/pub2gg-webhook-gap.md` 详细实施计划。
 
+## ⚠️ 服务器环境实测速查
+
+> 📄 完整环境表见 `references/server-environment-quirks.md`
+
+| 坑 | 详情 | 对策 |
+|---|------|------|
+| Python 版本 | 系统 `/usr/bin/python3` = 3.6.8，太老 | `export PATH="/root/miniconda3/bin:$PATH"` → Python 3.13 |
+| Docker DNS | 容器内无法解析外网域名（apt/npm 均超时） | 绕过 Docker，直装宿主机；或预构建镜像 push/pull |
+| 内存吃紧 | 1.8G 总，moltbot 两个实例占了 ~700MB | Docker build 容易 OOM；swap 有 8G 兜底 |
+
 ## SSH 密钥绝对路径
 
 ⚠️ Hermes profile 的 `$HOME` 可能不等于 `/Users/mac`，`~/.ssh/` 会解析到错误路径。始终使用绝对路径：
