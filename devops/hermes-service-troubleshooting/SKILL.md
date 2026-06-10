@@ -63,11 +63,13 @@ done
 
 **模式A：Port 冲突（API 端口被占）**
 
-**A1 — 简单情况：手动进程占端口**
-- 症状：gateway 显示 exit code 1 + runs 很大
+**模式A：Port 冲突（API 端口被占）**
+- 症状：gateway 显示 exit code 1 + runs 很大。日志反复出现 `[Api_Server] Port 8642 already in use`，重连计数可达 400+
 - 根因：手动启动的进程占着端口，launchd 反复尝试绑定失败
-- 验证：`lsof -i :8642`
+- 验证：`lsof -i :8642`（API server 现在内嵌在 gateway，端口 8642 而非 18765）
 - 修复：`kill <手动PID>` → launchd 自动接管（KeepAlive 会自动重启）
+- ⚠️ **致命陷阱：删除 `platforms.api_server` 段不会禁用 API server**——gateway 会用默认端口 8642 继续尝试连接。正确做法是保留该段但改端口为非冲突值（如 8646），不要删除
+- ⚠️ `enabled: false` 也不阻止初始化——gateway 仍会尝试绑定端口
 
 **A2 — platform.api_server 端口冲突（同一机器多 profile）**
 - 症状：gateway 日志反复出现 `ERROR gateway.platforms.api_server: Port 8642 already in use`，重连计数持续上升（如 attempt 426）。但 `enabled: false` 已设置，端口仍冲突

@@ -25,6 +25,8 @@ baoyu-comic:8ff68387b01dea27ce049837ae9ecc47
 baoyu-infographic:53edf7d1b9398d62f4ccb0755e27913e
 blogwatcher:3f30bdd408c771501b94fab9289579c6
 bog-communication-patterns:68643916a23460f2d705ec5c9de2ca57
+boss-recruitment-automation:06fd0a5f5c1853a2113e92e495052452
+candidate-resume-screening:f638972d55d001a4356763f5dfe086a4
 cangjie-fos-project:17bd9bcf6fbc754f190be68c26d33ccd
 chinese-ipo-research:8cb22e8e8535947f64d248c6b338856c
 claude-code:231f7e3cb0b2b91f64ce4b23fc2cef4d
@@ -55,6 +57,7 @@ dspy:64659f5eba8f127700fa931f58175f01
 duckduckgo-search:fe3938190ba743c156e9a7c7954e9a88
 encrypted-excel-ddd-clean:72a5b4e35dc40dc904c9ad25b0610ae0
 english-tutor-engine:cb2c507a122f74bae8150d1502b0b92c
+equity-penetration-due-diligence:25652e8dec5a22d88bc54643fc26c717
 evaluating-llms-harness:ac24cf5202db5b024b3079023797a0f6
 excalidraw:149a572d2069ee3de2951352725a8b19
 feishu-lark-cli-integration:431ee6d3c8261f8af0d02f0f8757fbe2
@@ -104,6 +107,7 @@ html-video-workflow:9d6f51eb413fff08730c9e0d18c2d3c1
 huggingface-hub:da338c5152d72db030bb81d923d1c64d
 humanizer:6645b341862575f452e86139c5c71ce9
 ideation:8cfdaafa9abda023643427110c8c3073
+image-super-resolution:b5c64870da72efcd902471db9467a346
 imessage:f545da0f5cc64dd9ee1ffd2b7733a11b
 jupyter-live-kernel:352c43dc28428592abbc8c91cb5ce295
 kanban-codex-lane:94b53308d74fe3b55f198b9d9e905cf7
@@ -156,6 +160,8 @@ pub2gg-local:e2ec3bdb0f7eb2dc252a4c912f97570d
 python-debugpy:b87e0abf179c14ea51c7559dc99eb22c
 pytorch-fsdp:bf252a436e718d7c0a864a786674809a
 quick-tunnel-deploy:138aebd915848251c86f7f84e97cbc0d
+recruitment-automation:802c4d6a2c3835086f8f43f9050d57cb
+recruitment-resume-scoring:2478fbae0eb33f460e587c4357efceb2
 remotion:a53a3223a3161d5c4d427ca23605f56d
 remotion-intro-animation:3c419f3dc0a0bffe0732987dbad632be
 remotion-photo-mv-pro:c74b88f0745862d2c39f008ad88f2077
@@ -163,6 +169,7 @@ requesting-code-review:9944f54e8ba5c294b47ee93f3e8f239d
 research-paper-writing:dbe2d301baeaab5c5b0539a733233a34
 research-to-ppt-pipeline:90925af9937cfc5223aa78a6768d1308
 rest-graphql-debug:0df32091dd97c32363de23d6a3cb6b12
+resume-evaluation-pipeline:47c341cf2ed460431bd2bdb658ec84c3
 reveal-ppt-skill:5185d870e27e7f360cbf138cb14c5413
 run-agent-refactor:96253440e5925f82e8e8cb493e239d3a
 screenshot-to-pdf-manual:61022da9c6605b43e68bdb77457ca2fa
