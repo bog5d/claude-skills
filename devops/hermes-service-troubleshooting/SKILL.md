@@ -62,10 +62,43 @@ done
 
 
 **模式A：Port 冲突（API 端口被占）**
+
+**A1 — 简单情况：手动进程占端口**
 - 症状：gateway 显示 exit code 1 + runs 很大
 - 根因：手动启动的进程占着端口，launchd 反复尝试绑定失败
-- 验证：`lsof -i :8642`（API server 现在内嵌在 gateway，端口 8642 而非 18765）
+- 验证：`lsof -i :8642`
 - 修复：`kill <手动PID>` → launchd 自动接管（KeepAlive 会自动重启）
+
+**A2 — platform.api_server 端口冲突（同一机器多 profile）**
+- 症状：gateway 日志反复出现 `ERROR gateway.platforms.api_server: Port 8642 already in use`，重连计数持续上升（如 attempt 426）。但 `enabled: false` 已设置，端口仍冲突
+- 根因：**`enabled: false` 不阻止 `api_server` 初始化**。即使 `platforms.api_server.enabled: false`，gateway 仍尝试绑定 api_server 端口。直接删除整个 `platforms.api_server` 段也无用——gateway 使用默认端口 8642
+- 验证：
+  1. 查当前端口占用：`lsof -ti:8642`（通常被 default gateway PID 28216 占用）
+  2. 查目标 profile config 中 api_server 配置：`grep -A5 'api_server' <profile>/config.yaml`
+  3. 查各 profile 端口分布（见 `references/profile-port-map.md`）
+- 修复（必须两步）：
+  1. 用 venv python 同时设置 `api_gateway.port` 和 `platforms.api_server.extra.port` 为未占用端口：
+     ```bash
+     /Users/mac/.hermes/hermes-agent/venv/bin/python3 -c "
+     import yaml
+     path = '<profile>/config.yaml'
+     with open(path) as f: cfg = yaml.safe_load(f)
+     cfg['api_gateway']['port'] = <NEW_PORT>
+     cfg['platforms']['api_server'] = {'enabled': False, 'extra': {'host': '127.0.0.1', 'port': <NEW_PORT>}}
+     with open(path, 'w') as f: yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+     "
+     ```
+  2. 重启 gateway：`launchctl kickstart -k gui/501/<service>`
+- ⚠️ **不能只改 `api_gateway.port`**：两个 key 都必须指向同一端口，否则 gateway 仍用默认 8642
+- 当前端口分配：
+  ```
+  default gateway     → 8642（API server）
+  english-tutor       → 8644（API server + HTTP tunnel）
+  her-m2              → 无 api_server
+  finance             → 8646
+  headroom proxy      → 8787
+  ```
+- 预防：新建 profile 时**先用 `lsof -ti:8642` 等扫描已占用端口**，再分配 api_server 端口
 
 **模式B：Token/凭证缺失**
 - 症状：gateway 进程在跑但 Telegram 没反应

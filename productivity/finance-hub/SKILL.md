@@ -213,3 +213,46 @@ python3 finance/scripts/import_csv.py /path/to/alipay.csv
 - **OCR 提取金额后必须波总确认**——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）
 - **📸 支付宝截图 OCR 灾难**——支付宝账单布局复杂（图标多、字体小、背景干扰），Apple Vision 和 Tesseract 双引擎均差。遇到支付宝截图优先让波总口述，不要反复 OCR 浪费时间
 - **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
+
+## 🚨 网关健康检查与复活
+
+财务中枢依赖独立的 Hermes profile（`finance`），对应 gateway 为 `ai.hermes.gateway-finance`。波总问「财务中枢是不是挂了」时，执行以下检查：
+
+### 快速诊断（30 秒）
+
+```bash
+# 1. 查进程
+launchctl list | grep gateway-finance
+# 正常 → PID 列有值；挂了 → PID 列为 "-"，exit code -9/-15
+
+# 2. 交叉验证（launchctl exit code 是历史值，不可靠）
+kill -0 <PID> 2>/dev/null && echo "ALIVE" || echo "DEAD"
+
+# 3. 查防御器
+launchctl list | grep defibrillator
+tail -3 ~/.hermes/profiles/her-m2/logs/defibrillator.log
+```
+
+### 复活步骤
+
+```bash
+# 1. 如有端口冲突，先修 config（finance 端口 8646）
+launchctl kickstart -k gui/501/ai.hermes.gateway-finance
+
+# 2. 如果防御器也死了，一起复活
+launchctl kickstart -k gui/501/com.hermes.defibrillator
+
+# 3. 验证
+sleep 5
+tail -10 ~/.hermes/profiles/finance/logs/gateway.log | grep -E "Gateway running|Telegram|error"
+```
+
+### 常见死因
+
+| 死因 | 症状 | 修复 |
+|------|------|------|
+| 端口冲突 | 日志满屏 `Port 8642 already in use` | 改端口为 8646（见 `hermes-service-troubleshooting` Mode A2） |
+| 防御器先死 → 级联 | defibrillator + gateway 同时消失 | `kickstart -k` 两个都复活 |
+| Launchd 崩溃节流 | KeepAlive=true 但不重启 | `kickstart -k` 强制复活 |
+
+详细故障诊断见 `hermes-service-troubleshooting` 技能。
