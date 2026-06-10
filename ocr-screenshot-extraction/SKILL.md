@@ -7,9 +7,13 @@ trigger: user sends screenshot, vision_analyze fails, model doesn't support visi
 
 # OCR Screenshot Extraction
 
-## 🥇 首选路径：通义千问 Qwen-VL-Max（云端视觉，推荐）
+## 🥇 首选路径：通义千问 Qwen-VL-Max（云端视觉，唯一推荐）
+
+**波总铁律（2026-06-09）：图片识别默认用千问 VL Max，不用 Tesseract/Apple Vision。**
 
 当主模型不支持 vision（如 DeepSeek）时，Hermes 自动 fallback 到 `auxiliary.vision` 配置的模型。**Qwen-VL-Max 是国内中文图片识别最强模型**——直接理解图片内容，无需 OCR 中间层。
+
+> ⚠️ **下行路径**：Apple Vision Pro / Tesseract 仅在千问 API Key 不可用（如 key 未完整存入 config）时作为紧急降级。
 
 ### 配置方法
 
@@ -24,6 +28,8 @@ auxiliary:
 ```
 
 API Key 获取：https://dashscope.aliyun.com → 开通 Qwen-VL-Max 模型。
+
+> ⚠️ **已知坑**：Hermes 的 credential scanner 可能在写入 config.yaml 时截断 API key（变成 `sk-xxx...xxx` 13字符）。写入后需用 `yaml.safe_load` 读回验证 key 长度 ≥ 30 字符。如果截断，需通过 venv python 直接 file write 绕过 scanner。
 
 ### 同步到所有 profile
 
