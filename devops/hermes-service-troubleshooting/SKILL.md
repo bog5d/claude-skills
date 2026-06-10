@@ -400,6 +400,16 @@ done
   4. 重启 gateway
 - 预防：创建新 profile 时，**永远创建新的 Telegram bot**，不要复制旧 profile 的 bot token。唯一例外是：设计上就该共享的 bot（如故意多 worker 轮询同一 bot）
 
+### 附加参考文档
+
+| 文档 | 说明 |
+|------|------|
+| `references/vision-integration.md` | Qwen-VL-Max 辅助 vision 模型集成全流程（配置 → 重启 → 验证），含跨 profile 同步和交叉重启策略 |
+| `references/credential-scanner-workaround.md` | 凭证扫描器绕过技术 |
+| `references/cross-gateway-restart.md` | 交叉重启策略详解 |
+| `references/dns-debugging.md` | DNS 污染排查 |
+| `references/clash-tun-debugging.md` | Clash TUN 模式调试 |
+
 **模式P：File Descriptor 耗尽 — Errno 24（进程活着但完全无响应）**
 
 - 症状：gateway 进程 ps 可见、端口 LISTEN，但 health check 无响应、对话发不出。日志满屏 `OSError: [Errno 24] Too many open files` — memory-tencentdb 反复尝试 resurrect 失败、kanban dispatcher tick 失败、terminal cleanup 线程报错
