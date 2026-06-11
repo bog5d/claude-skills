@@ -992,13 +992,13 @@
     "created_at": "2026-06-03T16:04:31.353475+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-10T22:01:15.587119+00:00",
-    "last_viewed_at": "2026-06-05T12:53:46.140268+00:00",
+    "last_used_at": "2026-06-11T06:41:00.626105+00:00",
+    "last_viewed_at": "2026-06-11T06:41:00.622953+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 30,
-    "view_count": 1
+    "use_count": 31,
+    "view_count": 2
   },
   "hermes-audit-report": {
     "archived_at": null,
