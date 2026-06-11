@@ -507,7 +507,7 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 11. **支付宝 CSV 编码** — 支付宝导出的 CSV 是 **GBK** 编码，不是 UTF-8。需先 `iconv -f GBK -t UTF-8` 转换再处理
 12. **CSV 日期范围** — 微信账单导出时注意终止时间要选当前日期，否则会漏掉最近几天的数据
 13. **截图 vs CSV 优先级** — 同一笔交易 CSV 的商户名更准确（截图 OCR 可能误读"明红蹄花"的供应商名），优先保留 CSV 版本
-14. **分类关键字自动学习** — 每次发现新的商户名模式（如"蹄花""龙森园""相思椒"），立即追加到 `expenses.json` 的 categories 关键字库
+14. **分类关键字自动学习** — 每次发现新的商户名模式（如"蹄花""龙森园""相思椒"），立即追加到 `expenses.json` 的 categories 关键字库。⚠️ **batch 导入后必须检查**：`grep '"其他"' expenses.json` 找出被归入"其他"的项 → recat 纠正 → 把商户关键字补入 `expenses.json` 的 categories 字段。已知常被误归"其他"的商户：DeepSeek API→经营-软件服务、阿里云→经营-软件服务、顺丰→日用-快递、享道出行→交通、安徽蒸小碗/XX蹄花/XX小碗→餐饮、直豆→娱乐、湖南计算智谷/XX物业→交通-停车、App Store/Apple Music→数码
 15. **JSON输出类型混淆** — 波总说"打成JSON"时若上下文中提到"消费流水""深度分析""洞察"，必须出 `consumption_deep_analysis.json`（类型一），不要出 `bog_finance_portrait_handoff.json`（类型二）。类型一是深度洞察，类型二是全景快照。判断标准：看波总是否在讨论消费数据。
 16. **Layer 默认值** — 新录入的消费默认 layer 为 `basic_living`。商务招待/经营相关必须在录入时手动指定 `--layer business`，或事后 `expenses.py recat` 纠正。
 17. **外部AI金额建议不盲从** — 外部报告提出的具体金额阈值（如"月¥18-20K"）是主观估算，不是实测数据。必须先跑满3个月 layer 分布再定阈值，不要直接写入系统配置。
