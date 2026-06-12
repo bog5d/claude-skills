@@ -467,6 +467,19 @@
     "use_count": 2,
     "view_count": 2
   },
+  "cross-profile-skills-sync": {
+    "archived_at": null,
+    "created_at": "2026-06-12T16:48:55.403755+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-06-12T16:48:55.406326+00:00",
+    "last_viewed_at": "2026-06-12T16:48:55.403777+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "cursor-acp-integration": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.044434+00:00",
