@@ -162,8 +162,8 @@ cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "finan
 
 ### Step 3: 批量导入
 ```bash
-cd ~/.hermes/adjutant/repo/hermes-adjutant
-python3 finance/scripts/expenses.py batch --items '[
+cd ~/.hermes/adjutant/finance
+python3 scripts/expenses.py batch --items '[
   {"date":"2026-06-05","amount":35.50,"merchant":"美团外卖"},
   {"date":"2026-06-05","amount":128.00,"merchant":"滴滴出行"}
 ]' -s "微信" --sid "截图文件名"

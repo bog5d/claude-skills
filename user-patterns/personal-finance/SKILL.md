@@ -535,10 +535,8 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
     with open(p,'w') as f: json.dump(d,f,ensure_ascii=False,indent=2)
     "
     ```
-23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
-24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
-25. **⚠️ Batch 去重误杀：同日同金额段交易** — `expenses.py batch` 去重逻辑为 `日期相同 + 金额差≤¥2 + 商户名相似度>0.5`。同品类同日相近金额会被误判。**真实案例**：6/8 滴滴快车-宋师傅 ¥18.90 被误判为 滴滴专车-袁师傅 ¥19.00 的重复（similarity 0.75），实际是两笔独立行程。**解法**：确认非真重复后，用 `python3 -c` 手动追加到 expenses.json 再 cp+push。常见误杀场景：滴滴×N、美团外卖×N、同一商户多笔近距离消费。手动插入模板：
-    ```bash
+26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，必须在解压支付宝 ZIP（GBK 编码）→ `iconv -f GBK -t UTF-8` 转码后，直接用 `grep -i \"保险\"` 从原始 CSV 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
+27. **支付宝 ZIP 解压编码问题** — 支付宝导出的 ZIP 文件名含中文，Windows 端创建导致编码不兼容。`unzip -P <密码>` 可能报 `Illegal byte sequence`。优先用 Python `zipfile` 模块：`zf.setpassword(b'密码')` + `zf.extract()` 可绕开中文文件名编码问题。
     python3 -c "
     import json; p='/Users/mac/.hermes/adjutant/finance/expenses.json'
     with open(p) as f: d=json.load(f)
