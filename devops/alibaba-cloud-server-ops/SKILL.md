@@ -49,6 +49,10 @@ ssh -i ~/.ssh/ecs_<hostname> -o StrictHostKeyChecking=no root@<ip>
 
 For the production server 47.85.62.133, see `references/server-47-85-62-133.md`.
 
+## Related Files
+
+- `references/server-47-85-62-133.md` — Details for the production Alibaba Cloud server: specs, services, SSH keys, FOS deployment notes, Tailscale status.
+
 ## Pitfalls
 
 - **MAIN ACCOUNT CAPTCHA**: Don't waste time fighting the slider on `account.aliyun.com`. Go to RAM login.

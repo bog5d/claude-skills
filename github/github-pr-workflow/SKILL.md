@@ -357,6 +357,12 @@ git push -u origin HEAD
 
 ## Useful PR Commands Reference
 
+## Validation (SkillOpt Gate)
+
+This skill has 5 test cases in `references/test-cases.md` (TC-PR-01~05). Score ≥7/10 required for any edit to pass the validation gate. Run via `skillopt_demo.py` or the weekly `skill-optimizer-weekly` cron.
+
+## Useful PR Commands Reference
+
 | Action | gh | git + curl |
 |--------|-----|-----------|
 | List my PRs | `gh pr list --author @me` | `curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$OWNER/$REPO/pulls?state=open"` |

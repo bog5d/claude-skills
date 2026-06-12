@@ -315,6 +315,12 @@ If you catch yourself thinking:
 | **3. Hypothesis** | Form theory, test minimally, one variable at a time | Confirmed or new hypothesis |
 | **4. Implementation** | Create regression test, fix root cause, verify | Bug resolved, all tests pass |
 
+|
+
+## Related Files
+
+- `references/test-cases.md` — 5 条验证用例（TC-DBG-01~05），SkillOpt 验证门控用，满分 10 分，≥7 pass
+
 ## Hermes Agent Integration
 
 ### Investigation Tools
