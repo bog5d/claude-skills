@@ -12,6 +12,7 @@ category: project-analysis
 |----------|-----------|
 | Structured project analysis | `references/fos-project-analysis-workflow.md` |
 | Screenshot capture for manuals | `references/fos-screenshot-capture.md` |
+| Public deployment via SSH tunnel | `references/fos-public-deploy.md` |
 
 ## 接手第一步
 ```bash
