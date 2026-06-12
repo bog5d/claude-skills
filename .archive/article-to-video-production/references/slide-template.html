@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* ---- RESET ---- */
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    width:{{ W }}px; height:{{ H }}px; overflow:hidden;
+    background: {{ bg }};
+    font-family: "PingFang SC","STHeiti","Heiti SC",sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    color:white;
+  }
+
+  .progress { position:absolute; top:0; left:0; height:4px; background:#ffa040; }
+  .num { position:absolute; top:60px; left:50px; font-size:22px; color:#888; }
+  .watermark { position:absolute; bottom:60px; left:50px; font-size:22px; color:#555; }
+  .overlay { position:absolute; inset:0; background:rgba(0,0,0,0.25); z-index:-1; }
+
+  .big {
+    margin-top:{{ big_top }}px;
+    font-size:{{ big_size }}px; font-weight:700;
+    text-align:center; line-height:1.3;
+    color:{{ big_color }};
+    text-shadow:0 2px 12px rgba(0,0,0,0.6);
+    max-width:{{ W120 }}px;
+  }
+
+  .sub {
+    margin-top:{{ sub_margin }}px;
+    font-size:{{ sub_size }}px;
+    color:{{ sub_color }};
+    text-align:center; opacity:0.85;
+    max-width:{{ W120 }}px;
+  }
+
+  {{ extra_css }}
+</style>
+</head>
+<body>
+  <div class="overlay"></div>
+  <div class="progress" style="width:0%"></div>
+  <div class="num">{{ num }}/{{ total }}</div>
+  <div class="big">{{ big }}</div>
+  <div class="sub">{{ sub }}</div>
+  <div class="watermark">{{ watermark }}</div>
+</body>
+</html>

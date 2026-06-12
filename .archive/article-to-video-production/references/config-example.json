@@ -1,0 +1,27 @@
+{
+  "episode": "02",
+  "title": "AI 取经记 02 — 大模型 = 唐僧",
+  "watermark": "AI 取经记 02",
+  "voice": "zh-CN-YunxiNeural",
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "padding_seconds": 2.5
+  },
+  "scenes": [
+    {
+      "id": "01",
+      "text": "花了大半年研究RWA，最后幻灭了。一级市场股权融资，需要的不是区块链，是一把铲除信息摩擦的铁锹。我决定重构自己——做AI驱动的资本架构师，把这个系统命名为仓颉FOS。",
+      "bg": "linear-gradient(135deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%)",
+      "big": "RWA 幻灭\n仓颉 FOS 诞生",
+      "sub": "AI 驱动的资本架构师",
+      "big_color": "#ffd700",
+      "big_size": 64,
+      "sub_size": 36,
+      "sub_color": "#ccc",
+      "big_top": 500,
+      "sub_margin": 80
+    }
+  ]
+}
