@@ -55,7 +55,17 @@ trigger: 面试, 招聘, 候选人, HERO, 评分, recruiter
 
 AI报告是给合伙人看的，面试卡是给波总看的——两者受众不同，不能混用。
 
-## 存档
+## 关键教训：面试设计前必须 grillme
+
+不要直接出面试题或沟通卡。先走 grillme 挖出波总的：
+- 直觉锚点（他面人时到底听什么——节奏？眼神？第一反应？）
+- 最大恐惧（怕漏掉？怕看走眼？怕浪费时间？）
+- 决策流程（谁先看报告？合伙人参与吗？）
+- Kill Criterion
+
+这些决定了面试卡的设计方向。不问清楚就出卡 = 大概率白做。
+
+## 存档位置
 
 - 沟通卡模板参考：`references/interview-card-template.md`
 - Grillme招聘洞察：`references/grillme-recruitment-insights.md`

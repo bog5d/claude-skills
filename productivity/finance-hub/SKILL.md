@@ -210,8 +210,8 @@ python3 finance/scripts/import_csv.py /path/to/alipay.csv
 - **归途驿站禁止归并**——每笔亲友债独立成行，禁止合并展示
 - **⚠️ Profile 路径解析（血坑）**：在 finance profile 运行时，`~` 和 `HERMES_HOME` 指向 `/Users/mac/.hermes/profiles/finance/home/`，不是真实 home。脚本中需检测 `.hermes/profiles/` 并强制回退到 `/Users/mac`。否则 expenses.json/debts.json 会写入到 profile sandbox 而不是全局工作目录，导致 categories 丢失、数据不可见
 - **⚠️ 消费分类为"其他"？** 先检查 expenses.json 的 `categories` 字段是否为空。profile 路径问题会导致加载了空壳文件
-- **OCR 提取金额后必须波总确认**——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）
-- **📸 支付宝截图 OCR 灾难**——支付宝账单布局复杂（图标多、字体小、背景干扰），Apple Vision 和 Tesseract 双引擎均差。遇到支付宝截图优先让波总口述，不要反复 OCR 浪费时间
+- **OCR 引擎优先级（v4.0）**：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision → 🥉 Tesseract。详见 `debt-screenshot-auto-update` 技能。提取金额后必须波总确认——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）
+- **📸 支付宝截图 OCR** — 千问 VL 对复杂布局识别明显优于 Apple Vision 和 Tesseract，但支付宝账单仍有一定难度。三引擎都失败时让波总口述
 - **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
 
 ## 🚨 网关健康检查与复活

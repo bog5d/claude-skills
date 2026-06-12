@@ -15,41 +15,71 @@ category: user-patterns
 
 ## 管线 A：平台债务截图（已有，新增还款日提取）
 
-## OCR 引擎（v3.1，2026-06-08 实测校准）
+## OCR 引擎（v4.0，2026-06-12 波总指定优先级）
 
-⚠️ `ocr_orchestrator.py`、`ocr_pro.swift`、EasyOCR 均未部署。以下为当前可用的实际工具：
+⚠️ `ocr_orchestrator.py`、`ocr_pro.swift`、EasyOCR 均未部署。
 
-### 批量截图：并行 OCR
+### 引擎优先级
 
-波总常一次发送多张截图。**必须并行运行 OCR**（每张图一个 terminal 调用），不要串行等待：
-```bash
-# 🥇 全部并行发起
-/tmp/ocr_vision /path/to/img1.jpg &
-/tmp/ocr_vision /path/to/img2.jpg &
-/tmp/ocr_vision /path/to/img3.jpg &
-wait
+| 优先级 | 引擎 | 适用场景 | 备注 |
+|--------|------|---------|------|
+| 🥇 | **千问 VL API** (dashscope/qwen-vl-max) | 所有截图（首选） | 通过 `vision_analyze_tool` 或直接 API 调用 |
+| 🥈 | **Apple Vision** (Swift VNRecognizeTextRequest) | 千问不可用时降级 | 微信账单效果好，支付宝较差 |
+| 🥉 | **Tesseract** (`chi_sim`) | 最后备选 | 数字误读已知，金额必须人眼确认 |
+
+**千问 VL 不可用的情况：**
+- API key 无效/过期（DashScope 返回 `invalid_api_key`）
+- 配额耗尽
+- 网络超时
+
+遇到以上任一 → 立即降级到 Apple Vision，不要反复重试千问。
+
+### 🥇 千问 VL API — 默认首选
+
+配置位置：`config.yaml` → `auxiliary.vision`：
+```yaml
+auxiliary:
+  vision:
+    provider: dashscope
+    model: qwen-vl-max
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: sk-xxx    # 需有效 DashScope key
+    timeout: 60
 ```
-或使用 `terminal()` 分别调用（后台不阻塞）。Apple Vision 是独立进程，4 张图并行 ~3 秒，串行 ~12 秒。
 
-### 🥇 Apple Vision (Swift) — 首选，临时脚本调用：
+**方式 A：通过 `vision_analyze_tool`（推荐，走 Hermes 辅助路由）**
+```python
+# 异步调用，自动走 auxiliary.vision 配置
+from tools.vision_tools import vision_analyze_tool
+result = await vision_analyze_tool(image_path, prompt)
+```
+
+**方式 B：直接调 DashScope API（调试用，当 vision_analyze_tool 路由失败时）**
+```bash
+cd /Users/mac/.hermes/hermes-agent && HERMES_HOME=/Users/mac/.hermes/profiles/finance/home \
+  ./venv/bin/python3 references/qwen-vl-direct-call.py <image_path>
+```
+详细脚本见 `references/qwen-vl-direct-call.py`
+
+### 🥈 Apple Vision (Swift) — 千问不可用时降级
+
 ```bash
 # 编译一次
 swiftc -o /tmp/ocr_vision /tmp/ocr_vision.swift
 # 对每个截图运行
 /tmp/ocr_vision /path/to/screenshot.jpg
 ```
-- Swift 源码见下方「Vision OCR Swift 模板」
 - 对微信账单效果最好（日期+金额+商户清晰），对支付宝账单较差（复杂布局+图标干扰）
 - ⚠️ 支付宝截图经常乱码，优先让波总口述而非反复 OCR
 
-**🥈 Tesseract (`chi_sim`) — 备选：**
+**批量截图：并行 OCR**
+
+无论用哪个引擎，多张截图必须并行：
 ```bash
-tesseract /path/to/img.jpg stdout -l chi_sim 2>&1
+/tmp/ocr_vision /path/to/img1.jpg &
+/tmp/ocr_vision /path/to/img2.jpg &
+wait
 ```
-- 可尝试 PSM 3/4/6/11 不同模式
-- 已知 Bug：数字 5→9、开头 "1" 被吞（19432→9432）
-- 对支付宝截图几乎不可用（乱码严重）
-- ⚠️ Tesseract 提取的金额必须波总肉眼确认，不可直接写入
 
 **Vision OCR Swift 模板：**
 ```swift
@@ -63,6 +93,16 @@ try VNImageRequestHandler(cgImage: cg).perform([req])
 for obs in req.results! { print(obs.topCandidates(1).first!.string) }
 ```
 
+### 🥉 Tesseract (`chi_sim`) — 最后备选
+
+```bash
+tesseract /path/to/img.jpg stdout -l chi_sim 2>&1
+```
+- 可尝试 PSM 3/4/6/11 不同模式
+- 已知 Bug：数字 5→9、开头 "1" 被吞（19432→9432）
+- 对支付宝截图几乎不可用（乱码严重）
+- ⚠️ Tesseract 提取的金额必须波总肉眼确认，不可直接写入
+
 ---
 
 ## 触发条件
@@ -72,7 +112,7 @@ for obs in req.results! { print(obs.topCandidates(1).first!.string) }
 
 ## 工作流
 
-### Step 1: OCR 提取（优先 Apple Vision）
+### Step 1: OCR 提取（优先千问 VL，降级 Apple Vision）
 
 ### Step 2: 平台识别
 
@@ -155,7 +195,7 @@ cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "finan
 
 收到微信或支付宝账单截图时：
 
-### Step 1: OCR 提取（Apple Vision 优先）
+### Step 1: OCR 提取（优先千问 VL，降级 Apple Vision）
 
 ### Step 2: 逐行解析
 从 OCR 文本中提取每笔交易：日期 + 金额 + 商户名
@@ -238,12 +278,17 @@ python3 scripts/expenses.py batch --items '<JSON>' -s "微信" --sid "wx_bill_20
 
 ### OCR 陷阱（真实案例）
 - **⚠️ 铁律：提取金额后必须向波总确认！人眼比 OCR 可靠**
-- **OCR 完全失败不追问**：Apple Vision + Tesseract 双引擎都读不出的截图（如模糊截图、局部裁剪），直接告诉波总"这张读不出"，不要反复重试。波总会自己说是什么。**案例**：157×1279 极窄竖条截图（宽高比 1:8），Apple Vision 只能读到碎片（"1900""-18"），Tesseract 全部乱码，6 种增强方法无效——正确做法是直接问波总，不浪费时间
+- **OCR 完全失败不追问**：千问 VL + Apple Vision + Tesseract 三引擎都读不出的截图，直接告诉波总"这张读不出"。波总会自己说是什么。**案例**：157×1279 极窄竖条截图（宽高比 1:8），Apple Vision 只能读到碎片（"1900""-18"），Tesseract 全部乱码，6 种增强方法无效——正确做法是直接问波总，不浪费时间
 - 度小满：`19432.55` 被 Tesseract 读成 `9432.55`（吞掉开头 "1"）→ 波总纠正
 - 拿去花：`5303.51` 被 Tesseract 读成 `9303.51`（5→9 误读）→ 波总纠正
 - 拿去花：Apple Vision 正确读出 `5,303.51`，验证了引擎升级的必要性
 - `简余待还` = `剩余待还`（Tesseract 中文误读）
 - 拿去花页面：区分三个数字——`剩余待还(元)` 总负债 / `累计账单金额` 本期消费 / `剩余应还` 本期扣退款后
+
+### 千问 VL 配置陷阱
+- **⚠️ API key 有效性**：DashScope key 格式为 `sk-xxx`，需在 [DashScope 控制台](https://dashscope.console.aliyun.com/apiKey) 获取。若返回 `invalid_api_key` 则 key 已过期/无效，立即降级到 Apple Vision
+- **⚠️ home/config.yaml 浅覆盖**：profile 的 `home/config.yaml` 会**替换**（非深合并）主 config.yaml 的 `auxiliary.vision` 整个 dict。若 home 中只写了 `base_url` 和 `provider`，会丢失 `model`、`api_key`、`timeout`。症状：`_get_auxiliary_task_config('vision')` 返回 provider=dashscope 但 model=''、api_key=False。解法：home/config.yaml 的 `auxiliary.vision` 必须包含完整字段（provider + model + api_key + base_url + timeout），或用 `hermes config set` 逐字段写入
+- **vision_analyze_tool 路由失败回退链**：dashscope → auto（OpenRouter → Nous → stop）。若三者均不可用 → RuntimeError。此时切换到直接 API 调用方式（`references/qwen-vl-direct-call.py`）或降级 Apple Vision
 
 ### 游戏化隐喻规则（铁律）
 - **🚫 禁止使用对立/攻击隐喻**：Boss、讨伐、击杀、斩灭、英灵殿——借钱的是亲友恩人

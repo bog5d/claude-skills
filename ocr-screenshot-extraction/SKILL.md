@@ -35,7 +35,11 @@ API Key 获取：https://dashscope.aliyun.com → 开通 Qwen-VL-Max 模型。
 
 ### ⚠️ 已知陷阱（2026-06-10 教训）
 
-1. **API Key 截断**：Hermes 的 credential scanner 会将 config 中的 key 显示为 `sk-2ee...28b8`，但实际文件必须包含完整 key（~35 字符）。若写入时被 scanner 拦截导致只写了截断版（13 字符），API 会返回 `invalid_api_key`。验证方法：
+1. **API Key 被 Hermes scanner 截断写入**：credential scanner 在显示和写入时会将 key 截断。若通过工具写入 config，可能写入截断版（~13 chars）而非完整 key（~35 chars）。验证：`python3 -c "import yaml; k=yaml.safe_load(open('/Users/mac/.hermes/config.yaml'))['auxiliary']['vision']['api_key']; print(len(k))"`。正确应为 ~35。绕过：用 venv python 直接 yaml.dump 写入。
+
+2. **Gateway 重启**：配置写入后需重启对应 gateway 才能生效。
+
+3. **直调降级**：当 gateway 未重启但急需用千问时，直接用 Python requests 调 DashScope API。性能：2.6秒出结果，比本地 OCR 快 10 倍。验证方法：
    ```bash
    python3 -c "import yaml; k=yaml.safe_load(open('/Users/mac/.hermes/config.yaml'))['auxiliary']['vision']['api_key']; print(f'len={len(k)}')"
    # 正确应为 ~35，错误为 ~13

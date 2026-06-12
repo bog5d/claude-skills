@@ -384,7 +384,7 @@ income.py net -y 2026 -m 6
 
 | 通道 | 触发方式 | 处理引擎 |
 |------|---------|---------|
-| 📸 截图 | 波总发微信/支付宝账单截图 | Apple Vision OCR → 逐笔提取 → expenses.py batch |
+| 📸 截图 | 波总发微信/支付宝账单截图 | 千问 VL API（首选）→ Apple Vision（降级）→ expenses.py batch |
 | 📎 CSV | 波总发导出文件（支付宝CSV是GBK编码，微信是xlsx） | import_csv.py 自动解析 |
 
 ### 消费过滤规则（自动排除）
@@ -514,12 +514,7 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
 19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图中的还款记录但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
-21. **截图 OCR 管线** — DeepSeek 模型不支持 vision。可用工具及其实际表现：
-    - 🥇 **Apple Vision (Swift)** — 通过临时 `VNRecognizeTextRequest` 脚本调用，对微信账单效果最好（清晰识别日期+金额+商户），对支付宝账单较差（复杂布局+图标干扰）
-    - 🥈 **Tesseract (`chi_sim`)** — 对微信有一定效果但不如 Vision，对支付宝几乎不可用（乱码严重）。可尝试多 PSM 模式（3/4/6/11）但改善有限
-    - ⚠️ `ocr_orchestrator.py` 和 `ocr_pro.swift` 当前未部署，需创建
-    - 📸 **支付宝截图特殊处理** — 支付宝账单布局复杂（图标多、字体小、背景干扰），双引擎均效果差。遇到支付宝截图优先让波总口述，不要反复 OCR 浪费时间
-    - 识别出的平台还款记录 → 交叉检查 debts.json → 发现未知债主 → 主动询问波总。
+21. **截图 OCR 管线（v4.0，2026-06-12 波总指定优先级）** — 引擎优先级：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。详见 `debt-screenshot-auto-update` 技能的 "OCR 引擎" 章节。
 22. **数据文件双重同步** — `~/.hermes/adjutant/finance/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/` 是两个独立目录。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。每次数据修改后必须 `cp` 到 repo 再 commit+push。漏 sync 会导致 git push 只提交了旧版本。
 26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，必须在解压支付宝 ZIP（GBK 编码）→ `iconv -f GBK -t UTF-8` 转码后，直接用 `grep -i "保险"` 从原始 CSV 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
 27. **支付宝 ZIP 解压编码问题** — 支付宝导出的 ZIP 文件名含中文，Windows 端创建导致编码不兼容。`unzip -P <密码>` 可能报 `Illegal byte sequence`。优先用 Python `zipfile` 模块：`zf.setpassword(b'密码')` + `zf.extract()` 可绕开中文文件名编码问题。
