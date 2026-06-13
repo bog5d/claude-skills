@@ -137,6 +137,99 @@ SELECT * FROM segments WHERE content LIKE '%IPO%';
 
 1. **大文本保存**：Telegram 消息中的超长转写文字必须完整写入文件，不能只写头部摘要！
 2. **说话人确认**：没把握的说话人必须先问波总，不要擅自标注
-3. **会议命名**：`YYYY-MM-DD_会议主题.md`，主题用简洁中文
+3. **会议命名**：`YYYY-MM-DD_会议主题.md`，主题用简洁中文。**波总偏好简短名称**，如"邓老师谈借壳""波总自述""公司核心战略务虚会"，控制在4-8字
 4. **照片入库**：从 `image_cache` 复制到 `photos/`，同时 INSERT 到 photos 表
-5. **数据库备份**：`index.db` 目前仅本地存储，后续考虑 Google Drive 备份
+5. **数据库备份**：`index.db` 本地存储 + rclone 自动同步到 Google Drive（见下方"Google Drive 备份"）
+
+## 说话人音轨识别管线 (whisperX + pyannote)
+
+### 安装
+
+```bash
+# 核心依赖
+pip3 install whisperx           # 转录 + 对齐 + 说话人分离
+pip3 install librosa soundfile  # FFmpeg v8 兼容绕过
+
+# 系统依赖
+brew install ffmpeg             # v8.1 已验证，但 torchcodec 不兼容 v8
+
+# Google Drive 备份
+brew install rclone
+```
+
+### ⚠️ FFmpeg v8 兼容性
+
+torchcodec 仅支持 FFmpeg v4-v7。Mac 上 `brew install ffmpeg` 默认装 v8。
+**解决方案**：用 `librosa` / `soundfile` 将音频预加载为 numpy array，绕过 torchcodec。
+
+```python
+import librosa
+audio, sr = librosa.load("recording.mp3", sr=16000)  # 预加载到内存
+```
+
+### 需要 HuggingFace Token
+
+`pyannote/speaker-diarization-3.1` 模型需要 HF token：
+1. https://huggingface.co/settings/tokens → New token (Read 权限)
+2. https://huggingface.co/pyannote/speaker-diarization-3.1 → Agree and access repository
+3. 设置 `HF_TOKEN` 环境变量
+
+### 处理流程
+
+```
+录音.mp3
+  → librosa 预加载（绕过 FFmpeg v8 问题）
+  → whisperx.load_model("large-v3") 转录
+  → whisperx.align() 时间对齐
+  → whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN) 说话人分离
+  → whisperx.assign_word_speakers() 合并输出
+  → 导出: "Speaker_00: 00:01:23 文本内容"
+```
+
+### 说话人识别交互协议
+
+1. whisperX 分离出未知说话人 Speaker_00/01/02
+2. 每个说话人截 10-15 秒代表性音频片段
+3. 发送给波总：`这段听起来像唐总还是刘总？`
+4. 波总确认/纠正后，存入 `speakers.voice_profile`
+5. **后续录音自动匹配** → 直接输出"唐总: 00:03:22 xxxxx"
+
+### MPS 内存注意
+
+Apple Silicon MPS 后端可能内存不足，大文件降级到 CPU：
+```python
+device = "cpu"  # 安全选项
+# device = "mps"  # 小文件可尝试
+```
+
+## Google Drive 备份 (rclone)
+
+### 配置（需波总在 Mac 上交互操作一次）
+
+```bash
+rclone config
+# → n (new remote)
+# → name: gdrive
+# → type: drive
+# → 其余默认 → 浏览器弹窗 OAuth 授权
+```
+
+### 手动同步
+
+```bash
+rclone sync /Users/mac/company-archive/ gdrive:company-archive/ --progress
+```
+
+### 定时备份（待 cron 配置）
+
+```bash
+0 3 * * * /opt/homebrew/bin/rclone sync /Users/mac/company-archive/ gdrive:company-archive/ --quiet
+```
+
+## 陷阱
+
+- **不同会议的"说话人1"不是同一个人**——每次新会议必须重新确认映射，不能跨会议复用
+- **whisperX 转写中文需显式指定 `language="zh"`**
+- **FFmpeg v8 导致 torchcodec 加载失败** → 用 librosa 预加载绕过
+- **金句 segment_id=0 表示未关联到具体 segment**
+- **Python heredoc 有长度限制** → 超长转写文字建议通过 Telegram 文件发送，用 read_file 直接读取
