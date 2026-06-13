@@ -15,7 +15,10 @@ description: 会议录音/转写→结构化情报库。识别说话人、秒级
 ## 参考文件
 
 - `references/db-schema.md` — 完整数据库 Schema（5 表 + ER 关系 + 常用 SQL 查询）
+- `references/speaker-profiles.md` — 已知说话人档案（特征、风格、识别线索）
 - `/Users/mac/company-archive/scripts/init_db.py` — 数据库建表脚本（可复用于新库初始化）
+- `/Users/mac/company-archive/scripts/seed_meeting.py` — 单会议入库脚本（传入转写路径+meeting_id+说话人映射JSON）
+- `/Users/mac/company-archive/scripts/seed_all.py` — 批量入库脚本
 
 ## 目录结构
 
@@ -95,7 +98,9 @@ WHERE s.content LIKE '%借壳%';
 
 ## Pitfalls
 
+- **大文本保存**：Telegram 消息中的超长转写文字必须完整写入文件，不能只写头部/摘要！本次 session 曾把会议3的完整转写写成1091字节的元数据头部，导致入库脚本读到0段。
 - B站的搜索API返回的results结构可能为空但numResults>0，需要二次探测实际数据路径
 - 不同会议的"说话人1/2"编号不固定对应同一人，每次都需要重新确认
 - 金句太多（>50%发言）说明标准太松，正常比例~20-30%
 - 中西方对比类讨论容易跑题，只入库产业相关部分
+- 照片从 Telegram 收到后，从 ~/.hermes/profiles/her-m2/image_cache/ 复制到 company-archive/photos/，同时 INSERT 到 photos 表
