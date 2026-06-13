@@ -12,6 +12,11 @@ description: 会议录音/转写→结构化情报库。识别说话人、秒级
 - 说"入库""建档""存档""记录下来"
 - 说"这个对话里有几个要点帮我提取"
 
+## 参考文件
+
+- `references/db-schema.md` — 完整数据库 Schema（5 表 + ER 关系 + 常用 SQL 查询）
+- `/Users/mac/company-archive/scripts/init_db.py` — 数据库建表脚本（可复用于新库初始化）
+
 ## 目录结构
 
 ```
