@@ -427,6 +427,7 @@ author: AnyGen
 ### 推荐搭配文件
 
 - `references/test-cases.md` — 5 条验证用例（TC-3L-01~05），SkillOpt 验证门控用，满分 10 分，≥7 pass
+- `references/external-repo-evaluation.md` — 批量评估外部 GitHub 项目的结构化流程（Triage→DeepRead→分类→集成路径）
 - `references/tool-risk-matrix.md`
 - `templates/final-delivery-templates.md`
 - `references/preflight-checklist.md`
