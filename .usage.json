@@ -550,13 +550,13 @@
     "created_at": "2026-06-05T12:53:12.043274+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-12T13:42:07.566455+00:00",
-    "last_viewed_at": "2026-06-12T13:42:07.562353+00:00",
+    "last_used_at": "2026-06-14T11:50:24.721812+00:00",
+    "last_viewed_at": "2026-06-14T11:50:24.719127+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "cross-profile-skills-sync": {
     "archived_at": null,
@@ -1226,13 +1226,13 @@
     "created_at": "2026-06-03T15:30:57.629138+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-10T12:07:51.501267+00:00",
-    "last_used_at": "2026-06-10T12:07:34.272497+00:00",
-    "last_viewed_at": "2026-06-10T12:07:34.269957+00:00",
+    "last_used_at": "2026-06-14T11:50:12.097763+00:00",
+    "last_viewed_at": "2026-06-14T11:50:12.095802+00:00",
     "patch_count": 23,
     "pinned": false,
     "state": "active",
-    "use_count": 16,
-    "view_count": 16
+    "use_count": 17,
+    "view_count": 17
   },
   "hermes-upgrade": {
     "archived_at": null,
@@ -2373,6 +2373,19 @@
     "last_used_at": null,
     "last_viewed_at": null,
     "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
+  "token-cost-analysis": {
+    "archived_at": null,
+    "created_at": "2026-06-14T11:51:28.024650+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-06-14T11:52:35.452759+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 2,
     "pinned": false,
     "state": "active",
     "use_count": 0,
