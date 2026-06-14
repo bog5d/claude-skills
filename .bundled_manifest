@@ -9,6 +9,7 @@ agent-evening-diary-cron:78d0f691c6aad9eeb88ca90c4f3e6436
 ai-qujing-video:82a55653dd75b855938a4d99483a1fb0
 aider-expert:6e35eb51492a958e19bce2c212aa41d0
 airtable:30f47a4b29827da14e655356c0edd8a7
+alibaba-cloud-server-ops:2f2d0c97da38bd6508737b020723dd28
 anki-import-parser:2c42e2f09418d43c9295ec9e3e1de73c
 apple-notes:5e448abf984561fb33b197045ce41388
 apple-reminders:b38e5f2558c2842808fe85df10226598
@@ -26,6 +27,7 @@ baoyu-infographic:53edf7d1b9398d62f4ccb0755e27913e
 blogwatcher:3f30bdd408c771501b94fab9289579c6
 bog-communication-patterns:68643916a23460f2d705ec5c9de2ca57
 boss-recruitment-automation:f885617e3c443569710c4925c51107be
+candidate-resume-evaluation:64a9036f14e05e4e2712707994cb30e1
 candidate-resume-screening:f638972d55d001a4356763f5dfe086a4
 cangjie-fos-project:17bd9bcf6fbc754f190be68c26d33ccd
 chinese-ipo-research:8cb22e8e8535947f64d248c6b338856c
@@ -37,10 +39,12 @@ codebase-inspection:29f67c87df868dd08e76c57b86c7a5c6
 codebase-triaging-protocol:80d46031d0626ff85b417f833f03264a
 codex:a116c5f880869f663b2974c2c9a79dbd
 comfyui:c9ac1497c123c607f98a547f8cf54fc5
+company-meeting-archive:2bac2930c98d416bef58a57c8af6f77e
 context-compression:15d6dd56a8c18548242a303512f87fe4
 context-compression-extend:1e247fef79f04867fe67c1f498ed298b
 context-compression-layer-upgrade:82f4d84af468b8f41c8d509f0dbb5962
 converge-bare-exceptions:3e1e30e785bd6fc0e1a05c575b1ca3c2
+criteria-driven-evaluation:3e59dba997e11ac39aa58cc44f85e66f
 cron-env-contextvars:6a3c559bcf49eeba3dad584cfe0db6b6
 cronjob-troubleshooting:0e4cf46b03c33cdc43b61690d2ae7554
 cross-profile-skills-sync:b882b612aee0a6380c5a18b984e7a5a4
@@ -101,6 +105,7 @@ hermes-rest-api-gateway:9856c9fdcd60340a324739db9e6830f6
 hermes-s6-container-supervision:d1dd00ca7688c85813f325a564490431
 hermes-service-troubleshooting:cb5338b8785d0aac282dc57b7ee0566d
 hermes-upgrade:c40bd609f7229194a04a1a2da2a710c7
+hero-recruiter:d4e253ec4f4ed6b2a211a343ca87a0c6
 himalaya:7ae61574914c25d57a001d1e1efe39bf
 html-to-video:77a0198251394f0acad3b7a9fe2b4578
 html-video-workflow:9d6f51eb413fff08730c9e0d18c2d3c1
@@ -109,6 +114,7 @@ humanizer:6645b341862575f452e86139c5c71ce9
 ideation:8cfdaafa9abda023643427110c8c3073
 image-super-resolution:b5c64870da72efcd902471db9467a346
 imessage:f545da0f5cc64dd9ee1ffd2b7733a11b
+jd-aligned-candidate-screening:6f9380ac999bb599a6434575df7abf78
 jupyter-live-kernel:352c43dc28428592abbc8c91cb5ce295
 kanban-codex-lane:94b53308d74fe3b55f198b9d9e905cf7
 kanban-orchestrator:8d4ea0e85653c37b4501e4084e78880c
@@ -119,11 +125,14 @@ llm-wiki:ca957fbfecd9e573a1f99db3937a1969
 mac-mini-environment:db4faa5100442f5f64a933ecf82ba953
 mac-system-profiling:e365ecd1822f8cee848d3a0ddaed4fc2
 macos-computer-use:fb1787b32be343b87078d2ae2618dbcf
+macos-tools:a850a2fc463cca7ea96872ed424a73ea
 manim-video:2ad3d68c3eb5d2675c05138100d3e48b
 maps:75eb39eca308ae4defa6ee2f14499428
 mcp-zombie-cleanup:84bc9015743a52793e6605d3d0bf6493
 mcporter:a1736a8c1837ea3a9b157b759af675d7
 media-file-delivery:2975b18a00d7e2a5bc1df5849ede346f
+meeting-intelligence:3a3d38b5cb19fd441947390ae26abf4d
+meeting-transcript-archive:b7e620b2f9e7cdd30d65694a7f840d6d
 minecraft-modpack-server:71e51465a1df193d7505ee47a91b6dbd
 modal-serverless-gpu:957d93b8e4bf44fb229a0466df169f36
 monolith-to-package-while-active:b09536e7a64e15e122d96e07a2655acc
@@ -179,6 +188,7 @@ self-improvement-mechanism:ef32f3c3b791c39537cea999b955e932
 serving-llms-vllm:92d66ae1f1112924634fcdcff2f86bc7
 shell-company-analysis:f37ee5bd4d44d83721123face9f3cf0d
 sketch:f8833126112824f6a916c69630cfd042
+skillopt-integration:9c2a9632bba2ac160eba6db24470eb4f
 software-copyright-screenshot-workflow:8431e1739034bcd50fc7b9739cffcad9
 software-copyright-submission:9d810c7c80ff0cb1786c87cd48fe5420
 songsee:644dc0f267b6661a3df6c76ce80d7f1f
@@ -203,6 +213,7 @@ unsloth:fe249a8fcdcfc4f6e266fe8c6d3f4e82
 vocab-batch-challenge:7783a41ac5cb2b3d697580e38cbf1a4f
 web3-research-to-ppt:a542a35479a47690726a0b41e67a3862
 webhook-subscriptions:b1ffc6d6a3cf3f59ea8eb7dcd178c555
+wechat-mini-program-agent:e990a263d0d9590f144ac261b222bd1d
 wechat-publish-direct:201d97c7cfcedc74aadfdad713b22c61
 wechat-publisher-relay:ceb462023594b37390b635d4a6048056
 weights-and-biases:8f0e1ee92fdf7b42a1dad448176d7c64
