@@ -104,6 +104,27 @@ print(cfg['providers']['<key>']['api_key'])
 
 Then curl test with the real key (Step 1). If it returns 401, the provider is dead — proceed to Step 7.
 
+## Step 6b: Agnes AI / Agens API Specifics (June 2026)
+
+**Agnes AI** (母公司: Sapiens AI) is a free tier provider offering text, image, and video models via OpenAI-compatible API. Key quirks:
+
+- **Base URL is `apihub.agnes-ai.com`** (NOT `api.agens.ai` — the docs page had a typo, the real docs say `apihub.agnes-ai.com/v1`)
+- **TLS/SNI issue:** `api.agens.ai` has broken TLS certificates (tlsv1 unrecognized name). Only use `apihub.agnes-ai.com`.
+- **Model names:** `agnes-1.5-flash` (fast, lightweight), `agnes-2.0-flash` (stronger Chinese). Not `claw-*` — those may exist but aren't in the default listing.
+- **API key instability:** Keys can intermittently return 401 even when valid. This is an Agens platform issue, not a config problem. If key works once then fails, retry or contact support.
+- **Useful for:** Free tier fallback when primary provider is unavailable. Not recommended as sole production model until stability improves.
+- **Provider config entry:**
+  ```yaml
+  providers:
+    agnes:
+      name: "Agnes AI"
+      base_url: "https://apihub.agnes-ai.com/v1"
+      api_key: sk-<key>
+      models: ["agnes-1.5-flash", "agnes-2.0-flash", "agnes-image-2.1-flash", "agnes-video-v2.0"]
+  ```
+- **Auto-fallback pattern:** Configure `agnes` as default with `fallback_providers` pointing to `deepseek` (or vice versa) so the system automatically upgrades to a paid model when the free tier is insufficient.
+- **Full reference:** See `references/agnes-ai-integration.md` for the complete integration record, benchmark data, and known issues.
+
 ## Step 7: `hermes config set` — The Credential-Lock Bypass
 
 ### Pitfall: Credential Lock on config.yaml
