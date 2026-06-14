@@ -125,6 +125,51 @@ Then curl test with the real key (Step 1). If it returns 401, the provider is de
 - **Auto-fallback pattern:** Configure `agnes` as default with `fallback_providers` pointing to `deepseek` (or vice versa) so the system automatically upgrades to a paid model when the free tier is insufficient.
 - **Full reference:** See `references/agnes-ai-integration.md` for the complete integration record, benchmark data, and known issues.
 
+## Pitfall: GitHub Copilot Chat API — Not PAT-Authenticatable
+
+GitHub Copilot Chat API (`https://api.githubcopilot.com/chat/completions`) does **NOT** accept Personal Access Tokens (PAT) via standard `Bearer` auth. It requires an **OAuth token** from a GitHub Copilot org/business account.
+
+**Symptoms:**
+- `400: bad request: Authorization header is badly formatted` — PAT sent with `Bearer` or `token` scheme
+- `400: missing required Authorization header` — no Authorization header at all
+- `401: Unauthorized` — even correct-looking OAuth tokens
+
+**Why it fails:**
+- Copilot Chat API uses a different auth backend than GitHub REST API
+- `gh auth status` may show login but Copilot needs a **separate OAuth flow**
+- The `Bearer <PAT>` format that works for GitHub API returns "badly formatted" on Copilot
+- The `token <key>` format also fails with PATs
+
+**Workaround — Headroom Proxy:**
+When Copilot Chat API is unavailable, route through headroom proxy (port 8787) which may have a different auth backend configured. Check the proxy's `backend` setting in `/health` response.
+
+**Detection flow:**
+```bash
+# Check if this is a PAT vs OAuth token
+echo "$GITHUB_TOKEN" | head -c 8  # ghp_ = PAT, gho_ = OAuth
+
+# Copilot endpoint never works with PATs
+curl -s "https://api.githubcopilot.com/chat/completions" \
+  -H "Authorization: Bearer *** \
+  -d '{"model":"test","messages":[],"max_tokens":10}'
+# If 400 "badly formatted", it's a PAT — cannot be fixed, need OAuth token
+```
+
+**For Hermes users:** If the `model.provider` points to `custom:copilot` or similar and all calls fail with "badly formatted", check if the token is a PAT (`ghp_`). If so, Copilot Chat API is not available — fall back to whatever headroom backend is configured.
+
+## Pitfall: Non-Standard Auth Schemes Beyond Bearer
+
+Some providers use unusual auth formats that break standard OpenAI-compatible assumptions:
+
+| Provider | Auth Scheme | Notes |
+|----------|------------|-------|
+| GitHub Copilot | OAuth only, not PAT | PATs always return "badly formatted" |
+| Agnes AI | `Bearer` + exact key, no trailing whitespace | Key file must be exact bytes; trailing space = 401 |
+| Some proxies | `X-API-Key` header instead of `Authorization` | Check vendor docs before assuming Bearer |
+| Custom backends | Query param `?api_key=` | Rare but exists on older proxy implementations |
+
+**Debug tip:** When auth fails, first check: (1) is the header name correct? (2) is the scheme correct? (3) is there hidden whitespace in the key? (4) is the token type compatible with this endpoint?
+
 ## Step 7: `hermes config set` — The Credential-Lock Bypass
 
 ### Pitfall: Credential Lock on config.yaml
