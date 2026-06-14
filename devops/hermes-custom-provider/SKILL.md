@@ -124,6 +124,7 @@ Then curl test with the real key (Step 1). If it returns 401, the provider is de
   ```
 - **Auto-fallback pattern:** Configure `agnes` as default with `fallback_providers` pointing to `deepseek` (or vice versa) so the system automatically upgrades to a paid model when the free tier is insufficient.
 - **Full reference:** See `references/agnes-ai-integration.md` for the complete integration record, benchmark data, and known issues.
+- **Copilot auth pitfalls:** See `references/copilot-chat-api-auth-pitfalls.md` for PAT vs OAuth token distinction and error message decoding.
 
 ## Pitfall: GitHub Copilot Chat API — Not PAT-Authenticatable
 
