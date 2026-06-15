@@ -46,8 +46,21 @@ category: devops
 ```bash
 # Gateway 挂了的典型表现
 curl -s http://localhost:8420/health   # 无响应 / connection refused
-launchctl list | grep memory           # PID=0 或 exit code=2
+
+# embedding 未启用的典型表现（Gateway 活着但 embeddingService: false）
+curl -s http://localhost:8420/health | python3 -m json.tool
+# 输出: {"status":"ok","stores":{"vectorStore":true,"embeddingService":false}}
+# 这意味着只有 BM25 关键词检索，没有语义搜索能力。搜「编程风格」不会匹配「反冗长主义」。
 ```
+
+### 常见健康检查结论
+
+| 输出 | 含义 | 行动 |
+|------|------|------|
+| `{"status":"ok","stores":{"vectorStore":true,"embeddingService":true}}` | 全功能正常 | 无操作 |
+| `{"status":"ok","stores":{"vectorStore":true,"embeddingService":false}}` | Gateway 正常但 embedding 未启用 | 按下方"启用本地 Embedding"流程操作，或接受降级 |
+| `connection refused` | Gateway 进程未运行 | 快速恢复流程 |
+| 超时/无响应 | Gateway 僵死 | lsof 清端口 + kickstart |
 
 ### 标准恢复流程
 

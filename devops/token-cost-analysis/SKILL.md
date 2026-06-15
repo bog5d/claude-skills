@@ -141,3 +141,4 @@ if max_iterations > 50:
 | 文件 | 说明 |
 |------|------|
 | `references/token-bill-diagnosis.md` | 完整诊断案例：2026-06-14 副官 token 异常（Flash 用量从 1% 飙到 78%） |
+| `references/v4-flash-spike-investigation.md` | V4-Flash 用量异常的根因（`delegation.model: ''` 空字符串 bug）+ 一键修复命令 + 预防规则 |
