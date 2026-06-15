@@ -136,6 +136,32 @@ if max_iterations > 50:
 - **Flash 不是"本身贵"** — 输出 token 单价是 Pro 的 1/3，但如果每个请求输出量是 Pro 的 5-7 倍且 cache_miss 率高，总成本反而更高。
 - **不是泄露** — key 专用、调用模式正常、cache_hit 比例合理，就是行为变化导致的。
 
+## Token 优化技术
+
+当 token 用量已经确认很高时，除了分析根因，还可以部署 **headroom proxy** 作为前置压缩层。
+
+### headroom proxy — 前置上下文压缩
+
+headroom（[github.com/chopratejas/headroom](https://github.com/chopratejas/headroom)）在 LLM 请求进入模型前先压缩上下文，60-95% token 削减，准确率不变（GSM8K ±0, TruthfulQA +0.030）。
+
+**部署方式**: 作为独立代理运行在 8787 端口，Hermes gateway 配置 provider 的 `base_url` 指向它即可。
+
+**完整集成流程**: 见 `headroom-proxy-integration` skill。
+
+**关键点**:
+- 默认 backend 是 Anthropic，DashScope/Agnes AI 等 OpenAI 兼容 API 必须用 `--backend litellm-openai --openai-api-url <upstream>`
+- 通过 launchd 持久化管理，macOS 重启自动恢复
+- 四个 profile 共享同一个 headroom 实例，token 节省是指数级的
+
+### 深度缓存优化
+
+| 方法 | 场景 | 节省幅度 |
+|------|------|---------|
+| headroom 压缩 | 长上下文场景 | 60-95% token 削减 |
+| DeepSeek 前缀缓存 | 稳定 system prompt | 20-40% 成本 |
+| 模型路由降级 | 简单任务走 Flash | 3x 单价优势 |
+| 输出长度 guard | 控制 subagent 输出 | 减少无意义 token |
+
 ## 参考
 
 | 文件 | 说明 |
