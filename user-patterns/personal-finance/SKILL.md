@@ -385,7 +385,10 @@ income.py net -y 2026 -m 6
 | 通道 | 触发方式 | 处理引擎 |
 |------|---------|---------|
 | 📸 截图 | 波总发微信/支付宝账单截图 | 千问 VL API（首选）→ Apple Vision（降级）→ expenses.py batch |
-| 📎 CSV | 波总发导出文件（支付宝CSV是GBK编码，微信是xlsx） | import_csv.py 自动解析 |
+| 📎 CSV/xlsx | 波总发导出文件（支付宝CSV是GBK，微信是xlsx） | import_csv.py 自动解析 + 编码检测 + 格式检测 |
+
+- **支付宝** → `.zip` 内含 GBK CSV → `import_csv.py` 自动解压 → 解码 → 跳过元数据 → 解析
+- **微信** → `.xlsx` → `import_csv.py` 通过 `openpyxl` 直接读取（`parse_wechat_xlsx()` 函数）
 
 ### 消费过滤规则（自动排除）
 
@@ -504,7 +507,7 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
     - **态A（交互会话）**: `HERMES_HOME` = `~/.hermes/profiles/<name>/home/` → 脚本内 `".hermes/profiles/" in str(_HOME)` 检测命中 → 自动修正。✅ 已有防护
     - **态B（Cron 会话）**: `HERMES_HOME` = `/Users/mac/.hermes`（顶层 hermes 目录，不含 `profiles/`）→ 检测**不命中** → `FINANCE_DIR` 变成 `/Users/mac/.hermes/.hermes/adjutant/finance/`（双重 `.hermes`）→ FileNotFoundError。❌ 无防护
     - **态B 解法**: Cron job 中运行 finance.py 前必须显式设置 `HERMES_HOME=/Users/mac FINANCE_DIR=/Users/mac/.hermes/adjutant/finance`。不要依赖脚本内的自动检测。态B 的 `$HOME` 正确（`/Users/mac`）但 `HERMES_HOME` 覆盖了它。症状是路径中出现双重 `.hermes`
-11. **支付宝 CSV 编码** — 支付宝导出的 CSV 是 **GBK** 编码，不是 UTF-8。需先 `iconv -f GBK -t UTF-8` 转换再处理
+11. **支付宝 CSV 编码 + 前导元数据行** — 支付宝导出的 ZIP 内 CSV 是 **GBK** 编码，且前 1-22 行是元数据（导出信息、统计摘要等），不含 CSV 表头。`import_csv.py` 现已内置自动处理：`_read_csv_with_encoding()` 按 utf-8-sig → gbk → gb2312 → latin-1 顺序尝试解码；`_find_csv_header()` 扫描包含 `[交易时间,交易分类,交易对方,商品说明]` 的行作为真实表头，跳过前导元数据。**无需手动 iconv 转换**，直接 `python3 import_csv.py <gbk_csv>` 即可。
 12. **CSV 日期范围** — 微信账单导出时注意终止时间要选当前日期，否则会漏掉最近几天的数据
 13. **截图 vs CSV 优先级** — 同一笔交易 CSV 的商户名更准确（截图 OCR 可能误读"明红蹄花"的供应商名），优先保留 CSV 版本
 14. **分类关键字自动学习** — 每次发现新的商户名模式（如"蹄花""龙森园""相思椒"），立即追加到 `expenses.json` 的 categories 关键字库。⚠️ **batch 导入后必须检查**：`grep '"其他"' expenses.json` 找出被归入"其他"的项 → recat 纠正 → 把商户关键字补入 `expenses.json` 的 categories 字段。已知常被误归"其他"的商户：DeepSeek API→经营-软件服务、阿里云→经营-软件服务、顺丰→日用-快递、享道出行→交通、安徽蒸小碗/XX蹄花/XX小碗→餐饮、直豆→娱乐、湖南计算智谷/XX物业→交通-停车、App Store/Apple Music→数码
@@ -532,11 +535,5 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
     ```
 26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，必须在解压支付宝 ZIP（GBK 编码）→ `iconv -f GBK -t UTF-8` 转码后，直接用 `grep -i \"保险\"` 从原始 CSV 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
 27. **支付宝 ZIP 解压编码问题** — 支付宝导出的 ZIP 文件名含中文，Windows 端创建导致编码不兼容。`unzip -P <密码>` 可能报 `Illegal byte sequence`。优先用 Python `zipfile` 模块：`zf.setpassword(b'密码')` + `zf.extract()` 可绕开中文文件名编码问题。
-    python3 -c "
-    import json; p='/Users/mac/.hermes/adjutant/finance/expenses.json'
-    with open(p) as f: d=json.load(f)
-    d['expenses'].append({'id':f'E{len(d[\"expenses\"])+1:03d}','date':'...','amount':...,'merchant':'...','category':'...','layer':'basic_living','source':'支付宝','dedup_key':'...','created_at':'...','reimbursable':True})
-    d['meta']['total_expenses']=len(d['expenses']); d['meta']['total_amount']=round(sum(e['amount'] for e in d['expenses']),2)
-    with open(p,'w') as f: json.dump(d,f,ensure_ascii=False,indent=2)
-    "
-    ```
+28. **⚠️ import_csv.py 现在同时支持支付宝 CSV 和微信 xlsx** — 不再需要分别调用不同脚本。直接 `python3 import_csv.py <文件>` 即可，脚本自动根据扩展名和文件内容检测格式。微信 xlsx 通过 `parse_wechat_xlsx()` 函数读取，从第一行扫描到包含 `[交易时间,交易类型,交易对方,商品]` 的表头行，跳过前导元数据。
+29. **⚠️ 微信 xlsx 过滤规则** — `parse_wechat_xlsx()` 只保留 `交易类型=商户消费` 或 `扫二维码付款` 的支出项。`转账`、`红包`、`零钱提现`、`转入零钱通` 等一律跳过。这意味着微信账单中的大量转账（如车位费转账、妈妈转回）不会被计入消费——如果波总需要这些转账数据做关系流向分析，需另行提取。
