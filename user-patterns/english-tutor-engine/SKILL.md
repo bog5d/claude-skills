@@ -964,3 +964,21 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **字段差异**：本地数据的 mastery 是 0.0-1.0 浮点数（非 0-100 整数刻度），需乘以 100 统一
 - **PAT 提取陷阱**：cron 环境下 `~/.gitconfig` 可能不含 PAT（只有 LFS 配置），此时应从本地文件读取，不走 GitHub API
 - **安全扫描器拦截**：`terminal` 命令中嵌入 `github.com` 或 `ghp_` 会被 tirith 拦截。**解决：把脚本写入临时文件再 `terminal python3 /tmp/script.py`**
+
+### pitfall 32: 批量音标生成 — CMU pronouncing 库 (2026-06-15 新增)
+- **场景**：1200+ 词缺音标，需要批量补全
+- **方案**：`pip3 install pronouncing` → `pronouncing.phones_for_word(w)` 返回 ARPABET → 脚本 `arpabet_to_ipa()` 映射
+- **成功率**：99.8% 覆盖率（1225/1228），剩余 3 个为词组（electric razor / hair dryer / potty training seat）无 CMU 条目
+- **输出**：生成 `generate_phonetics.py` 脚本，读取 GitHub words.json → 补音标 → 推送
+- **注意**：`g2p-en` 依赖太重（需 espeak-ng），CMU pronouncing 更轻量
+
+### Tier 2.5 新功能 (2026-06-15 上线)
+- **搭配语境**：`fast_vocab_round.py` 内置 `_COLLOC_SNIPPETS` 映射表。每轮随机 20% 概率出一个 📝 搭配填空题，格式：`📝 **{word}** → 「{fill_in_blank_template}」`
+- **复述挑战**：`state/paraphrase_challenge.py` — DeepSeek flash 生成中文长难句+3目标词，用户改写英文，LLM 三维修分（词使用/义忠实/流畅度），满分 30/30
+- **触发**：搭配系统自动出题，无需触发；复述挑战回复 `复述挑战` → `改写: <你的英文句子>`
+
+### 批量音标生成脚本
+- **脚本**：`scripts/generate_phonetics.py` — 从 CMU 词典批量补全 IPA 音标
+- **用法**：`python3 scripts/generate_phonetics.py [--dry-run] [--skip-existing]`
+- **原理**：`pronouncing.phones_for_word()` → ARPABET → `arpabet_to_ipa()` → 推送 GitHub
+- **覆盖率**：99.8%（1225/1228），剩余 3 个为词组无 CMU 条目

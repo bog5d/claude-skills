@@ -262,8 +262,8 @@ After every session's gamification sync, if `ranked_up = True`:
 
 ### Additional Pitfalls
 - **Collocation display**: fast_vocab_round shows 1 word/round as collocation fill-in-blank (📝). _COLLOC_SNIPPETS maps word to sentence template.
-- **Keyword false negatives**: Pipeline may flag correct variants as wrong (e.g. 生产制造商->manufacturer). LLM should review and override with ✅误判✗ notation.
-- **Chronicle auto-delivery**: session_pipeline.py now embeds Telegram Bot API sendDocument for rank-up chronicles. No manual MEDIA relay needed.
+- **Keyword false negatives**: Pipeline may flag correct variants as wrong (e.g. 生产制造商→manufacturer). ANSWER_KEYWORDS in session_pipeline.py now has expanded synonyms for 11+ high-frequency words. Fallback splits meaning by `[；;，,、\s]+`. LLM should still review edge cases.
+- **Collocation display**: fast_vocab_round shows 1 word/round as collocation fill-in-blank (📝). _COLLOC_SNIPPETS maps word to sentence template.
 - **Progress 0.0%**: Happens after rank-up reset. Explain BOTH sub-rank bar AND overall journey bar.
 - **Session cleanup**: Delete state/vocab_escalating.json after Round 3. Check for stale state before new session. (e.g. "exhaust" displays wrong). Use plain text for word lists; reserve code blocks only for gamification panels.
 - **Progress 0.0%**: Happens after rank-up reset. Explain BOTH sub-rank bar (0/25=0%) AND overall journey bar (5/25=20%) to prevent confusion.
