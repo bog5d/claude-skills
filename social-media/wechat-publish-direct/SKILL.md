@@ -20,6 +20,16 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 
 ⚠️ 写入脚本文件时密钥会被redact。解决方法：用 `ssh root@47.85.62.133 'base64 /root/wx-publisher/.env' | base64 -d` 获取原文，然后在终端heredoc中直接使用。
 
+## ⚠️ 故障降级策略（2026-06-14 新增）
+
+当自动发布链路断裂时，按以下优先级降级：
+
+1. **DeepSeek API 402（余额不足）** → 尝试 config.yaml 中其他 provider（agnes/supxh），但需注意它们的 key 可能在 .env 中被 redact，无法直接写入脚本文件
+2. **SSH 中继服务器认证失败** → 无法获取微信 App Secret，需用户手动提供
+3. **中继服务器 /publish 端点 401** → 认证机制不明，可能是密钥轮换
+
+**兜底方案**：用户手动提供 App Secret → 本地获取 access_token → 直接调微信 draft/add API。或用户自行复制文章到公众号后台。
+
 ## 完整流程
 
 ### 1. 接收文章
@@ -74,7 +84,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 
 | 组件 | 状态 | 备注 |
 |------|------|------|
-| 中继服务器 47.85.62.133:8787 | 🟢 在线 | PM2 wx-publisher, 运行 6d+ |
+| 中继服务器 47.85.62.133:8787 | ⚠️ 网络可达但SSH认证失效 | PM2 wx-publisher仍运行，/publish 端点返回 401 |
 | /publish (排版+草稿) | 🟢 正常 | DeepSeek→Unsplash配图→公众号草稿 |
 | /push_telegram | 🟢 正常 | MarkdownV2 推送到 @AgentToWest |
 | FRP 隧道 | 🟢 在线 | frps :7000 ↔ frpc macOS |
