@@ -519,21 +519,20 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
 21. **截图 OCR 管线（v4.0，2026-06-12 波总指定优先级）** — 引擎优先级：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。详见 `debt-screenshot-auto-update` 技能的 "OCR 引擎" 章节。
 22. **数据文件双重同步** — `~/.hermes/adjutant/finance/` 和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/` 是两个独立目录。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。每次数据修改后必须 `cp` 到 repo 再 commit+push。漏 sync 会导致 git push 只提交了旧版本。
-26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，必须在解压支付宝 ZIP（GBK 编码）→ `iconv -f GBK -t UTF-8` 转码后，直接用 `grep -i "保险"` 从原始 CSV 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
-27. **支付宝 ZIP 解压编码问题** — 支付宝导出的 ZIP 文件名含中文，Windows 端创建导致编码不兼容。`unzip -P <密码>` 可能报 `Illegal byte sequence`。优先用 Python `zipfile` 模块：`zf.setpassword(b'密码')` + `zf.extract()` 可绕开中文文件名编码问题。
 23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
 24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
 25. **⚠️ Batch 去重误杀：同日同金额段交易** — `expenses.py batch` 去重逻辑为 `日期相同 + 金额差≤¥2 + 商户名相似度>0.5`。同品类同日相近金额会被误判。**真实案例**：6/8 滴滴快车-宋师傅 ¥18.90 被误判为 滴滴专车-袁师傅 ¥19.00 的重复（similarity 0.75），实际是两笔独立行程。**解法**：确认非真重复后，用 `python3 -c` 手动追加到 expenses.json 再 cp+push。常见误杀场景：滴滴×N、美团外卖×N、同一商户多笔近距离消费。手动插入模板：
     ```bash
-    python3 -c "
+    python3 -c \"
     import json; p='/Users/mac/.hermes/adjutant/finance/expenses.json'
     with open(p) as f: d=json.load(f)
-    d['expenses'].append({'id':f'E{len(d[\"expenses\"])+1:03d}','date':'...','amount':...,'merchant':'...','category':'...','layer':'basic_living','source':'支付宝','dedup_key':'...','created_at':'...','reimbursable':True})
+    d['expenses'].append({'id':f'E{len(d[\\\"expenses\\\"])+1:03d}','date':'...','amount':...,'merchant':'...','category':'...','layer':'basic_living','source':'支付宝','dedup_key':'...','created_at':'...','reimbursable':True})
     d['meta']['total_expenses']=len(d['expenses']); d['meta']['total_amount']=round(sum(e['amount'] for e in d['expenses']),2)
     with open(p,'w') as f: json.dump(d,f,ensure_ascii=False,indent=2)
-    "
+    \"
     ```
-26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，必须在解压支付宝 ZIP（GBK 编码）→ `iconv -f GBK -t UTF-8` 转码后，直接用 `grep -i \"保险\"` 从原始 CSV 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
+26. **⚠️ import_csv 过滤掉了保险 — 需要保险数据时直接 grep CSV** — `import_csv.py` 的过滤规则明确跳过「保险」类别（归入理财/保险过滤）。当波总需要分析保险支出时，直接在原始 CSV 中 `grep -i \"保险\"` 提取，不要走 import_csv。提取流程见 `references/insurance-policy-analysis.md`。
 27. **支付宝 ZIP 解压编码问题** — 支付宝导出的 ZIP 文件名含中文，Windows 端创建导致编码不兼容。`unzip -P <密码>` 可能报 `Illegal byte sequence`。优先用 Python `zipfile` 模块：`zf.setpassword(b'密码')` + `zf.extract()` 可绕开中文文件名编码问题。
-28. **⚠️ import_csv.py 现在同时支持支付宝 CSV 和微信 xlsx** — 不再需要分别调用不同脚本。直接 `python3 import_csv.py <文件>` 即可，脚本自动根据扩展名和文件内容检测格式。微信 xlsx 通过 `parse_wechat_xlsx()` 函数读取，从第一行扫描到包含 `[交易时间,交易类型,交易对方,商品]` 的表头行，跳过前导元数据。
+28. **⚠️ import_csv.py 现在同时支持支付宝 CSV 和微信 xlsx** — 不再需要分别调用不同脚本。直接 `python3 import_csv.py <文件>` 即可，脚本自动根据扩展名和文件内容检测格式。支付宝 CSV 通过 `_read_csv_with_encoding()` 自动尝试 utf-8-sig → gbk → gb2312 → latin-1；通过 `_find_csv_header()` 扫描包含 `[交易时间,交易分类,交易对方,商品说明]` 的行作为真实表头，跳过前导元数据。微信 xlsx 通过 `parse_wechat_xlsx()` 函数读取，从第一行扫描到包含 `[交易时间,交易类型,交易对方,商品]` 的表头行，跳过前导元数据。
 29. **⚠️ 微信 xlsx 过滤规则** — `parse_wechat_xlsx()` 只保留 `交易类型=商户消费` 或 `扫二维码付款` 的支出项。`转账`、`红包`、`零钱提现`、`转入零钱通` 等一律跳过。这意味着微信账单中的大量转账（如车位费转账、妈妈转回）不会被计入消费——如果波总需要这些转账数据做关系流向分析，需另行提取。
+30. **⚠️ 导入后必须手动检查重复记录** — `import_csv.py` 的去重键是 `日期_金额_商户名前6位_来源`，但同一笔交易在不同来源（截图OCR vs CSV vs 支付宝原始）可能有不同商户名，导致重复。支付宝CSV导入后常见重复：龙森园餐饮、携程旅行网、滴滴出行。微信 xlsx 导入后常见重复：火车票。导入后用 `python3 -c` grep 大额重复金额项，手动删除冗余记录，更新 meta。

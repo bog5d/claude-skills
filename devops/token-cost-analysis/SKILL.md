@@ -162,9 +162,47 @@ headroom（[github.com/chopratejas/headroom](https://github.com/chopratejas/head
 | 模型路由降级 | 简单任务走 Flash | 3x 单价优势 |
 | 输出长度 guard | 控制 subagent 输出 | 减少无意义 token |
 
+## 副官记忆注入开销（2026-06-17 新增）
+
+**现象**：副官 cron job 消耗 98.5% 总费用，日均 ¥27/天，月预估 ¥570+。
+
+**根因拆解**：
+
+1. **Cron 无状态** — 每次 cron 触发是全新 session，没有"上次聊了什么"的记忆，必须重新注入全部上下文
+2. **Skills 全家桶加载** — 25 个 SKILL.md 全文注入（~82MB 目录，实际加载 500KB+）
+3. **Episodic Memory 搜索** — EverOS/tencentdb 每次搜索返回几十到上百条对话摘要
+4. **AGENTS.md + 任务文件** — 副岗说明书 + status.json + diary + prep 全部读取
+5. **高频触发** — 感知引擎每 5 分钟跑一次（`perception.py --once`），每天 ~288 次，每月 ~8,640 次
+
+**对比 her-m2**：her-m2 只在用户主动发消息时触发，注入量相同但频率低几个数量级。
+
+**优化方向**：
+- 副官切 v4-flash（同样的任务不需要顶级推理能力，便宜 3 倍）
+- 减少 skill 加载（副官实际只用 3-4 个 skill，不必全加载）
+- 压缩 episodic memory 搜索范围（只搜最近 N 天）
+- 降低感知引擎频率（5 分钟 → 15-30 分钟）
+
+**诊断命令**：
+```bash
+# 看 cron jobs 里哪些是 LLM-driven（no_agent: false）
+python3 -c "
+import json
+with open('/Users/mac/.hermes/cron/jobs.json') as f:
+    jobs = json.load(f)['jobs']
+for j in jobs:
+    if not j.get('no_agent', True):
+        print(f\"{j['name']}: enabled={j['enabled']}, profile={j.get('profile')}, runs={j.get('repeat',{}).get('completed',0)}\")
+"
+# 看 skill 总大小
+du -sh ~/.hermes/skills/
+# 看 AGENTS.md 大小
+wc -c ~/.hermes/adjutant/repo/hermes-adjutant/AGENTS.md
+```
+
 ## 参考
 
 | 文件 | 说明 |
 |------|------|
 | `references/token-bill-diagnosis.md` | 完整诊断案例：2026-06-14 副官 token 异常（Flash 用量从 1% 飙到 78%） |
 | `references/v4-flash-spike-investigation.md` | V4-Flash 用量异常的根因（`delegation.model: ''` 空字符串 bug）+ 一键修复命令 + 预防规则 |
+| `references/subagent-memory-injection-overhead.md` | 2026-06-17 案例：副官记忆注入开销机制拆解（cron 无状态 + 25 skills 全加载 + episodic memory 搜索 = 98.5% 费用） |
