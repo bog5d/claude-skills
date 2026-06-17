@@ -539,3 +539,5 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 31. **⚠️ QQ邮箱不支持标准 OAuth2 IMAP** — QQ邮箱无法通过 Himalaya CLI 的 OAuth2 流程授权。必须使用 **16位授权码**（在 QQ邮箱设置 → 账户 → IMAP/SMTP服务 中开启后获得）。如果波总找不到授权码入口，退而求其次：每次导出账单后直接把 zip/xlsx 文件发给我，我自动解压解析。
 32. **⚠️ 支付宝账单解压密码每次随机** — 不是身份证后6位，每次导出都生成一个随机密码。密码在支付宝消息对话框中显示（不是邮件里）。所以邮箱自动拉取流程是：波总在支付宝导出账单 → 发到指定邮箱 → 把解压密码发给我 → 我去邮箱拉附件 → 解压 → 导入。如果邮箱扫描不可用，波总直接把 zip 文件发给我即可。
 33. **月度消费分析报告必须有洞察+预测+趋势对比** — 波总明确要求：不只是记录流水，要有趋势预测（按当前消费速度推算年底总额）、同期对比（vs 上月/vs 去年同期）、结构洞察（哪些类别占比高、哪些可优化）、优化建议（基于数据的理性建议，不拍脑袋）。报告结构：核心洞察 → 趋势预测 → 同期对比 → 结构分析 → 优化建议 → 异常预警。
+34. **⚠️ App Password 方式（非 OAuth2）连 Gmail/邮箱** — QQ邮箱/部分邮箱不支持标准 OAuth2 IMAP。Himalaya 连 Gmail 的可靠方式是：Google Account → 开启两步验证 → https://myaccount.google.com/apppasswords → 创建 App Password → 存 macOS Keychain → himalaya config.toml 用 `backend.auth.cmd` 从 Keychain 读取。详见 `references/gmail-app-password-setup.md`。
+35. **⚠️ 手机远程指挥 Mac 的标准模式** — 波总常用手机不在 Mac 旁时的操作模式：手机发指令 → 需要 Mac 本地操作的步骤（浏览器登录、输入验证码/App Password）由波总手机完成 → 把结果（授权码、截图、确认截图）发给我 → 我后台执行配置/验证。关键：把"人肉操作"和"后台自动化"拆解清楚，不要让波总在 Mac 终端操作。
