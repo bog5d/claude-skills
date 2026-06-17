@@ -972,6 +972,23 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **输出**：生成 `generate_phonetics.py` 脚本，读取 GitHub words.json → 补音标 → 推送
 - **注意**：`g2p-en` 依赖太重（需 espeak-ng），CMU pronouncing 更轻量
 
+### pitfall 33: ARPABET→IPA 映射器 schwa bug (2026-06-15 修复)
+- **现象**：convention 音标被生成成 /kʌnvˈɛnʃʌn/ 而非 /kənvˈɛnʃən/——schwa (AH) 被映射为 /ʌ/ 而非 /ə/
+- **根因**：ARPABET_TO_IPA 映射字典只有 `"AH": "ʌ"`（无数字后缀），而 pronouncing 库返回 ARPABET 带压力位数字如 `AH0`、`AH1`、`AH2`。映射器 strip 数字后查 `AH` → 返回 `ʌ`（错误），且 AH0（无压力 schwa）应映射为 `ə`
+- **修复**：重写 ARPABET_TO_IPA 为带压力位后缀的映射：`AH0:ə`, `AH1:ˈə`, `AH2:ˌə`，所有元音都扩展为 0/1/2 三个变体。匹配逻辑改为：先查完整 key（如 AH0），命中则不加压力前缀（值已内嵌压力标记）；未命中再 strip 数字查 base key。
+- **验证**：用 pronouncing 库 CMU 原始 ARPABET 对照验证每个生成音标
+
+### pitfall 34: fast_vocab_round 重置 escalating round 为 1 (2026-06-15 修复)
+- **现象**：每轮答题后 round 回到 1，6→9→12 递进被破坏。用户连续答 2 轮后仍看到 Round 1
+- **根因**：`fast_vocab_round.py` 的 `_save_batch_state()` 无条件写 `round: 1`，不检查现有 escalating 状态
+- **修复**：`_save_batch_state()` 先读 `vocab_escalating.json`，如果 `round > 1` 则跳过初始化，只更新当前轮的 words 列表和 scores
+- **session_pipeline.py** 在判分后更新 escalating 的 `round` 字段为下一轮（1→2→3→done）
+
+### pitfall 35: session_pipeline.py chronicle 发送缺少 import time (2026-06-15 修复)
+- **现象**：rank-up 时 chronicle HTML 已生成并复制，但 Telegram Bot API 推送静默失败，用户追问后才补发
+- **根因**：pipeline 文件顶部缺少 `import time`，line 623 的 `time.time()` 调用抛出 NameError，被 except 吞掉
+- **修复**：在文件顶部添加 `import time`，rank-up 时 pipeline 内置 Telegram Bot API `sendDocument` 直推 chronicle
+
 ### Tier 2.5 新功能 (2026-06-15 上线)
 - **搭配语境**：`fast_vocab_round.py` 内置 `_COLLOC_SNIPPETS` 映射表。每轮随机 20% 概率出一个 📝 搭配填空题，格式：`📝 **{word}** → 「{fill_in_blank_template}」`
 - **复述挑战**：`state/paraphrase_challenge.py` — DeepSeek flash 生成中文长难句+3目标词，用户改写英文，LLM 三维修分（词使用/义忠实/流畅度），满分 30/30

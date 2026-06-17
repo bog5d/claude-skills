@@ -117,6 +117,16 @@ tail ~/.hermes/profiles/<name>/logs/gateway.log
 - **API 端口冲突**：新 profile 的 gateway 启动时如果端口 8642 被占用会失败，需要在 config.yaml 里改 `platforms.api_server.port`
 - **Telegram bot token 存放位置**：在每个 profile 的 `.env` 里，不是 config.yaml
 
+## 本地模型选择参考
+
+### Holo-3.1 4B (mradermacher/Holo-3.1-4B-GGUF:Q4_K_M)
+- **定位**：Computer-Use 专用多模态模型，由 H Company（前 OpenAI 核心团队成员）2026年6月发布
+- **专长**：看屏幕操作电脑（OSWorld/AndroidWorld 基准）— 看图理解 UI 布局、定位按钮、理解交互元素
+- **不适合**：深度推理、复杂编程、长文本创作、专业领域问答
+- **本地部署**：GGUF Q4 量化约 3GB 显存，~26 tokens/秒，适合 Mac 本地运行
+- **何时使用**：computer-use 场景（截图→分析→点击）、简单看图理解、轻量交互
+- **何时不用**：日常对话、代码编写、深度思考任务 — 这些场景通用大模型更好
+
 ## 目标配置模板
 
 通用模板：Agnes 免费模型 + DeepSeek flash 降级

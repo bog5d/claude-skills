@@ -302,3 +302,20 @@ RUST_LOG=trace RUST_BACKTRACE=1 himalaya envelope list
 - Message IDs are relative to the current folder; re-list after folder changes.
 - For composing rich emails with attachments, use MML syntax (see `references/message-composition.md`).
 - Store passwords securely using `pass`, system keyring, or a command that outputs the password.
+
+## ⚠️ Gmail + Homebrew 限制
+
+**Homebrew 版 Himalaya 不支持 `oauth2` + `keyring` feature**，因此 Gmail OAuth2 授权路径不可用。
+
+### 替代方案：App Password（推荐）
+
+1. Google Account → 开启两步验证
+2. https://myaccount.google.com/apppasswords → 创建 App Password
+3. 存 macOS Keychain: `security add-generic-password -s "himalaya-gmail-app-password" -a "wangbo8805@gmail.com" -w "<password>"`
+4. config.toml 用 `backend.auth.cmd = "security find-generic-password -w -s himalaya-gmail-app-password -a wangbo8805@gmail.com"`
+
+详见 `references/gmail-app-password-setup.md`
+
+### QQ邮箱
+
+QQ邮箱也不支持标准 OAuth2 IMAP，同样用 App Password（16位授权码）方式。
