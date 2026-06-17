@@ -59,9 +59,37 @@ done
   2. 清理 default 和 english-tutor 的 shell 环境（launchd plist 不含 `WEIXIN_*` 即可，launchd 会隔离环境）
   3. 如果 shell 手动启动 gateway 导致泄漏：改用 `launchctl kickstart` 而非手动 `HERMES_PROFILE=... gateway run`
 - 预防：launchd-managed gateway 自带环境隔离。手动启动时不要传 `WEIXIN_*` 环境变量
+## 模式A：故障排查
 
+**⚠️ 致命陷阱：config.yaml YAML 缩进错误导致配置解析失败**
 
-**模式A：Port 冲突（API 端口被占）**
+- 症状：gateway 启动后日志出现 config 解析错误，或 `enabled: false` 设置不生效
+- 根因：`enabled: false` 的缩进层级不对，YAML 解析器将其当作顶层 key 而非 `enabled` 属性。常见于 `platforms.api_server` 嵌套块
+- 验证：`grep -n 'enabled' <profile>/config.yaml` 检查缩进层级
+- 修复：确保 `enabled` 在 `api_server` 块下正确缩进：
+  ```yaml
+  platforms:
+    api_server:
+      enabled: false
+      extra:
+        host: 127.0.0.1
+        port: 8642
+  ```
+
+**模式A：Port 冲突（API 端口被占）**nfig.yaml YAML 缩进错误导致配置解析失败**
+
+- 症状：gateway 启动后日志出现 config 解析错误，或 `enabled: false` 设置不生效
+- 根因：`enabled: false` 的缩进层级不对，YAML 解析器将其当作顶层 key 而非 `enabled` 属性。常见于 `platforms.api_server` 嵌套块
+- 验证：`grep -n 'enabled' <profile>/config.yaml` 检查缩进层级
+- 修复：确保 `enabled` 在 `api_server` 块下正确缩进：
+  ```yaml
+  platforms:
+    api_server:
+      enabled: false
+      extra:
+        host: 127.0.0.1
+        port: 8642
+  ```
 
 **模式A：Port 冲突（API 端口被占）**
 - 症状：gateway 显示 exit code 1 + runs 很大。日志反复出现 `[Api_Server] Port 8642 already in use`，重连计数可达 400+

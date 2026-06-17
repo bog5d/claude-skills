@@ -492,6 +492,15 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 
 详细 JSON schema 见 `references/consumption-analysis-schema.md`
 
+## 邮件拉取（Gmail + Himalaya）
+
+Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App Password + IMAP：
+1. 打开 https://myaccount.google.com/apppasswords 生成 16 位密码
+2. 在 Mac 终端跑 `himalaya` 交互式向导 → 选 gmail → 输 App Password
+3. 如果向导不工作（TTY 限制），用 Python IMAP 直连（见 `references/gmail-app-password-setup.md`）
+4. 拉取支付宝账单邮件（发件人 service@alipay.com）→ 解压 CSV → import_csv.py 导入
+详细配置陷阱见 `references/gmail-app-password-setup.md`
+
 ## 陷阱
 
 1. **不要手改 JSON，用 finance.py / expenses.py** — 脚本已处理元数据更新、去重、清债转移、交易记录
@@ -541,3 +550,9 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 33. **月度消费分析报告必须有洞察+预测+趋势对比** — 波总明确要求：不只是记录流水，要有趋势预测（按当前消费速度推算年底总额）、同期对比（vs 上月/vs 去年同期）、结构洞察（哪些类别占比高、哪些可优化）、优化建议（基于数据的理性建议，不拍脑袋）。报告结构：核心洞察 → 趋势预测 → 同期对比 → 结构分析 → 优化建议 → 异常预警。
 34. **⚠️ App Password 方式（非 OAuth2）连 Gmail/邮箱** — QQ邮箱/部分邮箱不支持标准 OAuth2 IMAP。Himalaya 连 Gmail 的可靠方式是：Google Account → 开启两步验证 → https://myaccount.google.com/apppasswords → 创建 App Password → 存 macOS Keychain → himalaya config.toml 用 `backend.auth.cmd` 从 Keychain 读取。详见 `references/gmail-app-password-setup.md`。
 35. **⚠️ 手机远程指挥 Mac 的标准模式** — 波总常用手机不在 Mac 旁时的操作模式：手机发指令 → 需要 Mac 本地操作的步骤（浏览器登录、输入验证码/App Password）由波总手机完成 → 把结果（授权码、截图、确认截图）发给我 → 我后台执行配置/验证。关键：把"人肉操作"和"后台自动化"拆解清楚，不要让波总在 Mac 终端操作。
+36. **⚠️ Himalaya v1.2.0 Homebrew 版配置陷阱** — 以下配置写法全部无效：
+    - `imap.server` 平铺键 → `account list` 显示 BACKENDS 为空
+    - `[accounts.X.backend]` 嵌套表 → 报 `missing field login/host`
+    - `auth.type = "raw"` → 报 `unknown variant`
+    - Profile sandbox 路径（`~/Library/Application Support/himalaya/`）→ 改了 HOME 导致找不到配置
+    **正确做法**：用 `himalaya` 交互式向导（需要 TTY）或 Python IMAP 直连。详见 `references/gmail-app-password-setup.md`。
