@@ -584,6 +584,7 @@ next_review = today + interval (答对) 或 today (答错)
 - `references/cron-daily-report-data-source.md` — Cron 日报数据源速查卡：本地 words.json 数组格式/mastery 浮点/段位顶层字段/安全限制
 - `references/cron-daily-report-writefile-workflow.md` — Cron 日报临时脚本写入流程（write_file → /tmp/script.py → terminal 执行），解决 tirith 拦截 + execute_code 阻断
 - `references/cursor-acp-integration.md` — Cursor CLI ACP 桥接：delegate_task 调用方式 + Aider 备选 + 三线开发路由对比
+- `references/vocab-lib-shared-library.md` — vocab_lib 共享库架构、核心 API、别名兼容层、数据契约、多 Agent 协作注意事项
 - `references/multi-dim-upgrade-v2.md` — 多维升级系统 V2.0 完整规则：升级条件表、降级机制、阶段激活、覆盖率计算
 - `scripts/engine.py` — 旧版 SQLite 引擎（已废弃）
 
@@ -995,6 +996,31 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **现象**：rank-up 时 chronicle HTML 已生成并复制，但 Telegram Bot API 推送静默失败，用户追问后才补发
 - **根因**：pipeline 文件顶部缺少 `import time`，line 623 的 `time.time()` 调用抛出 NameError，被 except 吞掉
 - **修复**：在文件顶部添加 `import time`，rank-up 时 pipeline 内置 Telegram Bot API `sendDocument` 直推 chronicle
+
+### pitfall 36: 多 Agent 修改同一代码库 → API 不兼容（2026-06-17 真实事故 ⚠️ 铁律）
+- **现象**：我（Hermes LLM）和 Codex 同时修改 `engine_upgrade_sample_descent.py`、`phase2_sentence_understanding.py`、`vocab_lib.py`，但各自使用不同的函数名和签名 → 8+ 处 `AttributeError`/`TypeError`/`KeyError`
+- **根因**：Codex 改了 engine 调用 `vl.calc_coverage`、`vl.student_match`（单数）、`vl.check_can_upgrade(stats, rc, gd)` 三个参数；我的 vocab_lib 定义 `calc_coverage` 不存在、`student_matches`（复数s）、`check_can_upgrade(words, gd, rc)` 三个参数但顺序不同
+- **修复方案**：在 vocab_lib.py 末尾加**别名兼容层**（alias shim），把两套 API 映射到一起：
+  ```python
+  # 在 vocab_lib.py 末尾
+  student_match = student_matches  # 单数→复数别名
+  calc_coverage = lambda words, cc: ...  # 指标计算别名
+  load_json_safe = load_json  # 安全文件操作别名
+  # 签名不匹配的函数 → 写 wrapper 适配参数顺序
+  def check_can_upgrade_compat(stats, rank_config, gam_data):
+      # 重新实现一个基于 stats 的版本，不依赖 words
+  check_can_upgrade = check_can_upgrade_compat
+  ```
+- **预防铁律**：多 Agent 开发同一模块时，**必须先统一 API 契约再各自实现**。任何新函数名/签名必须在 vocab_lib.py 中注册，其他脚本引用时必须用已注册的函数名。禁止各自发明不同的函数名。
+- **验证步骤**：每次合并后必须跑 `python3 -m pytest tests/test_vocab_lib.py -v` 确认全通过，再跑 `python3 bin/engine_upgrade_sample_descent.py` 确认引擎正常
+
+### pitfall 37: vocab_lib 是共享库，所有脚本通过它读数据（2026-06-17 确立）
+- **架构变更**：`bin/vocab_lib.py` 是统一数据加载/指标计算/段位判定/判分逻辑的共享库
+- **所有脚本**（engine、phase2、daily_feedback）通过 `import vocab_lib as vl` 引用
+- **数据契约**：`mastery` 范围 0-100（非 0-1），`sub_rank` 罗马数字（I/II/III/IV），`words.json` 结构 `{"words": [...], "meta": {...}}`
+- **指标计算**：`get_current_stats(words)` 返回 `coverage_pct`(0-100)、`mastery_avg`(0-100)、`error_clear`、`core_count` 等
+- **段位判定**：`check_can_upgrade(stats, rank_config, gam_data)` 返回 `(bool, reason_str, next_rank_name)`
+- **判分**：`student_matches(student_ans, correct_ans)` 支持精确/包含/关键词重叠≥50%
 
 ### Tier 2.5 新功能 (2026-06-15 上线)
 - **搭配语境**：`fast_vocab_round.py` 内置 `_COLLOC_SNIPPETS` 映射表。每轮随机 20% 概率出一个 📝 搭配填空题，格式：`📝 **{word}** → 「{fill_in_blank_template}」`
