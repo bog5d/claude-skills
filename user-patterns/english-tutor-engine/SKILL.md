@@ -584,6 +584,7 @@ next_review = today + interval (答对) 或 today (答错)
 - `references/cron-daily-report-data-source.md` — Cron 日报数据源速查卡：本地 words.json 数组格式/mastery 浮点/段位顶层字段/安全限制
 - `references/cron-daily-report-writefile-workflow.md` — Cron 日报临时脚本写入流程（write_file → /tmp/script.py → terminal 执行），解决 tirith 拦截 + execute_code 阻断
 - `references/cursor-acp-integration.md` — Cursor CLI ACP 桥接：delegate_task 调用方式 + Aider 备选 + 三线开发路由对比
+- `references/multi-dim-upgrade-v2.md` — 多维升级系统 V2.0 完整规则：升级条件表、降级机制、阶段激活、覆盖率计算
 - `scripts/engine.py` — 旧版 SQLite 引擎（已废弃）
 
 ## ⚡ 性能铁律：单次调用流水线（2026-05-22 实战验证）
