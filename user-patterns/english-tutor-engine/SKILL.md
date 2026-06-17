@@ -163,22 +163,25 @@ skills/vocab-batch-challenge/
 - 下一章预览（解锁条件清单）
 - 随机章节挑战
 
-**闯关流程（2026-06-06 升级为统一流水线）：**
+**闯关流程（2026-06-18 路由锁定）：**
 ```
-Phase 1: fast_vocab_round.py → 出题（选27词，拆6/9/12三轮）
+Phase 1: fast_vocab_round.py → 出题（默认12词，拆6/6两轮；--challenge 才27词 6/9/12）
          ↓
 Phase 2: session_pipeline.py → 一次性完成全部处理
-         ├── 判分（27词 keyword 表内置）
+         ├── 判分（三层语义 + keyword fallback）
          ├── SM-2 更新 + GitHub push
-         ├── 5层讲解（27词全库内置，不论对错全出）
+         ├── 5层讲解（不论对错全出；新词自动生成）
          ├── gamification_v2 更新 + 面板
          ├── 段位晋升检测 → chronicle 生成 + cp至cache + 索引更新
-         └── Escalating 状态管理（轮次推进/结束清理）
+         ├── learning_path.json 刷新
+         └── 状态管理（轮次推进/结束清理）
          ↓
 LLM 只需：terminal 调用 → relay 输出 → 不再手写 execute_code
 ```
 
 **关键设计原则：**
+- **硬路由**：用户说「来一局」必须调用 `bin/fast_vocab_round.py`；用户答题必须调用 `state/session_pipeline.py`
+- **禁止手写**：LLM 不得手写题面、填空搭配、判分、下一轮、五层讲解或总结
 - **单次调用**：Phase 2 全部逻辑在 1 次 `terminal()` 或 `execute_code()` 内完成
 - **session_pipeline.py** 是游戏规则统一基座——判分/讲解/推送全部固化，不存在「LLM忘了」
 - **gamification_v2** 统一管理段位/子段位/噩梦词/面板
@@ -200,7 +203,7 @@ python3 /Users/mac/.hermes/profiles/english-tutor/state/session_pipeline.py <rou
 
 > ⚠️ **以下模板已废弃**（2026-06-06）。当前标准流程：`bin/fast_vocab_round.py`（Phase 1 出题）+ `state/session_pipeline.py`（Phase 2 判分/SM-2/讲解/推送）。
 > **严禁手写 execute_code 做判分/SM-2/五层讲解**——这些逻辑已固化到 session_pipeline.py 的 ANSWER_KEYWORDS 和 FIVE_LAYER 字典中。
-> 仅在 session_pipeline.py 故障时作为 fallback。详见 `references/session-pipeline-architecture.md`。
+> session_pipeline.py 故障时应报告错误并停止，不再 fallback 手写判分。详见 `references/session-pipeline-architecture.md`。
 
 <details>
 <summary>Legacy execute_code 模板（点击展开，仅作参考）</summary>
@@ -1096,10 +1099,10 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **段位判定**：`check_can_upgrade(stats, rank_config, gam_data)` 返回 `(bool, reason_str, next_rank_name)`
 - **判分**：`student_matches(student_ans, correct_ans)` 支持精确/包含/关键词重叠≥50%
 
-### Tier 2.5 新功能 (2026-06-15 上线)
-- **搭配语境**：`fast_vocab_round.py` 内置 `_COLLOC_SNIPPETS` 映射表。每轮随机 20% 概率出一个 📝 搭配填空题，格式：`📝 **{word}** → 「{fill_in_blank_template}」`
+### Tier 2.5 新功能 (2026-06-18 更新)
+- **搭配语境不再用于 Phase 1 题面**：禁止在「来一局」里显示 `📝 word → fill-in-blank`，这会泄题。Phase 1 只展示单词和音标；混淆词只显示英文辨析选项。
 - **复述挑战**：`state/paraphrase_challenge.py` — DeepSeek flash 生成中文长难句+3目标词，用户改写英文，LLM 三维修分（词使用/义忠实/流畅度），满分 30/30
-- **触发**：搭配系统自动出题，无需触发；复述挑战回复 `复述挑战` → `改写: <你的英文句子>`
+- **触发**：复述挑战回复 `复述挑战` → `改写: <你的英文句子>`
 
 ### 批量音标生成脚本
 - **脚本**：`scripts/generate_phonetics.py` — 从 CMU 词典批量补全 IPA 音标
