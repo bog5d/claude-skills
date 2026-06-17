@@ -555,9 +555,15 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 37. **⚠️ Himalaya v1.2.0 auth.cmd 路径陷阱（2026-06-17 确认）** — Himalaya 用 `backend.auth.cmd` 从外部命令获取密码。profile sandbox 中 `~` 被改写成 `/Users/mac/.hermes/profiles/finance/home`，所以 `auth.cmd` 里的 `~/.config/himalaya/gmail-app-password` 会解析到错误路径。**解法：auth.cmd 必须用绝对路径**，如 `cat /Users/mac/.config/himalaya/gmail-app-password`。App Password 文件放在 `/Users/mac/.config/himalaya/gmail-app-password`（600 权限），不要用 Keychain（sandbox 环境下 `security` CLI 报 exit 44，Keychain 条目不可访问）。Himalaya 配置正确路径后可直接 `himalaya envelope list --page-size 100` 拉邮件。
 38. **⚠️ Himalaya v1.2.0 没有 `save-attachment` 命令** — `message save` 是存邮件到文件夹，`message export` 导出原始邮件到临时目录但不直接提取附件。下载邮件附件的可靠路径是用 Python `imaplib` 直连 IMAP，`imap.fetch(msg_id, '(RFC822)')` 拿到完整 MIME 消息后解析 multipart 找 attachment 部分。详见 `references/gmail-attachment-download.md`。
 39. **⚠️ Himalaya 搜索中文主题需要 ASCII-safe 搜索条件** — `himalaya envelope list` 的搜索语法不支持中文关键词（会报 parse error）。搜索 Gmail 时建议用 ASCII 条件：`FROM service@mail.alipay.com` 或 `SUBJECT 交易`（英文关键词），不要在命令行传中文。Himalaya 的 IMAP 搜索底层也受 ASCII 限制。
-40. **⚠️ Himalaya v1.2.0 Homebrew 版配置陷阱** — 以下配置写法全部无效：
-    - `imap.server` 平铺键 → `account list` 显示 BACKENDS 为空
-    - `[accounts.X.backend]` 嵌套表 → 报 `missing field login/host`
-    - `auth.type = "raw"` → 报 `unknown variant`
-    - Profile sandbox 路径（`~/Library/Application Support/himalaya/`）→ 改了 HOME 导致找不到配置
-    **正确做法**：用 `himalaya` 交互式向导（需要 TTY）或 Python IMAP 直连。详见 `references/gmail-app-password-setup.md`。
+41. **⚠️ Gmail 拉取支付宝账单完整管线** — 详见 `references/gmail-alipay-billing-pipeline.md`。支付宝每月导出账单时会自动发邮件到指定邮箱（发件人 `service@mail.alipay.com`），附件为 ZIP（密码随机）。完整流程：
+    1. `himalaya envelope list -a gmail --page-size 200` 拉最近邮件
+    2. `himalaya message read <envelope_id>` 确认有附件
+    3. 用 Python `imaplib` 直连下载附件（Himalaya v1.2.0 无 `save-attachment` 命令）
+    4. `zipfile.setpassword(b'<密码>')` 解压 ZIP → CSV
+    5. 用 `import_csv.py` 或专用 GBK 解析器导入
+    6. 同步 + git push
+42. **⚠️ 布尔乔亚(余玓瓅) = 老婆消费分类规则** — 商户名"布尔乔亚(余玓瓅)"对应老婆余玓瓅的消费。分类要点：
+    - 日常小额消费（¥15-¥123）→ 归入 **餐饮美食**，layer=relationship, sub_category=personal
+    - 大额转账（如 ¥5,000）→ **不是消费**，应从 expenses.json 中移除（这是家庭转账，不是支出）
+    - 同日同金额出现 2 次的扣款（如 ¥224×2, ¥275.9×2）→ 多为自动续费/订阅代扣，需进一步确认性质
+    - 6/13 出现 10 笔小额重复扣款（¥15-¥47）→ 疑似批量自动续费，建议查支付宝"免密支付/自动扣款"列表
