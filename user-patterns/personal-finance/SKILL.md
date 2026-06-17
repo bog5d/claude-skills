@@ -500,6 +500,7 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 3. 如果向导不工作（TTY 限制），用 Python IMAP 直连（见 `references/gmail-app-password-setup.md`）
 4. 拉取支付宝账单邮件（发件人 service@alipay.com）→ 解压 CSV → import_csv.py 导入
 详细配置陷阱见 `references/gmail-app-password-setup.md`
+附件下载陷阱见 `references/gmail-attachment-download.md`
 
 ## 陷阱
 
@@ -549,8 +550,12 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 32. **⚠️ 支付宝账单解压密码每次随机** — 不是身份证后6位，每次导出都生成一个随机密码。密码在支付宝消息对话框中显示（不是邮件里）。所以邮箱自动拉取流程是：波总在支付宝导出账单 → 发到指定邮箱 → 把解压密码发给我 → 我去邮箱拉附件 → 解压 → 导入。如果邮箱扫描不可用，波总直接把 zip 文件发给我即可。
 33. **月度消费分析报告必须有洞察+预测+趋势对比** — 波总明确要求：不只是记录流水，要有趋势预测（按当前消费速度推算年底总额）、同期对比（vs 上月/vs 去年同期）、结构洞察（哪些类别占比高、哪些可优化）、优化建议（基于数据的理性建议，不拍脑袋）。报告结构：核心洞察 → 趋势预测 → 同期对比 → 结构分析 → 优化建议 → 异常预警。
 34. **⚠️ App Password 方式（非 OAuth2）连 Gmail/邮箱** — QQ邮箱/部分邮箱不支持标准 OAuth2 IMAP。Himalaya 连 Gmail 的可靠方式是：Google Account → 开启两步验证 → https://myaccount.google.com/apppasswords → 创建 App Password → 存 macOS Keychain → himalaya config.toml 用 `backend.auth.cmd` 从 Keychain 读取。详见 `references/gmail-app-password-setup.md`。
-35. **⚠️ 手机远程指挥 Mac 的标准模式** — 波总常用手机不在 Mac 旁时的操作模式：手机发指令 → 需要 Mac 本地操作的步骤（浏览器登录、输入验证码/App Password）由波总手机完成 → 把结果（授权码、截图、确认截图）发给我 → 我后台执行配置/验证。关键：把"人肉操作"和"后台自动化"拆解清楚，不要让波总在 Mac 终端操作。
-36. **⚠️ Himalaya v1.2.0 Homebrew 版配置陷阱** — 以下配置写法全部无效：
+36. **⚠️ 手机远程指挥 Mac 的标准模式** — 波总常用手机不在 Mac 旁时的操作模式：手机发指令 → 需要 Mac 本地操作的步骤（浏览器登录、输入验证码/App Password）由波总手机完成 → 把结果（授权码、截图、确认截图）发给我 → 我后台执行配置/验证。关键：把"人肉操作"和"后台自动化"拆解清楚，不要让波总在 Mac 终端操作。
+
+37. **⚠️ Himalaya v1.2.0 auth.cmd 路径陷阱（2026-06-17 确认）** — Himalaya 用 `backend.auth.cmd` 从外部命令获取密码。profile sandbox 中 `~` 被改写成 `/Users/mac/.hermes/profiles/finance/home`，所以 `auth.cmd` 里的 `~/.config/himalaya/gmail-app-password` 会解析到错误路径。**解法：auth.cmd 必须用绝对路径**，如 `cat /Users/mac/.config/himalaya/gmail-app-password`。App Password 文件放在 `/Users/mac/.config/himalaya/gmail-app-password`（600 权限），不要用 Keychain（sandbox 环境下 `security` CLI 报 exit 44，Keychain 条目不可访问）。Himalaya 配置正确路径后可直接 `himalaya envelope list --page-size 100` 拉邮件。
+38. **⚠️ Himalaya v1.2.0 没有 `save-attachment` 命令** — `message save` 是存邮件到文件夹，`message export` 导出原始邮件到临时目录但不直接提取附件。下载邮件附件的可靠路径是用 Python `imaplib` 直连 IMAP，`imap.fetch(msg_id, '(RFC822)')` 拿到完整 MIME 消息后解析 multipart 找 attachment 部分。详见 `references/gmail-attachment-download.md`。
+39. **⚠️ Himalaya 搜索中文主题需要 ASCII-safe 搜索条件** — `himalaya envelope list` 的搜索语法不支持中文关键词（会报 parse error）。搜索 Gmail 时建议用 ASCII 条件：`FROM service@mail.alipay.com` 或 `SUBJECT 交易`（英文关键词），不要在命令行传中文。Himalaya 的 IMAP 搜索底层也受 ASCII 限制。
+40. **⚠️ Himalaya v1.2.0 Homebrew 版配置陷阱** — 以下配置写法全部无效：
     - `imap.server` 平铺键 → `account list` 显示 BACKENDS 为空
     - `[accounts.X.backend]` 嵌套表 → 报 `missing field login/host`
     - `auth.type = "raw"` → 报 `unknown variant`
