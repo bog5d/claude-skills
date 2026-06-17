@@ -22,10 +22,12 @@ trigger:
 波总 ↔ Hermes (Telegram 对话)
          ↓
   GitHub: bog5d/bog-vocab-tracker (私有仓库)
-  ├── data/words.json        (词库主表, 1331+ 词 / 1328 核心)
+  ├── data/words.json        (词库主表, 1341词 / 1338核心)
   ├── data/progress.json     (进度/段位/积分/里程碑/Boss/收藏/解锁)
   ├── data/sessions.json     (学习会话记录 + error_log)
   ├── data/config.json       (游戏规则+模式+能力树+宝箱+Boss+日报+副本+限时)
+  ├── data/rank_config.json  (升级规则 V2.0 — 六段位多维达标)
+  ├── data/learning_path.json (学习路径 + StudyPlan schema)
   ├── data/anki_export/      (回导 Anki CSV 存档)
   └── scripts/
       ├── game_master.py         (多模式闯关引擎 — 旧版)
@@ -34,7 +36,66 @@ trigger:
       └── report_generator.py    (学习报告生成器 — 三层信息架构)
 ```
 
-## 游戏化引擎 V3（当前运行的 — 2026-05-30 升级）
+## 架构演进（2026-06-17）
+
+### V1 → V2 核心变更
+
+1. **共享库统一**：`bin/vocab_lib.py` 成为唯一数据访问层，所有脚本通过 `import vocab_lib as vl` 引用
+2. **多维升级规则**：从"答题次数"改为六段位多维达标（覆盖率+抽样+错题+掌握度）
+3. **学习处方替代存量反馈**：`daily_feedback.py` 输出"今日学习处方"而非"状态汇报"
+4. **五维画像**：识别/回忆/语境/输出/稳定性，替代单一 mastery 指标
+5. **三层语义判分**：确定性规则 → 本地语义相似度 → 可解释反馈
+6. **阶段2迁移训练**：从"例句填空"升级为"词汇迁移"（考研作文句/因果解释句/中译英）
+7. **Pipeline 整合**：`learning_path` 的推荐词注入 `fast_vocab_round` 的出题队列，`daily_feedback` 的处方驱动 Phase 1 出题
+
+### 当前架构（2026-06-17 确定）
+
+```
+learning_path.py → 优先级推荐词
+    ↓
+fast_vocab_round.py → 出题（受优先级引导，diary优先）
+    ↓
+session_pipeline.py → 判分 + SM-2 + 五层讲解 + gamification
+    ↓
+engine_upgrade_sample_descent.py → 升级/降级/抽样检测
+    ↓
+daily_feedback.py → 今日学习处方（三环进度环 + 五维画像）
+    ↓
+learning_path.json → 回灌学习路径（数据闭环）
+```
+
+### 数据契约（2026-06-17 更新）
+
+- **mastery**: 0-100 整数刻度（非 0-1 浮点）
+- **sub_rank**: 罗马数字 I/II/III/IV（不带 rank 前缀）
+- **覆盖率分母**: 核心词数（1338），不是总词数
+- **五维画像**: recognition/recall/context/output/stability（0-100）
+- **StudyPlan schema**: 统一输出 today_plan + weekly_plan + word_priority
+- **FeedbackPrescription**: 把状态翻译成今日行动
+
+### 共享库 API 速查
+
+完整 API 列表见 `references/vocab-lib-shared-library.md`。核心函数：
+
+- `get_current_stats(words)` → 覆盖率/掌握度/错题攻克
+- `build_learning_profile(words)` → 五维画像
+- `build_feedback_prescription(words, gam_data, rank_config)` → 今日处方
+- `build_study_plan(words, days=7)` → StudyPlan schema
+- `grade_answer_semantic(student_ans, correct_ans, word)` → 三层判分结构化结果
+- `student_matches(student_ans, correct_ans)` → 确定性判分
+- `check_can_upgrade(words, gam_data, rank_config)` → 升级判定
+- `check_descent(words, gam_data, rank_config)` → 降级检测
+- `check_phase_activation(stats, gam_data)` → 阶段激活
+
+### 多 Agent 协作铁律（2026-06-17 确立）
+
+1. **先读 vocab_lib.py** — 了解现有 API，不要重写
+2. **新增功能 → 加到 vocab_lib.py**，不要在各脚本里重复
+3. **修改函数签名 → 检查所有调用方**，确保兼容
+4. **写测试 → `tests/test_vocab_lib.py`**，必须 `pytest` 全通过
+5. **同步到 GitHub → `home/.hermes/repos/data/`**
+
+Codex 介入前必须读取 `references/codex-instructions.md`。
 
 **新架构（2026-06-06 更新 — 含 Tier 1 战报系统）：**
 ```
@@ -72,7 +133,13 @@ state/  (本地状态，gamification 经 GitHub 校准)
 scripts/
 ├── health_monitor.py          ← 系统健康监控（读 GitHub，不读 gamification.json）
 ├── daily_report.py            ← 学习日报（读 GitHub）
-└── fast_vocab_round.py        ← Phase 1 快速出题（GitHub 拉取后 /tmp/vocab 缓存 1h）
+├── bin/vocab_lib.py              # ⭐ 共享库（930行）— 统一数据/指标/段位/判分/画像
+├── bin/engine_upgrade_sample_descent.py  # 升级判定 + 抽样 + 降级
+├── bin/phase2_sentence_understanding.py  # 阶段2：词汇迁移训练（作文/因果/翻译）
+├── bin/daily_feedback.py         # 每日反馈 + 今日学习处方（三环进度环）
+├── bin/fast_vocab_round.py       # Phase1：闪卡出题（受 learning_path 优先级引导）
+├── bin/reset_rank.py             # 段位重置工具
+├── bin/learning_path.py          # 学习路径引擎（盲区分析 + 周计划）
 
 skills/vocab-batch-challenge/
 ├── SKILL.md                   ← 闯关主控技能
