@@ -199,6 +199,26 @@ du -sh ~/.hermes/skills/
 wc -c ~/.hermes/adjutant/repo/hermes-adjutant/AGENTS.md
 ```
 
+## 2026-06-17 案例：全 profile 模型统一降级为 Agnes + DeepSeek v4-flash
+
+**场景**：副官 cron 消耗 98.5% 费用，用户要求全面降本。
+
+**操作**：
+1. 暂停低价值 cron（感知引擎、健康巡检、财务周报等 4 个）
+2. 确认 default 已是 agnes-2.0-flash + v4-flash fallback
+3. 逐个修改 finance / english-tutor / holo-local profile 的 fallback 从 v4-pro → v4-flash
+4. holo-local 原本无 fallback，新增 deepseek-v4-flash
+
+**验证命令**：
+```bash
+for p in default her-m2 finance english-tutor holo-local; do
+  echo "=== $p ==="
+  grep -A3 'default:' ~/.hermes/profiles/$p/config.yaml 2>/dev/null || echo "no config"
+done
+```
+
+**结果**：所有 profile 统一 agnes-2.0-flash（免费）→ deepseek-v4-flash（降级）路由。
+
 ## 参考
 
 | 文件 | 说明 |
@@ -206,3 +226,4 @@ wc -c ~/.hermes/adjutant/repo/hermes-adjutant/AGENTS.md
 | `references/token-bill-diagnosis.md` | 完整诊断案例：2026-06-14 副官 token 异常（Flash 用量从 1% 飙到 78%） |
 | `references/v4-flash-spike-investigation.md` | V4-Flash 用量异常的根因（`delegation.model: ''` 空字符串 bug）+ 一键修复命令 + 预防规则 |
 | `references/subagent-memory-injection-overhead.md` | 2026-06-17 案例：副官记忆注入开销机制拆解（cron 无状态 + 25 skills 全加载 + episodic memory 搜索 = 98.5% 费用） |
+| `references/all-profile-model-switch.md` | 全 profile 模型统一降级为 Agnes + v4-flash 的操作记录 |
