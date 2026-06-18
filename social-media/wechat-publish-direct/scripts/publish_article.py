@@ -159,8 +159,8 @@ def call_deepseek(article_text, appid, secret):
         api_key = env.get("DEEPSEEK_API_KEY", "")
     
     if not api_key or api_key.startswith("***"):
-        # Fallback: use a known key
-        api_key = "sk-a9e82fef48e64ed2b871815075a4847f"
+        log("ERROR", "DEEPSEEK_API_KEY not available (missing or redacted)", "✗")
+        sys.exit(1)
     
     prompt = (
         "你是一个专业的微信公众号排版助手。"
@@ -303,35 +303,108 @@ def insert_image_tags(html, positions, seeds, image_style):
 
 def replace_picsum_with_media(html, url_to_mid):
     """
-    将 picsum 图片 URL 替换为 data-uimg 格式。
+    将 picsum 图片标签替换为带 data-uimg 的格式。
     
+    关键修复: 匹配整个 <img> 标签而非 URL 片段，
+    避免嵌套 img 标签（Bug #1 根因）。
     确定性映射：按图片插入顺序一一对应。
     """
-    # 找出所有 picsum 完整 URL（贪婪匹配所有 /xxx 路径段）
-    picsum_pattern = r'https://picsum\.photos/seed/[^\s"\'>]+'
-    picsum_urls = re.findall(picsum_pattern, html)
+    # 匹配完整的 <img> 标签（包含 picsum src）
+    picsum_img_pattern = (
+        r'<img\s+[^>]*src="https://picsum\.photos/seed/[^"]*"[^>]*>'
+    )
+    picsum_tags = re.findall(picsum_img_pattern, html)
     
-    if len(picsum_urls) != len(url_to_mid):
+    if len(picsum_tags) != len(url_to_mid):
         raise ValueError(
-            f"Picsum count ({len(picsum_urls)}) != media_id count ({len(url_to_mid)})"
+            f"Picsum img tag count ({len(picsum_tags)}) "
+            f"!= media_id count ({len(url_to_mid)})"
         )
     
-    # 按顺序替换
     img_style_val = STYLES["img"]
-    for i, (picsum_url, mid) in enumerate(zip(picsum_urls, url_to_mid)):
+    for i, (old_tag, mid) in enumerate(zip(picsum_tags, url_to_mid)):
+        # 从旧标签中提取 picsum URL 作为 src
+        src_match = re.search(
+            r'src="(https://picsum\.photos/seed/[^"]*)"', old_tag
+        )
+        picsum_url = src_match.group(1) if src_match else ""
+        # 构造新标签（替换整个标签，不是只替换 URL 字符串）
         new_tag = (
             '<img src="' + picsum_url + '" '
-            'style="' + img_style_val + '" '
-            'data-uimg="' + mid + '">'
+            + img_style_val + ' '
+            + 'data-uimg="' + mid + '">'
         )
-        html = html.replace(picsum_url, new_tag, 1)
+        html = html.replace(old_tag, new_tag, 1)
     
     return html
 
 
+def find_existing_draft(access_token, title):
+    """查找同名草稿，返回 (exists: bool, draft_media_id: str|None)"""
+    url = (f"{WECHAT_BASE}/cgi-bin/draft/batchget?"
+           f"access_token={access_token}")
+    payload = {
+        "offset": 0,
+        "count": 20,
+        "no_content": 1,  # 不返回正文内容，节省带宽
+    }
+    req = urllib.request.Request(
+        url,
+        json.dumps(payload).encode(),
+        {"Content-Type": "application/json"},
+    )
+    resp = urllib.request.urlopen(req, timeout=15)
+    result = json.loads(resp.read())
+    
+    if "item" in result:
+        for item in result["item"]:
+            draft_title = ""
+            if "content" in item and "news_item" in item["content"]:
+                news = item["content"]["news_item"]
+                if news and isinstance(news, list):
+                    draft_title = news[0].get("title", "")
+            if draft_title == title:
+                return True, item.get("media_id", "")
+    
+    return False, None
+
+
 def create_draft(access_token, title, author, digest, content, 
                  thumb_media_id):
-    """创建微信草稿"""
+    """创建或更新微信草稿（自动查重，避免重复创建）"""
+    # 先查重
+    exists, existing_mid = find_existing_draft(access_token, title)
+    
+    if exists and existing_mid:
+        # 更新已有草稿
+        log("DRAFT", f"Found existing draft: {existing_mid[:20]}..., updating")
+        url = f"{WECHAT_BASE}/cgi-bin/draft/update?access_token={access_token}"
+        payload = {
+            "media_id": existing_mid,
+            "index": 0,
+            "articles": [{
+                "title": title,
+                "author": author,
+                "digest": digest,
+                "content": content,
+                "thumb_media_id": thumb_media_id,
+                "need_open_comment": 1,
+                "only_fans_can_comment": 0,
+            }]
+        }
+        req = urllib.request.Request(
+            url,
+            json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            {"Content-Type": "application/json"},
+        )
+        resp = urllib.request.urlopen(req, timeout=15)
+        result = json.loads(resp.read())
+        if result.get("errcode", 1) != 0:
+            raise ValueError(f"Update draft failed: {result}")
+        log("DRAFT", f"Draft updated: media_id={existing_mid[:20]}...")
+        return existing_mid
+    
+    # 不存在则新建
     url = f"{WECHAT_BASE}/cgi-bin/draft/add?access_token={access_token}"
     
     payload = {
@@ -340,7 +413,7 @@ def create_draft(access_token, title, author, digest, content,
             "author": author,
             "digest": digest,
             "content": content,
-            "content_action": 0,  # 如果是续登，则追加
+            "content_action": 0,
             "thumb_media_id": thumb_media_id,
             "need_open_comment": 1,
             "only_fans_can_comment": 0,
@@ -470,6 +543,7 @@ def publish_workflow(
         "html_length": len(html),
         "image_count": img_count_step4,
         "media_ids": media_ids,
+        "final_html": html,
     }
 
 
@@ -552,9 +626,10 @@ def main():
         
         # 保存最终 HTML
         if args.output:
-            # 重新读取完整 HTML（需要从草稿或临时文件获取）
-            # 这里简化处理，实际应返回 HTML
-            pass
+            output_path = Path(args.output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(result["final_html"], encoding="utf-8")
+            log("OUTPUT", f"Final HTML saved to {args.output}", "✓")
         
         print(f"\n[验证日志]")
         for mid_idx, mid in enumerate(result["media_ids"]):

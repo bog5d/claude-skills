@@ -656,6 +656,7 @@ next_review = today + interval (答对) 或 today (答错)
 - `references/cursor-acp-integration.md` — Cursor CLI ACP 桥接：delegate_task 调用方式 + Aider 备选 + 三线开发路由对比
 - `references/vocab-lib-shared-library.md` — vocab_lib 共享库架构、核心 API、别名兼容层、数据契约、多 Agent 协作注意事项
 - `references/multi-dim-upgrade-v2.md` — 多维升级系统 V2.0 完整规则：升级条件表、降级机制、阶段激活、覆盖率计算
+- `references/pipeline-routing-self-check.md` — ⚠️ 2026-06-18 路由自检：LLM 手写判分事故诊断 + 恢复步骤 + 自检清单
 - `references/codex-instructions.md` — ⭐ Codex 介入自包含指令：项目架构、数据契约、API 列表、验证流程。每次启动 Codex 前必须先喂此文件
 - `scripts/engine.py` — 旧版 SQLite 引擎（已废弃）
 
@@ -1105,6 +1106,38 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
   4. Boss 文本、Top3 列表等含变量的部分，先在 Python 中拼接为普通字符串变量，再在 report f-string 中引用
   5. 执行完毕后 `rm /tmp/daily_report.py` 清理
 - **关键约束**：`write_file` 不被 tirith 拦截（它是文件写入而非命令执行），是唯一能在 cron 中安全写入脚本的途径
+
+### pitfall 40: LLM 手写判分绕开 session_pipeline — 路由异常（2026-06-18 真实事故 ⚠️ 铁律）
+
+- **现象**：用户连续多轮答题，LLM 都在手写判分、手写五层讲解、手写 gamification——`session_pipeline.py`（925行完整流水线）一次都没被调用
+- **后果**：
+  1. 判分标准不一致（LLM 用 `vocab_lib.student_matches()` 比对 `meaning` 字段，pipeline 用 `ANSWER_KEYWORDS` 做关键词匹配——两套标准）
+  2. SM-2 更新未执行（mastery/EF/interval 没变）
+  3. words.json 未 push 到 GitHub
+  4. gamification 未更新（XP/段位/chronicle）
+  5. 降级计数器 `_failed_sample_count` 未递增
+  6. 五层讲解缺失（新词无自动生成）
+- **根因**：LLM 接收到用户答案后，没有调用 `terminal` 执行 `session_pipeline.py`，而是直接手写判分回复。Pipeline 存在但从未被触发。
+- **修复**：LLM 必须在每次用户提交答案后执行：
+  ```bash
+  python3 /Users/mac/.hermes/profiles/english-tutor/state/session_pipeline.py <round> '<json_answers>'
+  ```
+  然后 relay `_formatted` 输出，不修改、不补充。
+- **预防铁律**：每次 "来一局" + 答题，LLM 只能调用两个脚本：`fast_vocab_round.py`（出题）+ `session_pipeline.py`（判分）。如在回复中发现自己在手写题目或判分，立即停止并输出「⚠️ 路由异常，需要调用脚本」。
+- **详见**：`references/pipeline-routing-self-check.md`
+
+### pitfall 41: "路由异常" 自检机制（2026-06-18 确立）
+
+- **触发条件**：LLM 发现以下任一行为时：
+  1. 在回复中手写 `Round 1/3`、`全局限 27 词`、`📝 填空`
+  2. 在回复中手写 `✅/❌` 判分、`逐题详解`、`诊断`
+  3. 在回复中手写五层讲解（词根拆解、演化链、视觉锚点）
+  4. 在回复中手写 `📊 全局总结`、`🎯 升级判定`
+- **响应动作**：立即停止手写，输出「⚠️ 路由异常，需要调用脚本」，然后 `terminal` 调用正确的脚本
+- **正确流程**：
+  - 「来一局」→ `terminal: python3 bin/fast_vocab_round.py` → relay stdout 原样
+  - 答题 → `terminal: python3 state/session_pipeline.py <round> '<json>'` → relay `_formatted` 原样
+  - LLM 只做 `json` 格式纠错（`1稳定` → `{"1":"稳定"}`）
 
 ### pitfall 37: vocab_lib 是共享库，所有脚本通过它读数据（2026-06-17 确立）
 - **架构变更**：`bin/vocab_lib.py` 是统一数据加载/指标计算/段位判定/判分逻辑的共享库

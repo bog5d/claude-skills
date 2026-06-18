@@ -179,17 +179,45 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - `references/40007-debug.md` — draft/add 40007 错误排查（thumb_media_id 必填、已有素材回退方案）
 - `references/40066-upload-debug.md` — 素材上传 40066 错误根因与解决方案（旧接口 vs 新接口、picsum 下载陷阱）
 - `references/publish-article-script.md` — `publish_article.py` 固化程序文档（用法、管线步骤、限制）
-- `references/credential-fallback-2026-06-18.md` — SSH relay 不可用时的本地凭据注入 SOP（2026-06-18 新增）
+- `references/bug-diagnosis-prd-2026-06-18.md` — **2026-06-18 Bug 诊断 PRD**（3 个已知 Bug 的根因分析 + Cursor 修复任务清单）
 
-## ✅ 验证状态 (2026-06-05)
+## ⛔ 已知 Bug（2026-06-18 诊断 — publish_article.py）
 
-全链路端到端实测通过，无需修改代码即可使用。
+> 详见 `references/bug-diagnosis-prd-2026-06-18.md`
+
+### Bug #1 【致命】图片不显示 — 裸 HTML 标签出现在正文
+
+**现象**：微信草稿预览中，图片位置显示 `style="display:block;margin:20px auto..."` 整段裸标签，无图。
+
+**根因**：`replace_picsum_with_media()` 替换逻辑错误。`insert_image_tags()` 插入完整 `<img>` 标签后，`replace_picsum_with_media()` 用 `html.replace(picsum_url, new_tag, 1)` 把 picsum URL 替换成一整个新 `<img>` 标签，导致**嵌套 img 标签**，微信解析失败降级为纯文本。
+
+**修复**：直接修改 `insert_image_tags()` 插入时就使用 `data-uimg` 占位，或只替换 `src` 属性值。
+
+### Bug #2 【高】草稿重复提交
+
+**现象**：同名文章出现 5 份草稿。
+
+**根因**：`create_draft()` 永远调 `draft/add`，无查重逻辑。应先用 `draft/batchget` 检查已有草稿，存在则用 `draft/update`。
+
+### Bug #3 【中】HTML 未写盘
+
+**现象**：`--output` 参数指定路径但无文件生成。
+
+**根因**：`main()` L554-557 直接 `pass`，空实现。
+
+### ⚠️ 修复前禁止使用
+
+在 Cursor 修复 Bug #1 之前，**不要直接调用 `publish_article.py` 创建草稿**——图片不会正常显示。排版功能（仅生成 HTML）不受影响。
+
+---
+
+## ✅ 验证状态 (2026-06-18 更新)
 
 | 组件 | 状态 | 备注 |
 |------|------|------|
-| 中继服务器 47.85.62.133:8787 | ⚠️ 网络可达但SSH认证失效 | PM2 wx-publisher仍运行，/publish 端点返回 401 |
-| /publish (排版+草稿) | 🟢 正常 | DeepSeek→Unsplash配图→公众号草稿 |
-| /push_telegram | 🟢 正常 | MarkdownV2 推送到 @AgentToWest |
+| publish_article.py 排版 | 🟢 正常 | DeepSeek MD→HTML 排版效果用户认可 |
+| publish_article.py 图片 | 🔴 致命 Bug | 嵌套 img 标签 → 微信当纯文本（Bug #1） |
+| publish_article.py 草稿 | 🔴 重复提交 | 无 dedup（Bug #2） |
+| publish_article.py 输出 | 🟡 HTML 不写盘 | --output 空实现（Bug #3） |
+| 中继服务器 SSH | 🔴 不可用 | Permission denied |
 | FRP 隧道 | 🟢 在线 | frps :7000 ↔ frpc macOS |
-
-**已知问题**：`escapeMd()` 不转义 `.` 和 `!`，含英文句点的标题会导致 TG 推送失败。临时规避：标题用中文句号。
