@@ -2552,26 +2552,26 @@
     "created_at": "2026-06-04T17:26:58.266153+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-17T09:31:57.012608+00:00",
-    "last_used_at": "2026-06-17T09:26:29.607771+00:00",
-    "last_viewed_at": "2026-06-17T09:26:29.606192+00:00",
+    "last_used_at": "2026-06-18T12:50:32.318055+00:00",
+    "last_viewed_at": "2026-06-18T12:50:32.314346+00:00",
     "patch_count": 11,
     "pinned": false,
     "state": "active",
-    "use_count": 6,
-    "view_count": 6
+    "use_count": 7,
+    "view_count": 7
   },
   "wechat-publisher-relay": {
     "archived_at": null,
     "created_at": "2026-05-30T05:27:31.978315+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-06-12T01:18:55.069425+00:00",
-    "last_used_at": "2026-06-12T13:41:06.665664+00:00",
-    "last_viewed_at": "2026-06-12T13:41:06.662492+00:00",
+    "last_used_at": "2026-06-18T12:50:32.316173+00:00",
+    "last_viewed_at": "2026-06-18T12:50:32.311403+00:00",
     "patch_count": 39,
     "pinned": false,
     "state": "active",
-    "use_count": 19,
-    "view_count": 19
+    "use_count": 20,
+    "view_count": 20
   },
   "weights-and-biases": {
     "archived_at": null,

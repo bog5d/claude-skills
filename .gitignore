@@ -1,7 +1,0 @@
-.env.local
-.env
-*.secret
-*.pem
-*.p12
-*.pfx
-.DS_Store
