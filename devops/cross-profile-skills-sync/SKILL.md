@@ -154,9 +154,32 @@ cd /Users/mac/.claude/skills && git push origin master 2>&1
 
 **根因：** 有人在该参考文件中用真实的 GitHub PAT 作为示例文本，违反了"示例中 token 必须用占位符"的铁律。该文件虽然是教人洗 token 的，但自身违反了规则。
 
+### ⚠️ .env.local / .env 等凭证文件会被 rsync 进 git 仓库
+
+**现象：** 同步脚本 Phase 2 的 `rsync -a` 会把源目录中所有文件（包括 `.env.local`、`.env` 等含 API key 的配置文件）复制到 GitHub 仓库目录，导致 `git add -A` 或 `git commit` 将它们纳入版本控制。GitHub Push Protection 检测到真实密钥后会拒绝 push，且 `2>/dev/null` 吞掉错误，造成静默堆积。
+
+**本次案例：** `social-media/wechat-publish-direct/.env.local` 包含 DeepSeek API Key 和 WeChat App Secret，被 rsync 进 `.claude/skills/` 后提交，push 被拒。
+
+**修复流程：**
+1. 从 git 跟踪中移除：`git rm --cached <path-to-env-file>`
+2. 只提交非敏感变更：`git add -A` 之前先确认哪些文件被标记，或用 `git add <safe-file-1> <safe-file-2>` 精确指定
+3. 重新 commit：`git commit -m '...'`
+4. 推送：`git push origin master`
+5. 在仓库根目录添加 `.gitignore` 防止复发：
+   ```bash
+   echo -e '.env.local\n.env\n*.secret' >> .gitignore
+   git add .gitignore && git commit -m 'chore: add .gitignore' && git push
+   ```
+
+**预防：** 同步脚本的 rsync 阶段应排除 `.env*`、`.local` 等凭证文件，或在 `.claude/skills/.gitignore` 中始终维护这些排除项。
+
 ## 限制
 
 - 只在同一台机器上的 profile 间同步
 - 不跨机器、不跨设备
 - 跨设备同步通过 GitHub 仓库中转（Tysk 协议）
 - HTTPS push 需要 Token URL，SSH 需提前配置好
+
+## 支持文件
+
+- `templates/gitignore-credentials.txt` — 用于 claude-skills 仓库的 .gitignore 模板，排除 .env 等凭证文件。同步后检查仓库是否已有 .gitignore，如无则应用此模板。
