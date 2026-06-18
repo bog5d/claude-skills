@@ -12,7 +12,7 @@ category: english-tutor
 
 This skill is a router, not a quiz writer.
 
-- User says "来一局" / "开战" / "测试" → run `bin/fast_vocab_round.py` and relay stdout verbatim.
+- User says "来一局" / "来一句" / "来局" / "再来" / "接着来" / "开战" / "测试" → run `bin/fast_vocab_round.py` and relay stdout verbatim.
 - User replies with answers → run `state/session_pipeline.py <round> '<json_answers>'` and relay `result["_formatted"]` verbatim.
 - Never hand-write challenge words, collocation blanks, scoring, next-round text, SM-2 updates, 5-layer explanations, or summaries.
 - Never invent a 27-word session unless the user explicitly asks for challenge mode. Default is 12 words split 6→6.
