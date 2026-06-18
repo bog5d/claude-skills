@@ -97,7 +97,7 @@ git diff --cached -- '*.env*' '*.local' '*.secret' '*.key' '*.pem' '*.p12' '*.pf
 
 **如果扫描发现密钥：**
 1. 不要 commit — 直接从暂存区移除：`git reset <file>`
-2. 确保 `.gitignore` 包含 `*.env.local`、`*.env`、`*.secret`
+2. 确保 `.gitignore` 存在且包含凭证排除项（用 `templates/gitignore-credentials.txt` 重建）
 3. 重新 commit 只包含安全变更
 
 ### 6. Post-Sync 验证（每次 cron 运行后必须执行）
@@ -198,10 +198,10 @@ cd /Users/mac/.claude/skills && git push origin master 2>&1
 2. 只提交非敏感变更：`git add -A` 之前先确认哪些文件被标记，或用 `git add <safe-file-1> <safe-file-2>` 精确指定
 3. 重新 commit：`git commit -m '...'`
 4. 推送：`git push origin master`
-5. 在仓库根目录添加 `.gitignore` 防止复发：
+5. 在仓库根目录添加 `.gitignore` 防止复发（优先用模板）：
    ```bash
-   echo -e '.env.local\n.env\n*.secret' >> .gitignore
-   git add .gitignore && git commit -m 'chore: add .gitignore' && git push
+   cd /Users/mac/.claude/skills
+   ls .gitignore 2>&1 || cp templates/gitignore-credentials.txt .gitignore
    ```
 
 **预防：** 同步脚本的 rsync 阶段应排除 `.env*`、`.local` 等凭证文件，或在 `.claude/skills/.gitignore` 中始终维护这些排除项。
@@ -259,9 +259,9 @@ git gc --prune=now
 cd /Users/mac/.claude/skills
 # 1. 软重置到 origin/master，保留所有变更在 staging
 git reset --soft origin/master
-# 2. 确认 .gitignore 仍然存在（filter-branch 可能删掉它！见下方）
-# 3. 如果有缺失文件，补上（如 .gitignore）
-# 4. 单次提交
+# 2. 确认 .gitignore 仍然存在（filter-branch 可能删掉它！见下方「filter-branch 可能意外删除 .gitignore」）
+# 3. 如果有缺失文件，用模板重建：ls .gitignore 2>&1 || cp templates/gitignore-credentials.txt .gitignore
+# 4. 如果有缺失文件，补上（如 .gitignore）
 git add -A
 git commit -m "auto-sync: TIMESTAMP — Hermes skills → claude-skills"
 # 5. 推送（regular push 即可，不需要 force）
@@ -274,10 +274,12 @@ git push origin master
 
 **现象：** `filter-branch` 重写历史时，如果 `.gitignore` 曾在某个中间提交中被删除或修改，可能导致工作树中的 `.gitignore` 消失。
 
-**修复：** filter-branch 后立即检查并重建：
+**修复：** filter-branch 后立即检查并重建（优先使用模板）：
 ```bash
 cd /Users/mac/.claude/skills
-ls .gitignore 2>&1 || printf '.env.local\n.env\n*.secret\n*.pem\n*.p12\n*.pfx\n.DS_Store\n' > .gitignore
+ls .gitignore 2>&1 || cp templates/gitignore-credentials.txt .gitignore
+# 如果模板不存在，fallback 内联重建：
+# printf '.env.local\n.env\n*.secret\n*.pem\n*.p12\n*.pfx\n.DS_Store\n' > .gitignore
 ```
 
 ## 限制
@@ -290,5 +292,6 @@ ls .gitignore 2>&1 || printf '.env.local\n.env\n*.secret\n*.pem\n*.p12\n*.pfx\n.
 ## 支持文件
 
 - `templates/pre-commit-secret-scan.sh` — pre-commit hook，自动扫描暂存文件中的密钥模式（api_key, secret, token, DEEPSEEK_API_KEY, WECHAT_APP_SECRET 等）。复制到 `.git/hooks/pre-commit` 自动拦截含密钥的提交。
+- `templates/gitignore-credentials.txt` — 用于 claude-skills 仓库的 .gitignore 模板，排除 .env 等凭证文件。filter-branch 后重建 .gitignore 时优先使用此模板。
 - `references/token-scrub-procedure.md` — 清理历史中泄露 token 的完整流程（filter-branch + force push）。
-- `templates/gitignore-credentials.txt` — 用于 claude-skills 仓库的 .gitignore 模板，排除 .env 等凭证文件。
+- `references/filter-branch-gitignore-loss-2026-06-18.md` — 2026-06-18 案例：filter-branch 重写 326 个提交后 .gitignore 消失的排查和修复。
