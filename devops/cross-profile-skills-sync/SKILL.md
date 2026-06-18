@@ -36,6 +36,7 @@ Phase 2 核心逻辑（三端比对）：
 - 比较 mtime，找 newest（最晚修改的作为权威源）
 - newest → 覆盖其余两端的旧版本
 - 不删除任何 skill，只增加和更新
+- **rsync 必须排除凭证文件**（`.env.local`, `.env`, `*.secret`, `*.pem`, `*.p12`, `*.pfx`）— 这些文件从不在同步范围中
 
 ### 2. GitHub Push 关键配置
 
@@ -189,6 +190,35 @@ cd /Users/mac/.claude/skills && git push origin master 2>&1
    ```
 
 **预防：** 同步脚本的 rsync 阶段应排除 `.env*`、`.local` 等凭证文件，或在 `.claude/skills/.gitignore` 中始终维护这些排除项。
+
+### ⚠️ Cron job 会把 .env.local 重新同步进 git 仓库
+
+**现象：** 即使你在 git 仓库中清除了 `.env.local`，cron 定时任务每 30 分钟运行一次 `sync_skills_cross_profile.sh`，rsync 会从源 profile 目录重新把它拉回仓库，再次触发 GitHub Push Protection 拒绝。
+
+**根本原因：** rsync 的源目录（各 profile 的 `skills/`）中包含 `.env.local`，rsync -a 会复制所有文件。
+
+**修复方案（铁律）：** Phase 2 的 rsync 命令必须在源端就排除凭证文件：
+```bash
+# 错误写法
+rsync -a --delete "$SRC1/" "$DEST/"
+
+# 正确写法 — 在 rsync 源端排除 .env* 和凭证文件
+rsync -a --delete \
+  --exclude='.env.local' \
+  --exclude='.env' \
+  --exclude='*.secret' \
+  --exclude='*.pem' \
+  --exclude='*.p12' \
+  --exclude='*.pfx' \
+  --exclude='.DS_Store' \
+  "$SRC1/" "$DEST/"
+```
+
+**额外防护：** 如果 cron 已经在运行，手动删除所有源 profile 中的 `.env.local`：
+```bash
+find /Users/mac/.hermes/profiles/*/skills -name '.env.local' -delete
+find /Users/mac/.hermes/skills -name '.env.local' -delete
+```
 
 ### ⚠️ .env.local 被 commit 后：`git rm --cached` 不够，必须 `filter-branch`
 

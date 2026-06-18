@@ -653,14 +653,14 @@
     "archived_at": null,
     "created_at": "2026-05-30T13:40:19.264244+00:00",
     "created_by": null,
-    "last_patched_at": "2026-06-18T10:07:32.454786+00:00",
-    "last_used_at": "2026-06-18T10:04:30.233153+00:00",
-    "last_viewed_at": "2026-06-18T10:04:30.231069+00:00",
-    "patch_count": 2,
+    "last_patched_at": "2026-06-18T10:22:34.480321+00:00",
+    "last_used_at": "2026-06-18T10:22:36.190968+00:00",
+    "last_viewed_at": "2026-06-18T10:22:36.188957+00:00",
+    "patch_count": 7,
     "pinned": false,
     "state": "active",
-    "use_count": 73,
-    "view_count": 17
+    "use_count": 75,
+    "view_count": 19
   },
   "design-md": {
     "archived_at": null,

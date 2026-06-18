@@ -79,7 +79,37 @@ python3 ~/.hermes/profiles/her-m2/bin/cache_monitor.py [profile_name]
 如果在项目目录下有 `AGENTS.md` 或 `.cursorrules`，它们被注入到 context tier。
 确保这些文件的内容在对话间保持稳定。
 
+### 策略 6: 外部脚本的 system/user 双消息模式
+
+如果你在维护**直接调 DeepSeek API 的脚本**（不在 Hermes 的 system_prompt.py 体系内），典型症状是只发一个 `user` 消息——前缀缓存基本作废。
+
+**修复模式**：
+1. 抽取脚本中永不变化的部分 → 定义为 `SYSTEM_PREFIX` 常量（200+ 字符，放角色定义、职责说明、输出格式要求）
+2. 将 API 调用从 `[{"role": "user", "content": ...}]` 改为 `[{"role": "system", "content": SYSTEM_PREFIX}, {"role": "user", "content": ...}]`
+3. ⚠️ **不要在 SYSTEM_PREFIX 中放日期、文件路径、任务列表等动态内容**——任何变化都会让缓存锚点断裂
+
+**验证命令**：搜索代码库中所有直接调 API 的地方
+```bash
+rg -n 'deepseek|openai|chat\.completions|/v1/chat' /path/to/project/
+```
+
 ## 诊断
+
+### 🔍 第一步：审计「谁在调 LLM」
+
+**铁律**：永远不要信任任何来源（诊断报告、记忆、之前的你自己）关于"X 调用 LLM"的结论。用 grep 验证。
+
+```bash
+# 对目标项目做全量审计
+rg -n 'deepseek|openai|chat\.completions|/v1/chat|llm' /path/to/target/repo/
+# 如果结果为空 → 这个项目不直接调 LLM，优化方向不在 API 层
+# 如果有结果 → 只改这些文件，不要动其他文件
+```
+
+**常见误判**：
+- 编排脚本（如 `perception.py`）只是串联其他脚本，不自己调 LLM
+- 规则引擎（如 `advisor.py`）只是 if/else + JSON 输出，不调 LLM
+- 错误归因会导致在错误的文件上浪费时间，而真正的消费者没被优化
 
 ### 为什么缓存 miss？
 
@@ -104,19 +134,83 @@ system-watchdog 已有 5 分钟巡检，建议在其中加入缓存健康检查�
 
 ## 副官系统 (Adjutant) 缓存优化
 
-Hermes 的副官系统 (`~/.hermes/adjutant/`) 是**独立的 DeepSeek 消费者**——它有自己的 API key (`to-hermes副官llm使用`)、自己的代码路径 (`perception.py → advisor.py → executor.py`)，与 Hermes 主对话的 `agent/system_prompt.py` 完全隔离。
+Hermes 的副官系统 (`~/.hermes/adjutant/`) 是**独立的 DeepSeek 消费者**，与 Hermes 主对话的 `agent/system_prompt.py` 完全隔离。**仅优化 Hermes 主对话而不动副官 = 只砍了一半的账单。**
 
-**仅优化 Hermes 主对话而不动副官 = 只砍了一半的账单。**
+### ⚠️ 先验证再优化——不要相信诊断报告
 
-### 副官缓存失效根因
+**铁律**：任何诊断报告、记忆条目甚至你自己的推测中声称"X 脚本调用 LLM"的结论，都必须在动手修改前**用 grep 验证**。本次会话就是教训——初始诊断报告称 `advisor.py` 和 `perception.py` 调用 DeepSeek，但实际上：
 
-副官的 `advisor.py` 每次调用时，上下文是 `status.json + 所有任务 + diary` 的动态拼装。任务增删/时间变化导致前缀不同 → 缓存命中→失效→命中→失效 反复横跳。即使命中率 83%，miss 的绝对金额依然惊人（miss 单价 ¥3/M vs hit ¥0.025/M，差 120 倍）。
+- `advisor.py` — 纯规则引擎，125 行，零 LLM 调用
+- `executor.py` — 纯规则引擎，65 行，零 LLM 调用
+- `perception.py` — 纯编排引擎，818 行，零直接 LLM 调用
+- **`night_shift.py` — 唯一的 LLM 消费者**，通过 `llm_fill()` 直接请求 `api.deepseek.com/v1/chat/completions`
 
-### 优化策略
+**审计命令**（永远先跑这行）：
+```bash
+rg -n 'deepseek|openai|chat\.completions|llm' ~/.hermes/adjutant/repo/hermes-adjutant/scripts/
+```
 
-1. **固定 advisor.py 的 system prompt 前缀**：将不变部分（AGENTS.md、任务格式说明）提到最前，可变部分（status.json 内容）放到末尾
-2. **批量处理而非实时**：将 advisor/executor 改为批量模式——攒 1 小时的 status.json 快照，一次 LLM 调完，而非每次 git push 触发
-3. **no_agent 降级**：对纯数据任务（Zombie 检测、冲突检测、同步状态检查），用 `no_agent=true` 的 cron script 替代 LLM 调用
+### 副官 LLM 架构
+
+- `scripts/night_shift.py`：唯一直接调 DeepSeek 的脚本。使用 `DEEPSEEK_API_KEY` 从 `.env` 加载。`llm_fill()` 组装 prompt → POST `https://api.deepseek.com/v1/chat/completions` → 解析返回
+- `scripts/perception.py`：编排脚本（git pull + 调 advisor/executor + synclog_agent_llm），不自己调 LLM
+- `scripts/advisor.py`、`scripts/executor.py`：纯规则引擎（if-else 逻辑 + JSON 输出）
+
+### 副官缓存优化（针对 night_shift.py）
+
+#### 技术：稳定前缀 + system/user 双消息模式
+
+`night_shift.py` 的原始实现将所有内容拼成单个 `user` role 消息——DeepSeek 没有 system 消息做缓存锚点，前缀缓存命中率极低。
+
+**修改方案**：注入一个固定不变的 `SYSTEM_PREFIX` 作为 system role 消息，动态内容放在 user role 消息中。
+
+```python
+# 在 night_shift.py 顶部定义（永不变化 = 每次调用缓存命中）
+SYSTEM_PREFIX = """你是 Hermes 副官系统的夜间摘要生成器（Night Shift）。
+
+你的职责：
+1. 分析当天的任务状态变化（status.json）
+2. 识别需关注的风险项（超期任务、冲突、僵尸任务）
+3. 生成结构化的每日摘要报告
+
+输出格式：Markdown，含状态表格和风险清单。
+上下文中的任务 ID 和文件名仅作参考，不会改变你的职责定义。
+"""
+
+# 在 llm_fill() 中：system 消息在前（缓存锚点），user 消息在后（动态内容）
+def llm_fill(prompt_text):
+    response = requests.post(
+        "https://api.deepseek.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+        json={
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": SYSTEM_PREFIX},   # ← 缓存锚点
+                {"role": "user", "content": prompt_text},       # ← 动态内容
+            ],
+        },
+    )
+```
+
+**为什么 system 消息是好的缓存锚点**：DeepSeek 的前缀缓存从 messages[0] 开始匹配。system 消息固定不变 → 每次请求的前 200+ tokens 相同 → 缓存命中。user 消息（动态任务列表）在 system 之后，不破坏前缀。
+
+#### 同样规则适用于任何直接调 DeepSeek API 的脚本
+
+如果你在项目中发现类似 `llm_fill()` 的函数（只有一个 user 消息），套用相同模式：
+1. 抽取固定文本到 `SYSTEM_PREFIX` 常量
+2. 改为 `[system, user]` 双消息格式
+3. 确保 system 消息的内容永远不变（不要塞日期、不要塞动态状态）
+
+### 非 LLM 脚本的降级策略（用于 cron 优化）
+
+对于 `advisor.py`、`executor.py` 这类纯规则引擎脚本，它们在 cron 中通过 Hermes agent 运行时仍然消耗 token（Hermes agent 本身会调 LLM）。两种降级方案：
+
+1. **`no_agent: true`**：如果 cron job 只是跑脚本、收集输出，不需要 AI 推理 → 在 cronjob 设置中启用 `no_agent=true`，完全跳过 LLM
+2. **直接 cron/launchd**：如果脚本不需要 Hermes 环境，直接用系统 cron 或 launchd 调度，绕过 Hermes 的 agent 循环
+
+### 参考
+
+- **`references/adjutant-night-shift-pattern.md`** — night_shift.py 的完整优化实录，含修改前后的代码对比和验证命令
 
 ## 从账单 CSV 诊断缓存健康
 

@@ -16,7 +16,7 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 关键值：
 - WECHAT_APP_ID: wx37940d296d26c91c
 - DEEPSEEK_API_KEY: sk-242...e430
-- IP白名单: 89.208.247.51
+- IP白名单: 本机出口IP 222.247.153.167（2026-06-18 实测已生效，30-60 分钟后）
 
 ⚠️ 写入脚本文件时密钥会被redact。解决方法：用 `ssh root@47.85.62.133 'base64 /root/wx-publisher/.env' | base64 -d` 获取原文，然后在终端heredoc中直接使用。
 
@@ -31,13 +31,14 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 | Agnes API | ❌ 401 Unauthorized | key 被 redact，不完整 |
 | Pexels API | ❌ 403 Forbidden | key 已失效 |
 | Unsplash API | ❌ 401 Unauthorized | key 已失效 |
-| 本地直连微信 | 🟢 已验证可行 | 用户手动提供 App Secret + IP 在白名单 |
+| 本地直连微信 | ✅ 全链路跑通 | 用户手动提供 App Secret + IP 在白名单 + 旧接口上传成功 |
 
 ### 降级路径（按优先级）
 
-1. **用户手动提供 App Secret** → 本地获取 access_token → 直接调微信 draft/add API（**已验证可行，2026-06-18**）
-2. **使用 pub2gg-local 技能** → 走 GitHub + WordPress + Telegram 全链路（不依赖微信）
-3. **用户自行复制文章到公众号后台** → Hermes 仅提供排版好的 HTML
+1. **用户手动提供 App Secret** → 本地获取 access_token → 旧接口上传 picsum 配图 → 直接调微信 draft/add API（**已全链路跑通，2026-06-18**）
+2. **用户直接提供排版好的 HTML** → Hermes 只做配图+草稿创建
+3. **使用 pub2gg-local 技能** → 走 GitHub + WordPress + Telegram 全链路（不依赖微信）
+4. **用户自行复制文章到公众号后台** → Hermes 仅提供排版好的 HTML
 
 ### 配图策略更新（2026-06-18）
 
@@ -45,6 +46,29 @@ Pexels 和 Unsplash API keys 均已失效。降级方案：
 - **首选**：使用公众号已有素材（通过 `batchget_material` 获取 media_id）
 - **备选**：用 picsum.photos 随机图上传为临时素材
 - **注意**：picsum 图片上传微信素材库可能因格式/尺寸被拒，此时回退到已有素材
+
+### 微信素材上传接口选择（2026-06-18 实测）
+
+| 接口 | 状态 | 说明 |
+|------|------|------|
+| `/cgi-bin/material/add_material` | ✅ 可用 | curl -F 或 http.client multipart 均可 |
+| `/cgi-bin/material/material_material/add_material` | ❌ 40066 | 新接口，multipart 格式要求极严，实测多次失败 |
+
+**上传要点**：
+- 必须用 `-L` 跟随重定向下载 picsum 图片（302 → fastly.picsum.photos）
+- 上传用 `material/add_material`（旧接口），不要用 `material_material/add_material`
+- multipart body 中 `Content-Disposition` 必须包含 `filename` 参数
+- 图片先下载到本地再上传，不要尝试 URL 上传
+
+### 创建草稿参数
+
+- `thumb_media_id`：封面图必填（从素材库获取的 media_id）
+- `title`：UTF-8 字节不超过 64（保守截断到 55 字节）
+- `digest`：UTF-8 字节不超过 120（保守截断到 115 字节）
+- `content`：排版后的 HTML
+- `content_action`：0（默认）
+- `need_open_comment`：1（开启评论）
+- `only_fans_can_comment`：0（所有人可评）
 
 ### 凭证获取（当 SSH 可用时）
 
@@ -64,7 +88,8 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 | 401 | API key 无效/不完整 | 检查 key 是否被 redact |
 | 45003 | 标题超过 64 字节 | 截断到 55 字节 |
 | 45004 | 摘要超过 120 字节 | 截断到 115 字节 |
-| 40164 | IP 不在白名单 | 等待 2-5 分钟生效 |
+| 40164 | IP 不在白名单 | 添加后需 30-60 分钟生效（实测），不是 2-5 分钟 |
+| 40066 | 素材上传 invalid url | 换旧接口 /material/add_material（详见 references/40066-upload-debug.md）|
 
 ## 完整流程
 
@@ -125,6 +150,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 ## 参考资料
 
 - `references/40007-debug.md` — draft/add 40007 错误排查（thumb_media_id 必填、已有素材回退方案）
+- `references/40066-upload-debug.md` — 素材上传 40066 错误根因与解决方案（旧接口 vs 新接口、picsum 下载陷阱）
 
 ## ✅ 验证状态 (2026-06-05)
 
