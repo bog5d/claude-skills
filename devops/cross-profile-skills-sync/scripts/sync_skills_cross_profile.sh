@@ -2,15 +2,28 @@
 # Cross-profile skills synchronizer
 # Bidirectional merge: newer wins, nothing deleted, new skills copied both ways.
 # Usage: bash sync_skills_cross_profile.sh [SRC1] [SRC2]
-# Default: ~/.hermes/skills ↔ ~/.hermes/profiles/her-m2/skills
+# Default: /Users/mac/.hermes/skills ↔ /Users/mac/.hermes/profiles/her-m2/skills
 
 set -euo pipefail
 
-SRC1="${1:-$HOME/.hermes/skills}"
-SRC2="${2:-$HOME/.hermes/profiles/her-m2/skills}"
-LOG="$HOME/.hermes/logs/sync_skills.log"
+# ⚠️ 硬编码绝对路径 — $HOME 在 Hermes 运行时被重写为 profile 目录
+SRC1="${1:-/Users/mac/.hermes/skills}"
+SRC2="${2:-/Users/mac/.hermes/profiles/her-m2/skills}"
+LOG="/Users/mac/.hermes/logs/sync_skills.log"
 
 mkdir -p "$(dirname "$LOG")"
+
+# 凭证文件排除列表 — 绝不进入 git 仓库
+CRED_EXCLUDES=(
+  --exclude='.env.local'
+  --exclude='.env'
+  --exclude='*.secret'
+  --exclude='*.pem'
+  --exclude='*.p12'
+  --exclude='*.pfx'
+  --exclude='.DS_Store'
+  --exclude='*.key'
+)
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
@@ -35,22 +48,22 @@ while IFS= read -r skill; do
         t2=$(stat -f %m "$d2/SKILL.md" 2>/dev/null || stat -c %Y "$d2/SKILL.md" 2>/dev/null || echo 0)
 
         if [ "$t1" -gt "$t2" ]; then
-            rsync -a --delete "$d1/" "$d2/"
+            rsync -a --delete "${CRED_EXCLUDES[@]}" "$d1/" "$d2/"
             log "  ← SRC1 → SRC2: $skill"
             updated=$((updated + 1))
         elif [ "$t2" -gt "$t1" ]; then
-            rsync -a --delete "$d2/" "$d1/"
+            rsync -a --delete "${CRED_EXCLUDES[@]}" "$d2/" "$d1/"
             log "  ← SRC2 → SRC1: $skill"
             updated=$((updated + 1))
         fi
     elif [ -d "$d1" ]; then
         # Only in SRC1 — copy to SRC2
-        rsync -a "$d1/" "$d2/"
+        rsync -a "${CRED_EXCLUDES[@]}" "$d1/" "$d2/"
         log "  + SRC1 → SRC2: $skill"
         copied=$((copied + 1))
     elif [ -d "$d2" ]; then
         # Only in SRC2 — copy to SRC1
-        rsync -a "$d2/" "$d1/"
+        rsync -a "${CRED_EXCLUDES[@]}" "$d2/" "$d1/"
         log "  + SRC2 → SRC1: $skill"
         copied=$((copied + 1))
     fi

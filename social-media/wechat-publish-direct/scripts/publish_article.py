@@ -307,8 +307,8 @@ def replace_picsum_with_media(html, url_to_mid):
     
     确定性映射：按图片插入顺序一一对应。
     """
-    # 找出所有 picsum 图片
-    picsum_pattern = r'https://picsum\.photos/seed/([^/]+)'
+    # 找出所有 picsum 完整 URL（贪婪匹配所有 /xxx 路径段）
+    picsum_pattern = r'https://picsum\.photos/seed/[^\s"\'>]+'
     picsum_urls = re.findall(picsum_pattern, html)
     
     if len(picsum_urls) != len(url_to_mid):
@@ -317,14 +317,14 @@ def replace_picsum_with_media(html, url_to_mid):
         )
     
     # 按顺序替换
-    for i, (seed, mid) in enumerate(zip(picsum_urls, url_to_mid)):
-        old_url = f"https://picsum.photos/seed/{seed}/{PICSUM_SIZE}"
+    img_style_val = STYLES["img"]
+    for i, (picsum_url, mid) in enumerate(zip(picsum_urls, url_to_mid)):
         new_tag = (
-            f'<img src="{old_url}" '
-            f'style="{STYLES["img"]}" '
-            f'data-uimg="{mid}">'
+            '<img src="' + picsum_url + '" '
+            'style="' + img_style_val + '" '
+            'data-uimg="' + mid + '">'
         )
-        html = html.replace(old_url, new_tag, 1)
+        html = html.replace(picsum_url, new_tag, 1)
     
     return html
 

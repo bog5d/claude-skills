@@ -75,6 +75,7 @@ python3 references/image_replace.py article_layout.html --output article_final.h
 - `references/image_replace.py` — 将占位符替换为 picsum.photos 真实图片 URL
 - `references/themes/chinese.css` — 中国风 CSS 模板（宣纸底色、serif 字体、金色点缀）
 
-## 已知问题
+## 跨技能提示
 
-- `skill_manage(action='write_file')` 存在工具验证 bug：`file_path` 参数被拒绝（"file_path is required" 错误）。临时解决方案：用 `write_file` 直接写入 `~/.hermes/skills/wechat-quality-layout/references/` 路径。
+- `skill_manage(action='write_file')` 有工具验证 bug（file_path 参数被拒绝）。详见 `wechat-publish-direct` 技能中的凭证持久化章节。
+- 如需写入支持文件，用 `write_file(path='/Users/mac/.hermes/profiles/her-m2/skills/wechat-quality-layout/references/xxx', content='...')` 直接写入。

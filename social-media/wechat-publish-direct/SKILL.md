@@ -106,6 +106,18 @@ DEEPSEEK_API_KEY=<你的key>
 
 **验证**：写入后运行 `python3 scripts/publish_article.py --help` 确认不报 `WECHAT_SECRET not available`。
 
+**⚠️ 已知坑**：`skill_manage action=write_file` 有工具验证 bug（`file_path` 参数被拒绝），必须用 `write_file` 直接写入路径。
+
+## 文章来源处理（2026-06-18 新增）
+
+**当文章不在本地文件系统时**（聊天历史中搜不到、用户说发了但找不到文件）：
+
+1. **不要浪费时间搜索**：`session_search` + `grep` + `find` 搜不到就是搜不到
+2. **立即让用户粘贴**：直接要求用户把文章文字贴到聊天中
+3. **保存到 `/tmp/article_raw.txt`**：收到后立即保存，后续流程用这个路径
+
+**铁律**：超过 3 次搜索无果就放弃搜索，直接问用户。用户说"在聊天里发的"不代表 agent 能访问到。
+
 ## 完整流程
 
 ### 1. 接收文章
@@ -167,6 +179,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - `references/40007-debug.md` — draft/add 40007 错误排查（thumb_media_id 必填、已有素材回退方案）
 - `references/40066-upload-debug.md` — 素材上传 40066 错误根因与解决方案（旧接口 vs 新接口、picsum 下载陷阱）
 - `references/publish-article-script.md` — `publish_article.py` 固化程序文档（用法、管线步骤、限制）
+- `references/credential-fallback-2026-06-18.md` — SSH relay 不可用时的本地凭据注入 SOP（2026-06-18 新增）
 
 ## ✅ 验证状态 (2026-06-05)
 

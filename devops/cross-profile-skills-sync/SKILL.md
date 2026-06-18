@@ -14,13 +14,24 @@ triggers:
 
 用户有多个 Hermes profile（`default` 和 `her-m2`），每个 profile 有独立的 `skills/` 目录。希望所有 profile 的 skills 自动互相学习，且增量推送到 GitHub 供跨 AI 工具使用。
 
-**四端同步路径（波总环境）：**
-- SRC1: `~/.hermes/skills/` （当前 active profile her-m2）
-- SRC2: `~/.hermes/profiles/her-m2/skills/` （her-m2 profile 冗余副本）
-- SRC3: `~/.hermes/skills/` （default profile 的技能目录 — HERMES_HOME=/Users/mac/.hermes 从 launchd plist 解析）
-- SRC4: `~/.hermes/profiles/english-tutor/skills/` （@Engcjd_bot 英语伴学 profile）
+**四端同步路径（波总环境，所有路径硬编码绝对路径）：**
+- SRC1: `/Users/mac/.hermes/skills/` （当前 active profile her-m2）
+- SRC2: `/Users/mac/.hermes/profiles/her-m2/skills/` （her-m2 profile 冗余副本）
+- SRC3: `/Users/mac/.hermes/skills/` （default profile 的技能目录 — HERMES_HOME=/Users/mac/.hermes 从 launchd plist 解析）
+- SRC4: `/Users/mac/.hermes/profiles/english-tutor/skills/` （@Engcjd_bot 英语伴学 profile）
+
+**⚠️ 禁止在脚本中使用 `$HOME`** — Hermes 运行时 `$HOME` 被重写为 profile 目录（如 `/Users/mac/.hermes/profiles/her-m2/home/`），导致双重嵌套路径。所有路径必须硬编码为 `/Users/mac/...`。
 
 ## 步骤
+
+### 0. 同步前清理凭证文件（铁律）
+
+**每次同步前必须先清理源目录中的凭证文件**，防止 rsync 把它们带入 git 仓库：
+
+```bash
+find /Users/mac/.hermes/profiles/*/skills -name '.env.local' -delete 2>/dev/null
+find /Users/mac/.hermes/skills -name '.env.local' -delete 2>/dev/null
+```
 
 ### 1. 创建三端同步脚本
 
@@ -36,7 +47,8 @@ Phase 2 核心逻辑（三端比对）：
 - 比较 mtime，找 newest（最晚修改的作为权威源）
 - newest → 覆盖其余两端的旧版本
 - 不删除任何 skill，只增加和更新
-- **rsync 必须排除凭证文件**（`.env.local`, `.env`, `*.secret`, `*.pem`, `*.p12`, `*.pfx`）— 这些文件从不在同步范围中
+- **rsync 必须排除凭证文件**（`.env.local`, `.env`, `*.secret`, `*.pem`, `*.p12`, `*.pfx`）— 这些文件从不在同步范围中。
+  **注意：** 同步脚本 `scripts/sync_skills_cross_profile.sh` 已内置 `CRED_EXCLUDES` 数组自动排除这些文件，无需手动传递 `--exclude` 参数。如果手动调用 rsync，必须自行加上排除项。
 
 ### 2. GitHub Push 关键配置
 
@@ -49,6 +61,9 @@ SSH 未配置时此方案是唯一可行路径。
 ### 3. 首次运行验证
 
 ```bash
+# ⚠️ 每次 cron 运行前必须先清理凭证文件
+find /Users/mac/.hermes/profiles/*/skills -name '.env.local' -delete 2>/dev/null
+find /Users/mac/.hermes/skills -name '.env.local' -delete 2>/dev/null
 bash ~/.hermes/scripts/sync_skills_cross_profile.sh
 # 确认三端数量一致
 echo "her-m2: $(find ~/.hermes/skills -name SKILL.md -not -path '*/.git/*' | wc -l)"
