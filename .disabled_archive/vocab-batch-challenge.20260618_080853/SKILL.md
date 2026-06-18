@@ -1,23 +1,12 @@
 ---
 name: vocab-batch-challenge
-description: Generate routed vocabulary challenges for kaoyan English. Default is 12 words split 6→6; 27-word 6→9→12 is challenge-only. Script-routed selection, SM-2, 5-layer explanations.
+description: Generate escalating vocabulary challenges (6→9→12 words per session, 27 total) for kaoyan English. Anki-first selection, SM-2 scheduling, 5-layer explanations.
 category: english-tutor
 ---
 
 # Vocab Batch Challenge Generator
 
 **CRITICAL RULE**: Challenge words MUST be presented WITHOUT Chinese meanings. The whole point is to TEST recall. Chinese meanings only appear in the post-answer explanation phase.
-
-## Routing Contract (2026-06-18)
-
-This skill is a router, not a quiz writer.
-
-- User says "来一局" / "来一句" / "来局" / "再来" / "接着来" / "开战" / "测试" → run `bin/fast_vocab_round.py` and relay stdout verbatim.
-- User replies with answers → run `state/session_pipeline.py <round> '<json_answers>'` and relay `result["_formatted"]` verbatim.
-- Never hand-write challenge words, collocation blanks, scoring, next-round text, SM-2 updates, 5-layer explanations, or summaries.
-- Never invent a 27-word session unless the user explicitly asks for challenge mode. Default is 12 words split 6→6.
-- If a script fails, report the failure and stop. Do not fallback to manual grading or manual word selection.
-- Expected Phase 1 output must include `Round 1/2`, `全局限 12 词（6→6）`, `本局目标`, and `今日悬赏` unless the user explicitly asked for `--challenge`.
 
 ## Workflow
 
@@ -31,7 +20,12 @@ This skill is a router, not a quiz writer.
 
 Paste stdout to Telegram. Script sets `vocab_batch.json` + `coordinator` english lock.
 
-If the script exits non-zero: paste the stderr/error to the user and stop. Do not create a manual quiz.
+**Fallback** (only if script exits non-zero): pull `words.json` via curl + manual SM-2 select (legacy steps below).
+
+1. Pull latest `words.json`, `progress.json` from GitHub `bog5d/bog-vocab-tracker` (repo is PRIVATE, use PAT) — files live under `data/` directory
+2. Apply SM-2 priority scheduling to select 6 words
+3. Present ONLY: `{index}. {word}  {phonetic}` — NO meanings, NO hints
+4. Wait for user to reply with 6 Chinese meanings
 
 ### Phase 2: Score + Explain (ONE terminal call to session_pipeline.py)
 
@@ -54,7 +48,7 @@ This ONE script handles EVERYTHING deterministically:
 
 **LLM only needs to**: call this one terminal command, parse `_formatted` field, relay to user. No more hand-written execute_code for quiz processing.
 
-If script fails: paste the stderr/error to the user and stop. Do not hand-grade.
+If script fails: fall back to inline execute_code (legacy path below).
 
 ### Phase 3: Present Results
 - First: clear score summary (correct/total) — welded with dividers, never buried
@@ -77,8 +71,7 @@ If script fails: paste the stderr/error to the user and stop. Do not hand-grade.
   ```
 
 ## Pitfalls
-- **NEVER show Chinese meanings or collocation fill-in hints in Phase 1** — this is the #1 recurring error
-- **NEVER hand-write scoring or next round** — use `session_pipeline.py`; otherwise 5-layer explanations and learning-path refresh are skipped.
+- **NEVER show Chinese meanings in Phase 1** — this is the #1 recurring error
 - **ALL words get full 5-layer explanations** — even if 9/9 correct. Never skip words with "重点词速讲" or brief highlights. User explicitly corrected this 2026-06-06: data loss when correct words don't get full breakdown.
 - **New words auto-generate 5-layer** — session_pipeline.py has `_generate_five_layer()` with prefix/root/suffix parsing. Words not in FIVE_LAYER dict get auto-generated explanations (no more blank fields). Pitfall: the auto-generated quality is decent but not as rich as hand-crafted ones — manually expand FIVE_LAYER for high-frequency words.
 - **Diary words override 5-layer "原卡时空"** — When `source == "diary"` and `diary_context` exists, session_pipeline.py replaces `original_anki_content` with diary paragraph (formatted as `[📅 date · title]\ncontext`). See english-tutor-engine §3.3 for full diary workflow.
@@ -95,31 +88,28 @@ If script fails: paste the stderr/error to the user and stop. Do not hand-grade.
 - **MEDIA file delivery (CRITICAL)**: When sending chronicle HTML or screenshots via MEDIA tag, `/tmp/` is NOT in the whitelist — files sent from `/tmp/` are silently dropped. Always `cp` to `~/.hermes/cache/screenshots/` (images) or `~/.hermes/cache/documents/` (HTML/docs) first. Use ASCII filenames. Load `media-file-delivery` skill for full rules.
 - Do NOT try `git clone` of the entire repo — it frequently times out (>60s). Always use individual file downloads via `curl` with the GitHub API raw endpoint.
 
-## Routed Challenge Mode (ACTIVE)
+## Escalating Challenge Mode (ACTIVE — replaces Progressive + Batch)
 
-Default daily session is lightweight: 12 words split 6→6.
-Challenge mode is explicit only: 27 words split 6→9→12 when the user asks for "挑战模式" or `--challenge`.
+**Escalating Commitment** design: difficulty climbs per round — 6→9→12 words, 27 total per session.
+Psychological hook: Round 1 hooks (6 words, easy entry), Round 2 escalates (9 words, sunk cost locks in), Round 3 climax (12 words, full burst + summary payoff).
 
-**Structure per default session (2 rounds = 12 words):**
-- Round 1: 6 words → `session_pipeline.py` score + 5-layer explain → present Round 2
-- Round 2: 6 words → `session_pipeline.py` score + 5-layer explain → session summary + gamification
-
-**Structure per challenge session (3 rounds = 27 words):**
-- Round 1: 6 words → `session_pipeline.py`
-- Round 2: 9 words → `session_pipeline.py`
-- Round 3: 12 words → `session_pipeline.py`
+**Structure per session (3 rounds = 27 words):**
+- Round 1: 6 words → score + 5-layer explain → present Round 2
+- Round 2: 9 words → score + 5-layer explain → present Round 3
+- Round 3: 12 words → score + 5-layer explain → **FULL SESSION SUMMARY + gamification blast**
 
 **State tracking** uses `~/.hermes/profiles/english-tutor/state/vocab_escalating.json`:
 ```json
 {
   "session_id": "esc-20260605-HHMMSS",
   "round": 1,
-  "total_rounds": 2,
-  "all_words": [...12 words in order...],
+  "total_rounds": 3,
+  "all_words": [...27 words in order...],
   "all_words_data": {},
   "round_words": {
     "1": [6 items],
-    "2": [6 items]
+    "2": [9 items],
+    "3": [12 items]
   },
   "scores": {"1": {"correct": 0, "total": 6}, "2": {...}, "3": {...}},
   "started_at": "...",
@@ -128,20 +118,21 @@ Challenge mode is explicit only: 27 words split 6→9→12 when the user asks fo
 ```
 
 **Per-turn workflow:**
-1. If no state file → run `fast_vocab_round.py`, relay stdout verbatim.
-2. If state file exists and user submitted answers → run `session_pipeline.py <round> '<json_answers>'`, relay `_formatted`.
-3. The scripts decide `total_rounds`, next round, cleanup, learning-path refresh, and summary. Do not duplicate this logic in the LLM.
+1. If no state file → init session (pull words, Anki-first SM-2 select 27 words, assign rounds 6/9/12, save state, present Round 1)
+2. If state.round == 1 → score R1 (6w), update SM-2, push GitHub, increment to 2, present R2 (9w)
+3. If state.round == 2 → score R2 (9w), update SM-2, push GitHub, increment to 3, present R3 (12w)
+4. If state.round == 3 → score R3 (12w), update SM-2, push GitHub, present FULL session summary (27w) + gamification panel + delete state file
 
 **Round presentation format:**
 ```
-⚔️ 闯关 Round {N}/{total_rounds} — {M}词
+⚔️ 闯关 Round {N}/3 — {M}词
 格式: 1: 释义 2: 释义 ... {M}: 释义
 1. **word**  /phonetic/
 ...
 ```
 NO Chinese meanings in challenge phase.
 
-Selection, blind-spot slots, tactical goals, Wanted List, and round sizes are owned by `fast_vocab_round.py` + `vocab_lib.py`.
+**Escalating difficulty**: within each round, sort by mastery ascending (weakest first). Across rounds, Round 1 gets lowest-mastery words, Round 3 gets strongest.
 
 ⚠️ **中断恢复**：若某轮 execute_code 被 blocked，从 GitHub 拉最新 words.json 检查是否有当轮历史记录。若无则补推。确保删除 `state/vocab_escalating.json` 避免重复。
 
@@ -184,10 +175,9 @@ if is_boss_eligible():
 ## Daily Session Structure
 
 ```
-Session: Routed Challenge (6→6 = 12 words) — default daily session
-Challenge mode: Escalating Challenge (6→9→12 = 27 words) — explicit only
+Session: Escalating Challenge (6→9→12 = 27 words) — one session per day
 BOSS Mode: 3-6 nightmare words (when ≥3 active) — bonus round
-Daily minimum: 12 words (BOSS is extra)
+Daily minimum: 27 words (BOSS is extra)
 ```
 
 ## Sub-Rank System (青铜I→IV→白银)
@@ -271,10 +261,13 @@ After every session's gamification sync, if `ranked_up = True`:
 4. **Report fields**: Read `sub_rank` (not `rank`) + `stats.anki_words_encountered` + `stats.mastery50_count`.
 
 ### Additional Pitfalls
-- **Collocation fill-in is disabled in Phase 1**: Never display `📝 word → fill-in-blank` during regular rounds. It leaks the answer and bypasses `fast_vocab_round.py` routing.
-- **Keyword false negatives**: Pipeline may flag correct variants as wrong. Do not hand-correct inline; report the edge case for `vocab_lib.py` / `session_pipeline.py` tests.
+- **Collocation display**: fast_vocab_round shows 1 word/round as collocation fill-in-blank (📝). _COLLOC_SNIPPETS maps word to sentence template.
+- **Keyword false negatives**: Pipeline may flag correct variants as wrong (e.g. 生产制造商->manufacturer). LLM should review and override with ✅误判✗ notation.
+- **Chronicle auto-delivery**: session_pipeline.py now embeds Telegram Bot API sendDocument for rank-up chronicles. No manual MEDIA relay needed.
 - **Progress 0.0%**: Happens after rank-up reset. Explain BOTH sub-rank bar AND overall journey bar.
-- **Session cleanup**: `session_pipeline.py` owns cleanup based on `total_rounds`. Do not assume Round 3; default sessions finish after Round 2.
+- **Session cleanup**: Delete state/vocab_escalating.json after Round 3. Check for stale state before new session. (e.g. "exhaust" displays wrong). Use plain text for word lists; reserve code blocks only for gamification panels.
+- **Progress 0.0%**: Happens after rank-up reset. Explain BOTH sub-rank bar (0/25=0%) AND overall journey bar (5/25=20%) to prevent confusion.
+- **Session cleanup**: Delete `state/vocab_escalating.json` after Round 3 full processing. Check for stale state before new session.
 
 ## Key User Preferences
 - User is 波总 (Bog), hates latency — target <30s end-to-end
