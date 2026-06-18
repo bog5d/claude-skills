@@ -91,6 +91,21 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 | 40164 | IP 不在白名单 | 添加后需 30-60 分钟生效（实测），不是 2-5 分钟 |
 | 40066 | 素材上传 invalid url | 换旧接口 /material/add_material（详见 references/40066-upload-debug.md）|
 
+### 凭证持久化（2026-06-18 新增）
+
+⚠️ **当 SSH relay 不可用时，用户手动提供的 App Secret 必须写入 `.env` 文件。**
+
+脚本 `scripts/publish_article.py` 从 `~/.hermes/profiles/her-m2/.env` 读取：
+```
+WECHAT_APPID=wx37940d296d26c91c
+WECHAT_SECRET=<用户提供的secret>
+DEEPSEEK_API_KEY=<你的key>
+```
+
+**写入方式**：用 `write_file` 直接写入整个 `.env` 文件（不要用 patch 追加，避免格式问题）。
+
+**验证**：写入后运行 `python3 scripts/publish_article.py --help` 确认不报 `WECHAT_SECRET not available`。
+
 ## 完整流程
 
 ### 1. 接收文章
@@ -141,7 +156,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 
 ## 执行脚本
 
-完整自动化脚本参考 `references/publish_flow.md`
+完整自动化脚本参考 `scripts/publish_article.py`（见 `references/publish-article-script.md`）
 
 ## 管线状态
 
@@ -151,6 +166,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 
 - `references/40007-debug.md` — draft/add 40007 错误排查（thumb_media_id 必填、已有素材回退方案）
 - `references/40066-upload-debug.md` — 素材上传 40066 错误根因与解决方案（旧接口 vs 新接口、picsum 下载陷阱）
+- `references/publish-article-script.md` — `publish_article.py` 固化程序文档（用法、管线步骤、限制）
 
 ## ✅ 验证状态 (2026-06-05)
 

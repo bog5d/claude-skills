@@ -27,7 +27,7 @@ trigger: 波总发送文章并说"发布""pub2gg""推送到全链路"，或说"�
 | GitHub | `gh auth token` 或 PAT | 内存: `ghp_YOUR_TOKEN_HERE` |
 | WordPress | Application Password | 需从 relay 或 宝塔 获取 |
 | Telegram | Hermes send_message | 当前会话可用（her-m2 bot） |
-| WeChat | relay .env | 可选，公众号草稿创建 |
+| WeChat | 用户手动提供 → 写入 `.env` | 见 wechat-publish-direct 技能"凭证持久化"章节 |
 
 ## 执行流程
 
@@ -193,3 +193,4 @@ git add _posts/ && git commit -m 'pub2gg: 标题'
 - **Telegram 推送限制**：`send_message` 只能 DM 波总 her-m2 bot，不能推频道 @AgentToWest。推频道必须用 Bot API 直连（同 token），或通过 relay SSH `source .env && curl localhost` 桥接。
 - 凭证 hex 编码速查：`references/credential-hex-table.md`
 - Obsidian 凭证发现技巧：`references/obsidian-credential-discovery.md`
+- 当 SSH relay 不可用时，微信凭证应从 `~/.hermes/profiles/her-m2/.env` 读取（见 `wechat-publish-direct` 技能的"凭证持久化"章节）
