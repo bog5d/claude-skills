@@ -67,7 +67,24 @@ cronjob create \
 ```
 ⚠️ `deliver=local` 关键——避免每 30 分钟往 Telegram 推送同步日志。
 
-### 5. Post-Sync 验证（每次 cron 运行后必须执行）
+### 5. Pre-Commit Secret Scan（push 前必须执行）
+
+**铁律：任何 commit 前必须扫描敏感文件。** 公开仓库（claude-skills）一旦含真实密钥，GitHub Push Protection 会静默拒绝 push，且 `2>/dev/null` 吞掉错误，导致未推送提交堆积。
+
+```bash
+# 扫描暂存区和未跟踪文件中的常见密钥模式
+cd /Users/mac/.claude/skills
+git diff --cached --diff-filter=ACMR -S '' -- '*.env*' '*.secret*' '*.key' '*.pem' '*.p12' '*.pfx' 2>/dev/null
+# 更通用的：扫描所有新增/修改文件中的常见密钥模式
+git diff --cached -- '*.env*' '*.local' '*.secret' '*.key' '*.pem' '*.p12' '*.pfx' '*.yml' '*.yaml' '*.json' 2>/dev/null | grep -iE '(api[_-]?key|secret|token|password|credential|PRIVATE.*KEY|DEEPSEEK|WECHAT.*SECRET|GH_|github_pat_|sk-[A-Za-z0-9]{20})'
+```
+
+**如果扫描发现密钥：**
+1. 不要 commit — 直接从暂存区移除：`git reset <file>`
+2. 确保 `.gitignore` 包含 `*.env.local`、`*.env`、`*.secret`
+3. 重新 commit 只包含安全变更
+
+### 6. Post-Sync 验证（每次 cron 运行后必须执行）
 
 脚本 `2>/dev/null` 会吞掉 push 错误，即使 GitHub push protection 拒绝了全部提交，脚本仍返回 `EXIT:0`。**每次 cron 运行后必须检查：**
 
@@ -182,4 +199,6 @@ cd /Users/mac/.claude/skills && git push origin master 2>&1
 
 ## 支持文件
 
-- `templates/gitignore-credentials.txt` — 用于 claude-skills 仓库的 .gitignore 模板，排除 .env 等凭证文件。同步后检查仓库是否已有 .gitignore，如无则应用此模板。
+- `templates/pre-commit-secret-scan.sh` — pre-commit hook，自动扫描暂存文件中的密钥模式（api_key, secret, token, DEEPSEEK_API_KEY, WECHAT_APP_SECRET 等）。复制到 `.git/hooks/pre-commit` 自动拦截含密钥的提交。
+- `references/token-scrub-procedure.md` — 清理历史中泄露 token 的完整流程（filter-branch + force push）。
+- `templates/gitignore-credentials.txt` — 用于 claude-skills 仓库的 .gitignore 模板，排除 .env 等凭证文件。
