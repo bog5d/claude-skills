@@ -20,23 +20,31 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 
 ⚠️ 写入脚本文件时密钥会被redact。解决方法：用 `ssh root@47.85.62.133 'base64 /root/wx-publisher/.env' | base64 -d` 获取原文，然后在终端heredoc中直接使用。
 
-## ⚠️ 故障降级策略（2026-06-17 更新）
+## ⚠️ 故障降级策略（2026-06-18 更新）
 
-### 当前状态（2026-06-17 实测）
+### 当前状态（2026-06-18 实测）
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
 | 阿里云中继 SSH | ❌ 认证失败 | `Permission denied (publickey,gssapi-keyex,gssapi-with-mic)` |
 | DeepSeek API | ❌ 402 Payment Required | 主 key 余额耗尽 |
 | Agnes API | ❌ 401 Unauthorized | key 被 redact，不完整 |
-| /publish 端点 | ⚠️ 可达但 401 | 服务器在线但认证失败 |
-| FRP 隧道 | ⚠️ 未知 | 需验证 |
+| Pexels API | ❌ 403 Forbidden | key 已失效 |
+| Unsplash API | ❌ 401 Unauthorized | key 已失效 |
+| 本地直连微信 | 🟢 已验证可行 | 用户手动提供 App Secret + IP 在白名单 |
 
 ### 降级路径（按优先级）
 
-1. **用户手动提供 App Secret** → 本地获取 access_token → 直接调微信 draft/add API
+1. **用户手动提供 App Secret** → 本地获取 access_token → 直接调微信 draft/add API（**已验证可行，2026-06-18**）
 2. **使用 pub2gg-local 技能** → 走 GitHub + WordPress + Telegram 全链路（不依赖微信）
 3. **用户自行复制文章到公众号后台** → Hermes 仅提供排版好的 HTML
+
+### 配图策略更新（2026-06-18）
+
+Pexels 和 Unsplash API keys 均已失效。降级方案：
+- **首选**：使用公众号已有素材（通过 `batchget_material` 获取 media_id）
+- **备选**：用 picsum.photos 随机图上传为临时素材
+- **注意**：picsum 图片上传微信素材库可能因格式/尺寸被拒，此时回退到已有素材
 
 ### 凭证获取（当 SSH 可用时）
 
@@ -95,12 +103,16 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - **必须提炼金句**，禁用第一句话凑数
 - 失败错误码45004
 
-### 图片占位符：DeepSeek不稳定
-每次排版不一定生成占位符。脚本需fallback：无占位符时手动在1/3和2/3位置插入配图。
+### 封面图（thumb_media_id）：必填
+- **thumb_media_id 是 draft/add 接口的必填字段**，不传就报 40007
+- 必须是公众号素材库中已存在的图片 media_id
+- 获取方式：先 `batchget_material` 列出已有素材，取第一个可用的
+- ⚠️ 从外部（picsum 等）上传的图片可能因格式/尺寸被微信素材库拒绝
 
 ### IP白名单
-- 添加后需2-5分钟生效
-- 错误码40164 → IP不在白名单
+- 添加后需 **30-60 分钟** 才生效（不是 2-5 分钟！2026-06-18 实测）
+- 错误码 40164 → IP 不在白名单
+- 如果添加后 10 分钟内仍报错，告诉用户微信有缓存延迟，耐心等待
 
 ## 执行脚本
 
@@ -109,6 +121,10 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 ## 管线状态
 
 当前管线阻塞详情见 `references/pipeline-status.md`。包含完整的故障诊断和恢复方案。
+
+## 参考资料
+
+- `references/40007-debug.md` — draft/add 40007 错误排查（thumb_media_id 必填、已有素材回退方案）
 
 ## ✅ 验证状态 (2026-06-05)
 
