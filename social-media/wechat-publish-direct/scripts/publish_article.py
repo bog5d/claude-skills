@@ -259,28 +259,37 @@ def parse_article_html(html):
     }
 
 
-def find_insertion_points(parsed):
+def find_insertion_points(parsed, body_image_count=0):
     """
     根据解析结果，确定配图插入位置。
     
     插入策略：
-    - 封面图：放在文章容器 div 开头
-    - 正文配图：每章之间插入一张（共 N-1 张，N=章数）
+    - 封面图：放在第一个章标题之前（或文章末尾）
+    - 正文配图：每章之间插入一张，优先使用章标题位置
+    - 如果章节不够，剩余图片放在文章末尾
     
-    返回插入位置的 HTML 偏移量列表。
+    返回恰好 1 + body_image_count 个插入位置的 HTML 偏移量列表。
     """
     chapters = parsed["chapters"]
+    html_end = parsed["html_length"]
+    positions = []
     
-    # 封面插入点：容器 div 之后
-    cover_pos = chapters[0].start() if chapters else parsed["html_length"]
+    # 封面插入点
+    if chapters:
+        positions.append(chapters[0].start())
+    else:
+        positions.append(html_end)
     
-    # 正文配图插入点：每章标题之前
-    body_positions = [ch.start() for ch in chapters]
+    # 正文配图插入点：从第二章节开始
+    for ch in chapters[1:]:
+        if len(positions) < 1 + body_image_count:
+            positions.append(ch.start())
     
-    # 封面放在第一个正文图之前
-    positions = [cover_pos] + body_positions
+    # 如果章节不够，剩余图片放在文章末尾
+    while len(positions) < 1 + body_image_count:
+        positions.append(html_end)
     
-    return positions[:len(body_positions) + 1]  # 封面 + 正文配图
+    return positions
 
 
 def insert_image_tags(html, positions, seeds, image_style):
@@ -489,12 +498,8 @@ def publish_workflow(
     log("STEP 2", "Parsing HTML structure...")
     parsed = parse_article_html(html)
     chapters_count = len(parsed["chapters"])
-    positions = find_insertion_points(parsed)
-    
     total_images = 1 + len(body_seeds)  # 封面 + 正文配图
-    if len(positions) != total_images:
-        log("STEP 2", f"Position mismatch: {len(positions)} vs "
-                   f"expected {total_images}", "⚠")
+    positions = find_insertion_points(parsed, body_image_count=len(body_seeds))
     
     log("STEP 2", f"章标题数: {chapters_count}, 插入点: {len(positions)} "
                f"(封面+{len(body_seeds)}正文)")
