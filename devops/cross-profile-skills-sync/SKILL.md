@@ -190,6 +190,22 @@ cd /Users/mac/.claude/skills && git push origin master 2>&1
 
 **预防：** 同步脚本的 rsync 阶段应排除 `.env*`、`.local` 等凭证文件，或在 `.claude/skills/.gitignore` 中始终维护这些排除项。
 
+### ⚠️ .env.local 被 commit 后：`git rm --cached` 不够，必须 `filter-branch`
+
+**现象：** `git rm --cached <file>` 只从当前工作树解除跟踪，**不会**清除历史中已存在的提交。如果密钥已经出现在历史中的某个提交，GitHub Push Protection 仍然会拒绝 push。
+
+**正确修复：** 使用 `git filter-branch` 从所有历史中移除：
+```bash
+cd /Users/mac/.claude/skills
+git filter-branch -f --index-filter 'git rm --cached --ignore-unmatch social-media/wechat-publish-direct/.env.local' HEAD
+git for-each-ref --format='%(refname)' refs/original/ | xargs -n 1 git update-ref -d
+git gc --prune=now
+# 确认干净后 force push
+git push origin master --force
+```
+
+**铁律：** 公开仓库含密钥 → 永远用 `filter-branch` 或 `git rebase -i` 重写历史。`--amend` 只对单个提交有效。
+
 ## 限制
 
 - 只在同一台机器上的 profile 间同步
