@@ -628,13 +628,13 @@
     "created_at": "2026-06-12T13:38:18.792648+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_used_at": "2026-06-18T10:10:13.994826+00:00",
+    "last_viewed_at": "2026-06-18T10:10:13.992819+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "debugging-hermes-tui-commands": {
     "archived_at": null,
@@ -653,14 +653,14 @@
     "archived_at": null,
     "created_at": "2026-05-30T13:40:19.264244+00:00",
     "created_by": null,
-    "last_patched_at": "2026-05-30T13:40:19.264272+00:00",
-    "last_used_at": "2026-06-14T08:32:36.675651+00:00",
-    "last_viewed_at": "2026-06-11T14:23:30.518591+00:00",
-    "patch_count": 1,
+    "last_patched_at": "2026-06-18T10:07:32.454786+00:00",
+    "last_used_at": "2026-06-18T10:04:30.233153+00:00",
+    "last_viewed_at": "2026-06-18T10:04:30.231069+00:00",
+    "patch_count": 2,
     "pinned": false,
     "state": "active",
-    "use_count": 72,
-    "view_count": 16
+    "use_count": 73,
+    "view_count": 17
   },
   "design-md": {
     "archived_at": null,

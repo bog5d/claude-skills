@@ -68,3 +68,13 @@ python3 references/image_replace.py article_layout.html --output article_final.h
 - 如需 AI 配图，可对接豆包 Seedream 或 DALL-E（需在 image_replace.py 中扩展）
 - 微信 IP 白名单必须提前配置（222.247.153.167）
 - access_token 有效期 2 小时，每次操作前需重新获取
+
+## 支持文件
+
+- `references/quality_layout.py` — Markdown → HTML 排版引擎（中国风 CSS + 智能配图占位）
+- `references/image_replace.py` — 将占位符替换为 picsum.photos 真实图片 URL
+- `references/themes/chinese.css` — 中国风 CSS 模板（宣纸底色、serif 字体、金色点缀）
+
+## 已知问题
+
+- `skill_manage(action='write_file')` 存在工具验证 bug：`file_path` 参数被拒绝（"file_path is required" 错误）。临时解决方案：用 `write_file` 直接写入 `~/.hermes/skills/wechat-quality-layout/references/` 路径。
