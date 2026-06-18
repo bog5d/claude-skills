@@ -142,9 +142,9 @@ memory:
 
 ### 使用的 API
 
-- **LLM**: DeepSeek API (deepseek-chat)
-- **Embedding**: 本地 embeddinggemma-300m (待启用，当前纯 BM25 关键词检索)
-- **成本**: 预估 ¥1-3/月 (L1/L2/L3 提取)
+- **LLM**: 可通过 `TDAI_LLM_BASE_URL` + `TDAI_LLM_MODEL` 在 `tdai-gateway.env` 中配置（注释掉即为禁用LLM调用，Gateway 退化为纯检索）
+- **Embedding**: 本地 embeddinggemma-300m（已部署，health 返回 `embeddingService: true`）
+- **成本**: LLM 调用按使用量计费（纯检索模式零成本）
 
 ## Embedding 服务
 
@@ -306,6 +306,14 @@ launchctl kickstart -k gui/501/ai.tdai.memory-gateway
 15. **本地 embedding 模型**：`embeddinggemma-300m` GGUF (~300MB)，首次启动 `node-llama-cpp` 自动从 HuggingFace 下载。大陆网络可能需要代理。模型名：`hf:ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf`。
 
 16. **launchd 启动脚本易损坏**：`tdai-gateway.sh` 第 16 行的 `$DEEPSEEK_API_KEY` 变量名可能被工具截断/损坏（变成 `$DEE...`），导致 shell 语法错误。症状：`launchctl list` 显示 PID=0 且 exit code=2，日志文件里全是 `unexpected EOF`。用 `bash -n ~/.hermes/scripts/tdai-gateway.sh` 检查语法。完整脚本模板见 `references/tdai-gateway.sh`。
+
+17. **启动脚本硬依赖 DEEPSEEK_API_KEY**：`tdai-gateway.sh` 第 16-21 行强制从 `~/.hermes/.env` 读取 `DEEPSEEK_API_KEY`，映射为 `TDAI_LLM_API_KEY`。如果 `DEEPSEEK_API_KEY` 为空或缺失，脚本 `exit 1`（FATAL），Gateway 无法启动。**即使你注释掉 `tdai-gateway.env` 中的 `TDAI_LLM_BASE_URL` 和 `TDAI_LLM_MODEL` 以禁用 DeepSeek LLM 调用，脚本仍要求此 key 存在**。正确做法：保留 `DEEPSEEK_API_KEY` 在 `.env` 中（脚本需要它通过启动校验），仅在 `tdai-gateway.env` 中注释 LLM 相关变量以禁用 LLM 调用。如果 LLM 被禁用，Gateway 退化为纯向量检索（BM25 + embedding），不再产生 API 费用。
+
+18. **launchctl load 报错 `5: Input/output error` → 用 `kickstart -k`**：当服务已在 launchd domain 中注册但处于停止状态时，`launchctl load` 会失败并报 error 5。**不要尝试 `unload` 再 `load`**——卸载后无法重新加载（服务在某些 domain 中已注册）。正确做法：`launchctl kickstart -k gui/$(id -u)/ai.tdai.memory-gateway`。`kickstart` 强制启动已注册但停止的服务，`-k` 先 kill 残留进程再启动。验证：`sleep 4 && launchctl list | grep memory`。
+
+### Provider 迁移
+
+19. **批量切 provider 的验证清单**：当需要把多个 profile 的辅助 provider（如 `web_extract`）从 A 切到 B 时，使用 `references/provider-migration-verification.md` 中的步骤确认无遗漏、无残留旧值、无 YAML 重复 key。
 
 ### Profile 内存配置
 

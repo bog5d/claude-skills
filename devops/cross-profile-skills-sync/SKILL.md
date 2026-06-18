@@ -230,11 +230,40 @@ cd /Users/mac/.claude/skills
 git filter-branch -f --index-filter 'git rm --cached --ignore-unmatch social-media/wechat-publish-direct/.env.local' HEAD
 git for-each-ref --format='%(refname)' refs/original/ | xargs -n 1 git update-ref -d
 git gc --prune=now
-# 确认干净后 force push
-git push origin master --force
+# 确认干净后 push（见下方 post-filter-branch squash）
 ```
 
 **铁律：** 公开仓库含密钥 → 永远用 `filter-branch` 或 `git rebase -i` 重写历史。`--amend` 只对单个提交有效。
+
+### ⚠️ filter-branch 后必须 squash 再 push（否则堆积数百个孤儿提交）
+
+**现象：** `filter-branch` 会重写整个历史（本次 322 个 commit），导致 HEAD 与 origin/master 之间出现大量重复提交。直接 push 会被 GitHub 拒绝（payload 过大）。
+
+**修复流程（铁律）：**
+```bash
+cd /Users/mac/.claude/skills
+# 1. 软重置到 origin/master，保留所有变更在 staging
+git reset --soft origin/master
+# 2. 确认 .gitignore 仍然存在（filter-branch 可能删掉它！见下方）
+# 3. 如果有缺失文件，补上（如 .gitignore）
+# 4. 单次提交
+git add -A
+git commit -m "auto-sync: TIMESTAMP — Hermes skills → claude-skills"
+# 5. 推送（regular push 即可，不需要 force）
+git push origin master
+```
+
+**为什么不用 `--force`：** 如果 origin/master 已经是旧历史（含密钥提交），regular push 会因为 fast-forward 失败。此时需 `--force`。但如果 origin 已被其他 agent 清理过，regular push 就能工作。
+
+### ⚠️ filter-branch 可能意外删除 .gitignore
+
+**现象：** `filter-branch` 重写历史时，如果 `.gitignore` 曾在某个中间提交中被删除或修改，可能导致工作树中的 `.gitignore` 消失。
+
+**修复：** filter-branch 后立即检查并重建：
+```bash
+cd /Users/mac/.claude/skills
+ls .gitignore 2>&1 || printf '.env.local\n.env\n*.secret\n*.pem\n*.p12\n*.pfx\n.DS_Store\n' > .gitignore
+```
 
 ## 限制
 
