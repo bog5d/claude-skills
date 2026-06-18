@@ -77,6 +77,15 @@ def log(step, msg, icon="✓"):
     print(f"[{step}] {msg}", file=sys.stderr)
 
 
+def extract_title_from_md(md_text: str) -> str:
+    """从 Markdown 中提取标题（第一个 # 开头的一行，去除 # 和首尾空格）"""
+    for line in md_text.split("\n"):
+        line = line.strip()
+        if line.startswith("# ") and not line.startswith("## "):
+            return line[2:].strip()
+    return ""
+
+
 def read_env():
     """从 .env 文件读取凭证"""
     if not ENV_PATH.exists():
@@ -444,6 +453,7 @@ def publish_workflow(
     body_seeds: list[str],
     appid: str,
     secret: str,
+    title: str = "",
     author: str = "王波",
     digest: str = "",
 ) -> dict:
@@ -533,8 +543,13 @@ def publish_workflow(
     if not digest:
         digest = "那年我们刚认识，他请我吃了一碗面，从此成了最好的兄弟。"
     
+    if not title:
+        title = extract_title_from_md(article_md)
+    if not title:
+        title = "未命名文章"
+    
     draft_media_id = create_draft(
-        token, "刘小兵家的夜路", author, digest, html, media_ids[0]
+        token, title, author, digest, html, media_ids[0]
     )
     log("STEP 6", f"草稿创建成功: media_id={draft_media_id[:20]}...")
     
@@ -570,6 +585,10 @@ def main():
     parser.add_argument(
         "--author", default="王波",
         help="作者名"
+    )
+    parser.add_argument(
+        "--title", default="",
+        help="文章标题（留空则从 Markdown 第一个 # 标题提取）"
     )
     parser.add_argument(
         "--digest", default="",
@@ -613,6 +632,7 @@ def main():
             body_seeds=body_seeds,
             appid=appid,
             secret=secret,
+            title=args.title,
             author=args.author,
             digest=args.digest,
         )

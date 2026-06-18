@@ -1139,6 +1139,27 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
   - 答题 → `terminal: python3 state/session_pipeline.py <round> '<json>'` → relay `_formatted` 原样
   - LLM 只做 `json` 格式纠错（`1稳定` → `{"1":"稳定"}`）
 
+### pitfall 42: 两套 rank_config.json 格式不兼容（2026-06-18 真实事故 ⚠️ 铁律）
+
+- **现象**：`get_current_sub()` 和 `get_rank_entry()` 改为用 `rank_entry["name"]` 查段位，但 `gamification_v2.py` 读取的 `state/rank_config.json` 是旧格式（用 `"rank"` 键而非 `"name"` 键），导致 `KeyError: 'name'` 整个 pipeline 崩溃
+- **根因**：项目中有**两套 rank_config.json**：`state/rank_config.json`（旧格式：`rank` / `icon` / `sub_tiers` / `unlock_conditions`，由 gamification_v2.py 读取）和 `home/.hermes/repos/data/rank_config.json`（新格式：`name` / `sub_ranks` / `conditions` / `desc`，由 engine_upgrade_sample_descent.py 读取）。两套格式互相独立且结构不同
+- **修复**：`get_current_sub()` 和 `get_rank_entry()` 必须兼容两套格式：`rn = rank_entry.get("name") or rank_entry.get("rank", "")`
+- **预防铁律**：修改 gamification_v2.py 中任何 rank_config 读取逻辑前，必须先确认 `state/rank_config.json` 的字段名，不要假设是两个仓库中的同一个文件
+
+### pitfall 43: _normalize_sub_rank 方向错误（2026-06-18 已修复）
+
+- **现象**：段位显示 `青铜青铜I`、`白银白银II` 等重复前缀，且 `gamification.json` 中 `sub_rank` 字段值为 `青铜I` 而非 `I`
+- **根因**：`_normalize_sub_rank()` 的逻辑是**反的**——它检测到 sub_rank 是纯罗马数字（如 `"II"`）时反而 ADDING 前缀（`"青铜" + "II" = "青铜II"`），而合约要求 sub_rank 必须只存罗马数字（`"II"`），显示时由 `format_rank()` 拼接
+- **修复**：`_normalize_sub_rank()` 改为 STRIPPING 前缀（`"青铜II" → "II"`），保持 sub_rank = 罗马数字
+- **预防铁律**：**sub_rank 存罗马数字，rank 存中文名，分开存，拼接显示**。永远不要在 sub_rank 字段里存 rank 前缀
+
+### pitfall 44: 五个 gamification_v2.py 副本（2026-06-18 发现）
+
+- **现象**：同一次调试中修改了 `state/gamification_v2.py`，但 session_pipeline.py 仍然报旧代码的 KeyError
+- **根因**：项目中有 5 个 `gamification_v2.py` 副本：`state/`、`bin/`、`scripts/`、`data/bin/`、`data/state/`。不同模块可能 import 不同副本（session_pipeline 用 `sys.path.insert(0, STATE_DIR)` 后 import `state/` 的版本；其他模块可能 import 别的副本）。修改一处不生效因为调用方 import 的是另一副本
+- **修复**：清除所有 `__pycache__`，确保所有调用方 import 同一个副本。未来应统一到 `state/gamification_v2.py` 作为唯一源
+- **预防铁律**：修改 gamification_v2.py 时，必须同步到所有 5 个副本，或删掉多余副本只保留 `state/` 下的唯一版本。同时清除 `__pycache__`
+
 ### pitfall 37: vocab_lib 是共享库，所有脚本通过它读数据（2026-06-17 确立）
 - **架构变更**：`bin/vocab_lib.py` 是统一数据加载/指标计算/段位判定/判分逻辑的共享库
 - **所有脚本**（engine、phase2、daily_feedback）通过 `import vocab_lib as vl` 引用
