@@ -10,7 +10,21 @@ updated: 2026-06-14
 
 # Token 用量分析与优化
 
-当用户报告"token 烧得快"、"账单高了"、"这个模型用量怎么这么大"时使用。
+当用户报告"token 烧得快"、"账单高了"、"收到余额预警"时使用。
+
+## 初始信号：用户收到余额预警短信/通知
+
+**第一步永远是查官方余额 API**，不要先翻 CSV。
+
+```bash
+curl -s https://api.deepseek.com/balance -H "Authorization: Bearer YOUR_KEY" | python3 -m json.tool
+```
+
+- 余额正常但账单高 → 用量确实大，进 Phase 1
+- 余额为 0 或负数 → 账户已欠费，立即停 copilot-acp 和外调
+- 部分 key 欠费 → 多 key 独立计费，隔离 billing key
+
+详见 `references/deepseek-balance-api-check.md`。
 
 ## 核心原则
 
@@ -199,6 +213,21 @@ du -sh ~/.hermes/skills/
 wc -c ~/.hermes/adjutant/repo/hermes-adjutant/AGENTS.md
 ```
 
+## Cron 紧急止血（2026-06-19 新增）
+
+当确认费用异常时，**先暂停 cron 再分析**：
+```bash
+# 列出所有 cron jobs
+cronjob(action='list')
+
+# 暂停可疑任务（高频 + LLM-driven）
+cronjob(action='pause', job_id='JOB_ID')
+```
+
+高频 cron 特征：重复周期 ≤ 15 分钟、`no_agent: false`、附带 skills 列表。
+
+**验证止血效果**：暂停后观察 1-2 小时，账单应明显下降。
+
 ## 2026-06-17 案例：全 profile 模型统一降级为 Agnes + DeepSeek v4-flash
 
 **场景**：副官 cron 消耗 98.5% 费用，用户要求全面降本。
@@ -218,6 +247,37 @@ done
 ```
 
 **结果**：所有 profile 统一 agnes-2.0-flash（免费）→ deepseek-v4-flash（降级）路由。
+
+## 多源账单脱节诊断
+
+**现象**：token_ledger 费用 ≈ 0 但 DeepSeek 控制台账单很高，或 gateway.error.log 中有大量 copilot-acp 超时重试。
+
+**根因**：token_ledger 只记录 Hermes 自身 agnes 请求，不记录 copilot-acp 和外部 CLI 直调 DeepSeek 的账单。
+
+**诊断命令**：
+```bash
+# 1. 看 gateway.error.log 中所有 provider 的调用分布
+grep 'provider=' ~/.hermes/logs/gateway.error.log | grep -oP 'provider=\K[^ ]' | sort | uniq -c | sort -rn
+
+# 2. 看 copilot-acp 超时重试次数
+grep -c 'copilot-acp.*TimeoutError.*deepseek' ~/.hermes/logs/gateway.error.log
+
+# 3. 看 token_ledger 中所有 provider 分布
+cat ~/.hermes/logs/token_ledger.jsonl | python3 -c "
+import sys, json
+from collections import defaultdict
+providers = defaultdict(int)
+for line in sys.stdin:
+    try:
+        e = json.loads(line.strip())
+        providers[e.get('provider','?')] += 1
+    except: pass
+for p, c in sorted(providers.items(), key=lambda x:-x[1]): print(f'{p}: {c}')
+"
+
+# 4. 对比 DeepSeek 控制台账单 vs token_ledger（脱节验证）
+#    如果账单 ¥67/天但 token_ledger 只有 ¥0 → 有外部调用不走 Hermes
+```
 
 ## 2026-06-19 案例：Copilot ACP 死循环重试 + 多源账单脱节
 
@@ -256,6 +316,23 @@ grep 'copilot-acp.*TimeoutError.*deepseek-v4-pro' ~/.hermes/logs/gateway.error.l
 - 暂停副官记忆仓同步（每 5 分钟的高频 cron）
 - 检查 DeepSeek 官方 key 余额，隔离 billing key
 
+## Cron 任务暂停（紧急止血）
+
+当确认费用异常时，**先暂停 cron 再分析**。使用 `cronjob(action='pause', job_id=...)` 暂停可疑任务，`cronjob(action='list')` 查看所有 running 的任务。
+
+**高频 cron 特征**：
+- 重复周期 ≤ 15 分钟（如每 5 分钟）
+- `no_agent: false`（LLM-driven，会烧 token）
+- 附带 skills 列表（每次触发加载大量 SKILL.md）
+
+**暂停后验证**：
+```bash
+# 确认 cron 已暂停
+cronjob(action='list')
+
+# 观察接下来 1-2 小时账单是否下降
+```
+
 ## 参考
 
 | 文件 | 说明 |
@@ -265,3 +342,4 @@ grep 'copilot-acp.*TimeoutError.*deepseek-v4-pro' ~/.hermes/logs/gateway.error.l
 | `references/subagent-memory-injection-overhead.md` | 2026-06-17 案例：副官记忆注入开销机制拆解（cron 无状态 + 25 skills 全加载 + episodic memory 搜索 = 98.5% 费用） |
 | `references/all-profile-model-switch.md` | 全 profile 模型统一降级为 Agnes + v4-flash 的操作记录 |
 | `references/copilot-acp-retry-loop.md` | 2026-06-19 案例：Copilot ACP 死循环重试导致费用暴涨的诊断全流程 |
+| `references/deepseek-balance-api-check.md` | 通过 DeepSeek 官方 API 直查余额的快捷诊断命令 |

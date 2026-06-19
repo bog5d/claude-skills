@@ -34,6 +34,99 @@ from pathlib import Path
 
 
 # =============================================================================
+# 网络工具 — 绕过 macOS CFNetwork 系统代理
+# =============================================================================
+# macOS 系统级代理（Clash/Surge/Shadowrocket 等）在端口 7897，
+# 会让 urllib、http.client、requests 全部走代理，导致微信 API 拒绝（IP 不在白名单）。
+# 必须用 raw socket + ssl 完全绕过系统代理。
+
+import socket
+import ssl
+from urllib.parse import urlparse
+
+
+def _build_request(method: str, host: str, path: str, body: bytes = None,
+                   headers: dict = None, timeout: int = 15) -> str:
+    """用 raw socket + ssl 构建完整 HTTP 请求，绕过系统代理"""
+    # 创建直连 socket
+    sock = socket.create_connection((host, 443), timeout=timeout)
+    
+    try:
+        # 创建 SSL 上下文（不使用系统代理）
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ssl_sock = ctx.wrap_socket(sock, server_hostname=host)
+        
+        # 构建 HTTP 请求行
+        if method == "GET":
+            req = f"{method} {path} HTTP/1.1\r\n"
+        else:
+            req = f"{method} {path} HTTP/1.1\r\n"
+        
+        req += f"Host: {host}\r\n"
+        if body:
+            req += f"Content-Length: {len(body)}\r\n"
+        if headers:
+            for k, v in headers.items():
+                req += f"{k}: {v}\r\n"
+        req += "Connection: close\r\n"
+        req += "\r\n"
+        
+        ssl_sock.send(req.encode())
+        if body:
+            ssl_sock.send(body)
+        
+        # 读取响应
+        chunks = []
+        ssl_sock.settimeout(timeout)
+        while True:
+            try:
+                chunk = ssl_sock.recv(8192)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            except socket.timeout:
+                break
+        
+        return b"".join(chunks).decode("utf-8", errors="replace")
+    
+    finally:
+        try:
+            ssl_sock.close()
+        except:
+            sock.close()
+
+
+def _extract_body(http_response: str) -> bytes:
+    """从 HTTP 响应字符串中提取 body"""
+    if "\r\n\r\n" in http_response:
+        return http_response.split("\r\n\r\n", 1)[1].encode("utf-8")
+    return b""
+
+
+def _http_post(host: str, path: str, body: bytes, headers: dict, timeout: int = 15) -> bytes:
+    """POST 请求，raw socket + ssl，不经过系统代理"""
+    raw = _build_request("POST", host, path, body=body, headers=headers, timeout=timeout)
+    return _extract_body(raw)
+
+
+def _http_get(host: str, path: str, timeout: int = 15) -> bytes:
+    """GET 请求，raw socket + ssl，不经过系统代理"""
+    raw = _build_request("GET", host, path, timeout=timeout)
+    return _extract_body(raw)
+
+
+def _http_download(url: str, timeout: int = 10) -> bytes:
+    """下载远程文件（图片），raw socket + ssl，不经过系统代理"""
+    parsed = urlparse(url)
+    host = parsed.hostname
+    path = parsed.path + ("?" + parsed.query if parsed.query else "")
+    raw = _build_request("GET", host, path, timeout=timeout)
+    return _extract_body(raw)
+
+
+# =============================================================================
 # 常量
 # =============================================================================
 
@@ -111,10 +204,10 @@ def read_env():
 
 def get_access_token(appid, secret):
     """获取微信 access_token"""
-    url = (f"{WECHAT_BASE}/cgi-bin/token?"
+    path = (f"/cgi-bin/token?"
            f"grant_type=client_credential&appid={appid}&secret={secret}")
-    resp = urllib.request.urlopen(url, timeout=10)
-    data = json.loads(resp.read())
+    raw = _http_get("api.weixin.qq.com", path, timeout=10)
+    data = json.loads(raw)
     if "access_token" not in data:
         raise ValueError(f"Failed to get token: {data}")
     return data["access_token"]
@@ -123,19 +216,13 @@ def get_access_token(appid, secret):
 def download_image(seed):
     """从 picsum.photos 下载图片，返回 bytes"""
     url = PICSUM_BASE.format(seed) + "/" + PICSUM_SIZE
-    req = urllib.request.Request(url)
-    resp = urllib.request.urlopen(req, timeout=10)
-    return resp.read()
+    return _http_download(url, timeout=10)
 
 
 def upload_to_wechat(access_token, image_bytes, img_type="image"):
     """上传图片到微信素材库，返回 media_id"""
-    if img_type == "thumb":
-        url = (f"{WECHAT_BASE}/cgi-bin/material/add_material?"
-               f"access_token={access_token}&type=image")
-    else:
-        url = (f"{WECHAT_BASE}/cgi-bin/material/add_material?"
-               f"access_token={access_token}&type=image")
+    path = (f"/cgi-bin/material/add_material?"
+           f"access_token={access_token}&type=image")
     
     boundary = hashlib.md5(str(time.time()).encode()).hexdigest()
     body = (
@@ -145,12 +232,12 @@ def upload_to_wechat(access_token, image_bytes, img_type="image"):
         f"Content-Type: image/jpeg\r\n\r\n"
     ).encode() + image_bytes + f"\r\n--{boundary}--\r\n".encode()
     
-    req = urllib.request.Request(
-        url, data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    raw = _http_post(
+        "api.weixin.qq.com", path, body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        timeout=15
     )
-    resp = urllib.request.urlopen(req, timeout=15)
-    data = json.loads(resp.read())
+    data = json.loads(raw)
     if "media_id" not in data:
         raise ValueError(f"Upload failed: {data}")
     return data["media_id"]
@@ -204,13 +291,11 @@ def call_deepseek(article_text, appid, secret):
         "Content-Type": "application/json",
     }
     
-    req = urllib.request.Request(
-        DEESEEK_URL,
-        json.dumps(payload).encode(),
-        headers,
-    )
-    resp = urllib.request.urlopen(req, timeout=60)
-    result = json.loads(resp.read())
+    req_body = json.dumps(payload).encode()
+    headers_raw = "\r\n".join(f"{k}: {v}" for k, v in headers.items())
+    raw_resp = _http_post("api.deepseek.com", "/chat/completions", req_body,
+                          {k: v for k, v in headers.items()}, timeout=60)
+    result = json.loads(raw_resp)
     
     html = result["choices"][0]["message"]["content"].strip()
     
@@ -359,20 +444,17 @@ def replace_picsum_with_media(html, url_to_mid):
 
 def find_existing_draft(access_token, title):
     """查找同名草稿，返回 (exists: bool, draft_media_id: str|None)"""
-    url = (f"{WECHAT_BASE}/cgi-bin/draft/batchget?"
+    path = (f"/cgi-bin/draft/batchget?"
            f"access_token={access_token}")
     payload = {
         "offset": 0,
         "count": 20,
         "no_content": 1,  # 不返回正文内容，节省带宽
     }
-    req = urllib.request.Request(
-        url,
-        json.dumps(payload).encode(),
-        {"Content-Type": "application/json"},
-    )
-    resp = urllib.request.urlopen(req, timeout=15)
-    result = json.loads(resp.read())
+    raw = _http_post("api.weixin.qq.com", path,
+                     json.dumps(payload).encode(),
+                     {"Content-Type": "application/json"}, timeout=15)
+    result = json.loads(raw)
     
     if "item" in result:
         for item in result["item"]:
@@ -396,7 +478,6 @@ def create_draft(access_token, title, author, digest, content,
     if exists and existing_mid:
         # 更新已有草稿
         log("DRAFT", f"Found existing draft: {existing_mid[:20]}..., updating")
-        url = f"{WECHAT_BASE}/cgi-bin/draft/update?access_token={access_token}"
         payload = {
             "media_id": existing_mid,
             "index": 0,
@@ -410,20 +491,18 @@ def create_draft(access_token, title, author, digest, content,
                 "only_fans_can_comment": 0,
             }]
         }
-        req = urllib.request.Request(
-            url,
-            json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            {"Content-Type": "application/json"},
-        )
-        resp = urllib.request.urlopen(req, timeout=15)
-        result = json.loads(resp.read())
+        path = f"/cgi-bin/draft/update?access_token={access_token}"
+        raw = _http_post("api.weixin.qq.com", path,
+                        json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                        {"Content-Type": "application/json"}, timeout=15)
+        result = json.loads(raw)
         if result.get("errcode", 1) != 0:
             raise ValueError(f"Update draft failed: {result}")
         log("DRAFT", f"Draft updated: media_id={existing_mid[:20]}...")
         return existing_mid
     
     # 不存在则新建
-    url = f"{WECHAT_BASE}/cgi-bin/draft/add?access_token={access_token}"
+    path = f"/cgi-bin/draft/add?access_token={access_token}"
     
     payload = {
         "articles": [{
@@ -438,13 +517,10 @@ def create_draft(access_token, title, author, digest, content,
         }]
     }
     
-    req = urllib.request.Request(
-        url,
-        json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        {"Content-Type": "application/json"},
-    )
-    resp = urllib.request.urlopen(req, timeout=15)
-    result = json.loads(resp.read())
+    raw = _http_post("api.weixin.qq.com", path,
+                    json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                    {"Content-Type": "application/json"}, timeout=15)
+    result = json.loads(raw)
     
     if "media_id" not in result:
         raise ValueError(f"Create draft failed: {result}")

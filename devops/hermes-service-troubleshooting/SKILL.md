@@ -50,7 +50,38 @@ done
 
 ### 常见故障模式
 
-**模式N：Weixin/微信 Token 冲突 — 多 gateway 争抢同一 token**
+**模式V：多 Provider 费用归因脱节 — token_ledger 和 DeepSeek 控制台账单对不上**
+
+- 症状：token_ledger 费用 ≈ 0 但 DeepSeek 控制台账单很高，或 gateway.error.log 中有大量 copilot-acp 超时重试。
+- 根因：token_ledger 只记录 Hermes 自身 agnes 请求，不记录 copilot-acp 和外部 CLI 直调 DeepSeek 的账单。
+- 诊断命令：
+  ```bash
+  # 1. 看 gateway.error.log 中所有 provider 的调用分布
+  grep 'provider=' ~/.hermes/logs/gateway.error.log | grep -oP 'provider=\K[^ ]' | sort | uniq -c | sort -rn
+  
+  # 2. 看 copilot-acp 超时重试次数（死循环重试 = 无限扣费）
+  grep -c 'copilot-acp.*TimeoutError.*deepseek' ~/.hermes/logs/gateway.error.log
+  
+  # 3. 看 token_ledger 中所有 provider 分布
+  cat ~/.hermes/logs/token_ledger.jsonl | python3 -c "
+  import sys, json
+  from collections import defaultdict
+  providers = defaultdict(int)
+  for line in sys.stdin:
+      try:
+          e = json.loads(line.strip())
+          providers[e.get('provider','?')] += 1
+      except: pass
+  for p, c in sorted(providers.items(), key=lambda x:-x[1]): print(f'{p}: {c}')
+  "
+  
+  # 4. 对比 DeepSeek 控制台账单 vs token_ledger（脱节验证）
+  #    如果账单 ¥67/天但 token_ledger 只有 ¥0 → 有外部调用不走 Hermes
+  ```
+- 修复：
+  1. 停用 copilot-acp provider（不需要 Cursor 通过 Hermes 调度 DeepSeek 时）
+  2. 暂停高频 cron（如副官记忆仓同步每 5 分钟）
+  3. 检查 DeepSeek 官方 key 余额，隔离 billing
 - 症状：gateway 启动后日志出现 `ERROR gateway.platforms.base: [Weixin] Weixin bot token already in use (PID XXXX). Stop the other gateway first.`，微信平台无法连接
 - 根因：Weixin token 是排他性资源——同一 token 只能被一个进程使用。当 her-m2 已占用 Weixin token 时，default 或 english-tutor 的 env/shell 环境泄漏了 `WEIXIN_*` 变量，导致它们也尝试连接微信
 - 验证：检查各 profile 的 `.env` 和 launchd plist 的 `EnvironmentVariables` 中是否有 `WEIXIN_*` 变量。只有 her-m2 应该配微信
@@ -410,25 +441,12 @@ done
      ```bash
      kill -9 <mcp_PID> <gateway_PID>
      launchctl kickstart -k gui/501/<service>
-     ```
-  4. **验证恢复**：新 gateway PID 应有正常 CPU（>0.3%），日志正常滚动
-- 预防：**不要在 Hermes 的 MCP 配置中使用 stdio 传输的 MCP server。** 尤其 `headroom mcp serve` 已知会触发此问题。如需使用 headroom，用 proxy 模式（HTTP 端口 8787）配合 `ANTHROPIC_BASE_URL` 环境变量，而非 MCP 工具。
-- 适用范围：此问题不仅限于 headroom。任何走 stdio 的 MCP server 如果内部有阻塞 I/O，都可能在 Hermes 下触发。经验法则：**给 Hermes 配的 MCP server 必须是纯计算/无阻塞的，任何含网络 I/O 的 MCP server 都改用 HTTP 接入。**
+     - 修复：
+       1. 停用 copilot-acp provider（不需要 Cursor 通过 Hermes 调度 DeepSeek 时）
+       2. 暂停高频 cron（如副官记忆仓同步每 5 分钟）
+       3. 检查 DeepSeek 官方 key 余额，隔离 billing
 
-- 症状：gateway 日志反复出现 `WARNING gateway.platforms.telegram: [Telegram] Telegram polling conflict (1/5) — previous session still held open on Telegram's servers`。bot 完全不响应消息。两个 gateway 交替抢到 polling session，"resumed after conflict" 和 "polling conflict" 交替出现
-- 根因：两个（或更多）gateway 实例使用了同一个 TELEGRAM_BOT_TOKEN。Telegram 的 getUpdates 是排他性的——同一 token 只能有一个活跃 polling session。当 profile A 的 gateway 持有 session 时，profile B 的 gateway 尝试连接就被踢，然后 B 重试抢回 session 又把 A 踢掉，形成永动冲突
-- 验证：
-  1. 用脚本确认各 profile 的 bot 身份：读取各 `.env` 的 TELEGRAM_BOT_TOKEN，调 `https://api.telegram.org/bot<token>/getMe` 看 username
-  2. 如果两个 profile 返回同一个 @username → 确认根因
-  3. 检查日志中的 conflict 模式：`grep "polling conflict\|resumed after conflict" <profile>/logs/gateway.log`
-- 修复：
-  1. 确保每个 profile 有独立 Telegram bot（去 @BotFather 创建）
-  2. 替换冲突 profile 的 `.env` 中 TELEGRAM_BOT_TOKEN 为正确的独立 token
-  3. ⚠️ **危险区域**：凭证扫描器会破坏所有含 token 字符串的命令和文件写入。详见 `references/credential-scanner-workaround.md`
-  4. 重启 gateway
-- 预防：创建新 profile 时，**永远创建新的 Telegram bot**，不要复制旧 profile 的 bot token。唯一例外是：设计上就该共享的 bot（如故意多 worker 轮询同一 bot）
-
-### 附加参考文档
+     **模式N：Weixin/微信 Token 冲突 — 多 gateway 争抢同一 token**
 
 | 文档 | 说明 |
 |------|------|
@@ -447,7 +465,8 @@ done
   1. **不在 cron prompt 中写 curl 命令**。改用 skill 引用——让 cron 加载含 curl 指令的 skill，curl 在 skill 中被执行而非在 prompt 纯文本中
   2. 示例：创建一条"加载 `media-file-delivery` skill 并按其指引操作"的 cron job，而非在 prompt 内嵌 curl
   3. 如果是跨 gateway 操作，用 `profile=<other>` 让目标 gateway 执行，而非在 prompt 中传递 curl
-- 此限制只影响 cron prompt 文本，不影响 `terminal()` 工具中执行的 curl |
+- 此限制只影响 cron prompt 文本，不影响 `terminal()` 工具中执行的 curl
+- 此限制只影响 cron prompt 文本，不影响 `terminal()` 工具中执行的 curl
 
 **模式P：File Descriptor 耗尽 — Errno 24（进程活着但完全无响应）**
 
