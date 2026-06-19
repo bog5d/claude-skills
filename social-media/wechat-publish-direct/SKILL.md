@@ -166,6 +166,24 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - 错误码 40164 → IP 不在白名单
 - 如果添加后 10 分钟内仍报错，告诉用户微信有缓存延迟，耐心等待
 
+### ⚠️ macOS 系统代理劫持（2026-06-19 新增）
+
+**Clash Verge / Surge / Shadowrocket 等透明代理会劫持所有出站 TCP 连接**，包括：
+- `urllib.request.urlopen`
+- `http.client.HTTPSConnection`
+- `socket.create_connection`（raw socket）
+- 直连 IP 地址
+
+**全部无效** — 因为代理在 PF firewall / RDR 层面做 NAT 劫持。
+
+**排查流程**：
+1. `curl -s ifconfig.me` 看出口 IP 是否是本机真实 IP
+2. 如果是代理 IP → 检查 Clash 配置中 `mode` 是否为 `rule`（不是 `global`）
+3. 确认 `api.weixin.qq.com` 在 Clash 规则中设为 `DIRECT`
+4. 参考 `references/macos-proxy-bypass.md` 获取完整绕过方案
+
+**publish_article.py 已内置 raw socket + SSL 直连逻辑**，但如果 Clash 规则没配好，仍会走代理。
+
 ## 执行脚本
 
 完整自动化脚本参考 `scripts/publish_article.py`（见 `references/publish-article-script.md`）
@@ -180,6 +198,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - `references/40066-upload-debug.md` — 素材上传 40066 错误根因与解决方案（旧接口 vs 新接口、picsum 下载陷阱）
 - `references/publish-article-script.md` — `publish_article.py` 固化程序文档（用法、管线步骤、限制）
 - `references/bug-diagnosis-prd-2026-06-18.md` — **2026-06-18 Bug 诊断 PRD**（3 个已知 Bug 的根因分析 + Cursor 修复任务清单）
+- `references/macos-proxy-bypass.md` — **macOS 系统代理（Clash Verge/Surge）劫持所有出站连接的全套绕过方案**
 
 ## ⛔ 已知 Bug（2026-06-18 诊断 — publish_article.py）
 

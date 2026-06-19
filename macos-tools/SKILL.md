@@ -19,6 +19,7 @@ Umbrella for macOS-native tools and automation on the Mac Mini M4 production env
 | macOS Computer Use (desktop drive) | `references/macos-computer-use.md` |
 | Mac Mini environment (hardware + setup) | `references/mac-mini-environment.md` |
 | System profiling (scan + inventory) | `references/mac-system-profiling.md` |
+| Proxy bypass (Clash Verge/Surge) | `references/macos-proxy-bypass.md` |
 
 ## Common Pitfalls
 
@@ -26,3 +27,4 @@ Umbrella for macOS-native tools and automation on the Mac Mini M4 production env
 - Computer Use requires active desktop session
 - System profiling commands need absolute paths
 - Mac Mini runs headless — some GUI-dependent tools may need workarounds
+- **macOS 系统代理（Clash Verge/Surge）会劫持所有出站 TCP 连接**，见 `references/macos-proxy-bypass.md`
