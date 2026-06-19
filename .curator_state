@@ -1,9 +1,9 @@
 {
-  "last_report_path": "/Users/mac/.hermes/profiles/her-m2/logs/curator/20260612-133818",
-  "last_run_at": "2026-06-12T13:38:18.280940+00:00",
-  "last_run_duration_seconds": 299.255976,
-  "last_run_summary": "auto: no changes; llm: All clear consolidations done. Let me now write the final summary.\n\n## Curator Consolidation Pass — Summary\n\nProcessed 23 skill consolidations across 12 prefix/domain clusters. The primary pattern found was **umbrella skills with `reference…\narchived 4 skill(s):\n  • context-compression-extend → context-compression\n  • context-compression-layer-upgrade → context-compression\n  • game-engine-complete → english-tutor-engine\n  • vocab-batch-challenge → english-tutor-engine\nfull report: hermes curator status\nkeep an umbrella stable: hermes curator pin context-compression",
+  "last_report_path": "/Users/mac/.hermes/logs/curator/20260619-142354",
+  "last_run_at": "2026-06-19T14:23:54.878448+00:00",
+  "last_run_duration_seconds": 291.199051,
+  "last_run_summary": "auto: no changes; llm: Excellent. Now I have a comprehensive picture of the major clusters. Let me now start the consolidation pass. I'll identify the key clusters and process them systematically:\n\n**Clusters identified:**\n1. **WeChat Publishing** — `wechat-publi…",
   "last_run_summary_shown_at": null,
   "paused": false,
-  "run_count": 3
+  "run_count": 4
 }
