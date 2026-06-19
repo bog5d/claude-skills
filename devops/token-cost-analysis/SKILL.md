@@ -219,6 +219,43 @@ done
 
 **结果**：所有 profile 统一 agnes-2.0-flash（免费）→ deepseek-v4-flash（降级）路由。
 
+## 2026-06-19 案例：Copilot ACP 死循环重试 + 多源账单脱节
+
+**现象**：DeepSeek 控制台报余额 ¥29 预警，近三天日均 ¥67。token_ledger 只显示 agnes 费用（¥0），账单和内部日志对不上。
+
+**根因**：
+1. **Copilot ACP 无限重试**：Cursor/Trae 通过 `copilot-acp` provider 调用 `api.deepseek.com/v1` 的 `deepseek-v4-pro`，每次 90 秒超时后重试 3 轮，每轮都扣钱。6/18 一天跑了 233 次 v4-pro 调用，187 万 input tokens。
+2. **官方 DeepSeek 直连也在烧钱**：`provider=deepseek base_url=https://api.deepseek.com/v1` 报 HTTP 402 欠费。
+3. **token_ledger 不完整**：它只记录 Hermes 自己跑的 agnes/cron 请求，不记录 copilot-acp 和外部 CLI 直调 DeepSeek 的账单。
+
+**诊断命令**：
+```bash
+# 1. 看 token_ledger 里 v4-pro 的调用源（区分 cron vs telegram vs copilot-acp）
+grep 'deepseek-v4-pro' ~/.hermes/logs/token_ledger.jsonl | python3 -c "
+import sys, json
+from collections import defaultdict
+sources = defaultdict(int)
+for line in sys.stdin:
+    entry = json.loads(line.strip())
+    sources[entry.get('source','?').split(':')[2][:15]] += 1
+for s, c in sorted(sources.items(), key=lambda x:-x[1]): print(f'{s}: {c}')
+"
+
+# 2. 看 gateway.error.log 里的超时重试循环（最大嫌疑信号）
+grep -c 'copilot-acp.*timed out\|API call failed.*attempt 3/3' ~/.hermes/logs/gateway.error.log
+
+# 3. 看是否有无限 90s 超时重试（每次重试 = 一次 API 计费）
+grep 'copilot-acp.*TimeoutError.*deepseek-v4-pro' ~/.hermes/logs/gateway.error.log | wc -l
+
+# 4. 对比 DeepSeek 控制台账单 vs token_ledger（脱节验证）
+#    如果账单 ¥67/天但 token_ledger 只有 ¥0 → 有外部调用不走 Hermes
+```
+
+**修复**：
+- 禁用/停用 copilot-acp provider（如果不需要 Cursor 通过 Hermes 调度 DeepSeek）
+- 暂停副官记忆仓同步（每 5 分钟的高频 cron）
+- 检查 DeepSeek 官方 key 余额，隔离 billing key
+
 ## 参考
 
 | 文件 | 说明 |
@@ -227,3 +264,4 @@ done
 | `references/v4-flash-spike-investigation.md` | V4-Flash 用量异常的根因（`delegation.model: ''` 空字符串 bug）+ 一键修复命令 + 预防规则 |
 | `references/subagent-memory-injection-overhead.md` | 2026-06-17 案例：副官记忆注入开销机制拆解（cron 无状态 + 25 skills 全加载 + episodic memory 搜索 = 98.5% 费用） |
 | `references/all-profile-model-switch.md` | 全 profile 模型统一降级为 Agnes + v4-flash 的操作记录 |
+| `references/copilot-acp-retry-loop.md` | 2026-06-19 案例：Copilot ACP 死循环重试导致费用暴涨的诊断全流程 |
