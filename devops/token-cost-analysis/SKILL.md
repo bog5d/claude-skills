@@ -312,8 +312,45 @@ grep 'copilot-acp.*TimeoutError.*deepseek-v4-pro' ~/.hermes/logs/gateway.error.l
 ```
 
 **修复**：
-- 禁用/停用 copilot-acp provider（如果不需要 Cursor 通过 Hermes 调度 DeepSeek）
-- 暂停副官记忆仓同步（每 5 分钟的高频 cron）
+
+### 终端禁用 Copilot ACP（当 Cursor 窗口不可见/最小化时）
+
+GUI 自动化（computer_use）在 Cursor 窗口被隐藏、最小化或在另一 Space 时会失效。此时用终端直接改配置：
+
+```bash
+# 1. 查看 Cursor 中 copilot-acp 的配置位置
+cat ~/Library/Application\ Support/Cursor/User/settings/settings.json 2>/dev/null | python3 -m json.tool | grep -A5 -B5 'deepseek\|copilot\|model'
+
+# 2. 查看 Cursor globalStorage 中的 Copilot 配置
+ls ~/Library/Application\ Support/Code/User/globalStorage/github.copilot-chat/settings/ 2>/dev/null
+cat ~/Library/Application\ Support/Code/User/globalStorage/github.copilot-chat/settings/*.json 2>/dev/null | python3 -m json.tool | grep -i 'deepseek\|model\|provider'
+
+# 3. 查看 Hermes config.yaml 中 copilot-acp provider 配置
+grep -A10 'copilot-acp' ~/.hermes/config.yaml
+
+# 4. 最直接的止血方式：在 Hermes config.yaml 中注释掉 copilot-acp provider
+# 找到 provider 定义段，暂时注释掉整个 copilot-acp 块
+# 然后重启 gateway：launchctl kickstart gui/$(id -u) com.agents.gateway
+```
+
+**注意**：Cursor 的 Copilot 设置也可能在 `~/.cursor/mcp.json` 或 Cursor 的 `settings.json`（`Ctrl+,` → 搜索 "copilot"）中。如果 Cursor 直接调 DeepSeek（不走 Hermes），需要改 Cursor 的设置。
+
+### 在 Hermes 中禁用 copilot-acp provider
+
+```bash
+# 编辑 config.yaml，注释掉 copilot-acp provider 段
+# 或者设 enabled: false
+```
+
+### 在 Cursor 中禁用 Copilot 的 DeepSeek 路由
+
+1. `Cmd+,` 打开 Settings
+2. 搜索 "copilot" 或 "model"
+3. 找到 Copilot Chat / Agent 的模型设置
+4. 移除 DeepSeek 或改为不用 DeepSeek 的模型
+5. 或者直接禁用 Copilot：`github.copilot.chat` → toggle off
+
+### 暂停副官记忆仓同步（每 5 分钟的高频 cron）
 - 检查 DeepSeek 官方 key 余额，隔离 billing key
 
 ## Cron 任务暂停（紧急止血）
