@@ -5,6 +5,47 @@ description: 用 Remotion 4.0 生成智能照片MV，支持鼓点同步切换（
 
 # Remotion Photo MV Pro — 智能照片MV生成
 
+## 硬路由（必须遵守）
+
+照片 MV 必须优先调用程序化流水线，禁止让模型临场手写 Remotion 项目、手写图片路径、手写渲染命令。
+
+唯一默认入口：
+
+```bash
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py build \
+  --project /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan \
+  --photos /path/to/photos \
+  --music /path/to/background_music.mp3 \
+  --theme family_warm \
+  --title "标题"
+
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py render \
+  --project /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan \
+  --output /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan/output_remotion.mp4
+
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py qc \
+  --video /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan/output_remotion.mp4
+```
+
+如果素材已经在项目 `public/` 下，`build` 可以省略 `--photos` 和 `--music`，但仍必须运行 `build` 来重建标准模板和 `mv_config.json`。
+
+发送规则：
+- `qc` 返回 `passed: true` 才能发送视频。
+- `qc` 失败时禁止发送，必须把失败原因报告给用户。
+- 黑屏、破图、视频码率过低、音频缺失、时长异常，都视为失败。
+
+模型只允许介入：
+- 选择主题：`family_warm` / `travel_beat` / `fast_pop`
+- 写标题或短字幕
+- 解释 QC 报告
+
+模型不允许介入：
+- 手写 `<img src=...>` 图片路径
+- 绕过 `staticFile()`
+- 绕过 `public/` 素材目录
+- 跳过 `qc`
+- 文件存在就宣称完成
+
 ## 概览
 
 核心问题与解法：

@@ -5,6 +5,18 @@ description: Build and render a Remotion-based photo slideshow MV from local JPG
 
 # Photo Slideshow MV with Remotion
 
+## Deprecated Routing
+
+This skill is retained for historical reference only. For new photo MV work, do not hand-code a Remotion project from this document. Use the program-first pipeline instead:
+
+```bash
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py build --project /path/to/project --photos /path/to/photos --music /path/to/music.mp3 --theme family_warm
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py render --project /path/to/project --output /path/to/output.mp4
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py qc --video /path/to/output.mp4
+```
+
+Only send the video after QC returns `passed: true`.
+
 Use when you need to create a video montage from a folder of photos, with transitions, Ken Burns effect, and programmatic background music.
 
 ## Triggers
