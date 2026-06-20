@@ -12,6 +12,19 @@ description: 用 Remotion 4.0 生成智能照片MV，支持鼓点同步切换（
 唯一默认入口：
 
 ```bash
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py run \
+  --project /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan \
+  --photos /path/to/photos \
+  --music /path/to/background_music.mp3 \
+  --theme family_warm \
+  --title "标题" \
+  --compress \
+  --send
+```
+
+分步调试入口：
+
+```bash
 python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py build \
   --project /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan \
   --photos /path/to/photos \
@@ -25,12 +38,16 @@ python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py rend
 
 python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py qc \
   --video /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan/output_remotion.mp4
+
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py send \
+  --video /Users/mac/.hermes/profiles/her-m2/home/aider_workspace/photo_mv_gushan/output_remotion_telegram.mp4
 ```
 
 如果素材已经在项目 `public/` 下，`build` 可以省略 `--photos` 和 `--music`，但仍必须运行 `build` 来重建标准模板和 `mv_config.json`。
 
 发送规则：
-- `qc` 返回 `passed: true` 才能发送视频。
+- `run --send` 是默认交付方式，内部会先 `build/render/qc/compress/qc`，全部通过才发送。
+- 独立 `send` 命令也会先运行 QC，`passed: true` 才发送视频。
 - `qc` 失败时禁止发送，必须把失败原因报告给用户。
 - 黑屏、破图、视频码率过低、音频缺失、时长异常，都视为失败。
 
