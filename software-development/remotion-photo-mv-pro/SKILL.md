@@ -38,44 +38,46 @@ ls -la ~/aider_workspace/photo_mv/public/*.mp3 ~/aider_workspace/photo_mv/public
 ❌ ~~方案B（Python requests）：需要完整cookie + token链，经常返回code=-3~~
 
 #### BPM分析
+
+**方法1：Beat Spectrum法（推荐，鲁棒性强）**
+
 ```bash
-# 提取WAV用于分析
-ffmpeg -i public/background_music.mp3 -f wav -ar 22050 -ac 1 /tmp/bgm_analysis.wav -y 2>/dev/null
+# 1. 解码为单声道16kHz WAV
+ffmpeg -y -i public/background_music.mp3 -ac 1 -ar 16000 /tmp/bpm.wav
 
-# 用Python做能量检测法BPM
+# 2. 计算beat spectrum
 python3 -c "
-import wave, struct, math
-wav = wave.open('/tmp/bgm_analysis.wav')
-sr = 22050
-frames = wav.readframes(wav.getnframes())
-samples = [struct.unpack('<h', frames[i:i+2])[0]/32768.0 for i in range(0, len(frames)-1, 2)]
-
-# 短时能量 + 峰值检测
-ws, hs = int(0.05*sr), int(0.01*sr)
-energy = [sum(abs(samples[i:i+ws]) for s in samples[i:i+ws])/ws for i in range(0, len(samples)-ws, hs)]
-mean_e = sum(energy)/len(energy)
-threshold = mean_e * 3.0
-
-beats = []
-for i in range(1, len(energy)-1):
-    start = max(0, i-20)
-    end = min(len(energy), i+20)
-    local = sum(energy[start:end])/(end-start)
-    if energy[i] > energy[i-1] and energy[i] > energy[i+1] and energy[i] > local*1.8:
-        t = i*0.01
-        if not beats or t-beats[-1] > 0.2:
-            beats.append(t)
-
-intervals = [beats[i+1]-beats[i] for i in range(len(beats)-1)]
-bpm = 60.0 / (sum(intervals)/len(intervals)) if intervals else 120
-print(f'BPM: {bpm:.0f}')
-print(f'Beats detected: {len(beats)}')
+import numpy as np, wave
+with wave.open('/tmp/bpm.wav') as wf:
+    sr = wf.getframerate()
+    audio = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(float)/32768.0
+hop = 512
+n = (len(audio)-hop)//hop + 1
+energy = np.array([np.sum(audio[i*hop:(i+1)*hop]**2) for i in range(n)])
+onset = np.maximum(np.diff(energy).astype(float), 0)
+lags = range(max(1,int(60*n/(sr/hop))), min(len(onset),int(200*n/(sr/hop))))
+scores = [(int(np.sum(onset[:-l]*onset[l:])), l) for l in lags]
+best_score, best_lag = max(scores)
+bpm = (sr/hop) * 60 / best_lag
+print(f'BPM: {bpm:.1f} (lag={best_lag})')
+top5 = sorted(scores, reverse=True)[:5]
+for s, l in top5:
+    print(f'  {(sr/hop)*60/l:.1f} BPM (score={s})')
 "
-
-# Suno歌曲通常BPM=120, 每个beat=0.5s, 15帧@30fps
 ```
 
-**已知结论：Suno AI生成的歌曲BPM通常稳定在120左右。** 即使能量检测法不太准，直接使用 BPM=120, beat_interval=15帧 也足够好。
+**方法2：快速假设（Suno歌曲）**
+
+Suno AI生成的歌曲BPM通常稳定在120左右。如果确认音乐来自Suno，可直接用 `BPM=120, BEAT_INTERVAL=15帧`，跳过分析。
+
+**参数映射（得到BPM后）：**
+```
+BEAT_INTERVAL = 30 * 60 / BPM  （帧数，@30fps）
+SWITCH_FRAMES = BEAT_INTERVAL × 2  （每2拍切换一次照片）
+```
+
+例：BPM=127 → BEAT_INTERVAL=14帧 → SWITCH_FRAMES=28帧
+例：BPM=120 → BEAT_INTERVAL=15帧 → SWITCH_FRAMES=30帧
 
 ### Phase 1: 照片资源准备
 

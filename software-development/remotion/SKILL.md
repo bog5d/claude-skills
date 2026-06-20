@@ -86,3 +86,4 @@ npx remotion render src/index.ts YourComposition out.mp4 --codec h264 --crf 23
 - **Chrome path** — if auto-detection fails: `--chrome-binary="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`.
 - **OverwriteOutput** — set in config or pass `--overwrite` flag, or re-renders fail.
 - **Large output** — compress for Telegram: `ffmpeg -i out.mp4 -crf 32 -vf "scale=854:480" -movflags +faststart out_small.mp4 -y`.
+- **Narrative MVs with custom lyrics** — when user provides lyrics, map verse/chorus to photo groups semantically. See `references/lyrics-photo-mapping.md` for the mapping workflow.
