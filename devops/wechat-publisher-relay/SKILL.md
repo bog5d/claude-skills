@@ -14,8 +14,19 @@ category: devops
 | 主机名 | iZ0xico4s35nx01ecj3anmZ |
 | 云厂商 | 阿里云轻量应用服务器 |
 | OS | Linux (Alibaba Cloud Linux / CentOS) |
-| SSH | 密钥认证（`~/.ssh/id_ed25519_alicloud`），密码登录已关闭。VNC 应急用 root 密码。 |
+| SSH | 密钥认证（`/Users/mac/.ssh/id_ed25519_alicloud`），密码登录已关闭。 |
 | Node.js | ESM 模块，通过 PM2 管理 |
+| 公网出口 | 固定公网 IP，可作微信 API 白名单出口 |
+| DNS | ⚠️ 解析不稳定，SOCKS5 隧道用本地 DNS 绕过 |
+
+### SOCKS5 隧道（微信固定出口 IP 方案）
+
+本机动态 IP 导致微信白名单失效时，用此服务器作固定出口：
+```bash
+ssh -D 1080 -N -f -i /Users/mac/.ssh/id_ed25519_alicloud root@47.85.62.133
+```
+然后 `publish_article.py --socks5 127.0.0.1:1080` 将微信 API 流量通过此服务器路由。
+详见 `wechat-publish-direct` skill → `references/socks5-tunnel-setup.md`。
 
 ## 服务概览
 

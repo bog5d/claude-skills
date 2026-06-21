@@ -20,25 +20,24 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 
 ⚠️ 写入脚本文件时密钥会被redact。解决方法：用 `ssh root@47.85.62.133 'base64 /root/wx-publisher/.env' | base64 -d` 获取原文，然后在终端heredoc中直接使用。
 
-## ⚠️ 故障降级策略（2026-06-18 更新）
+## ⚠️ 故障降级策略（2026-06-21 更新）
 
-### 当前状态（2026-06-18 实测）
+### 当前状态（2026-06-21 实测）
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
-| 阿里云中继 SSH | ❌ 认证失败 | `Permission denied (publickey,gssapi-keyex,gssapi-with-mic)` |
-| DeepSeek API | ❌ 402 Payment Required | 主 key 余额耗尽 |
-| Agnes API | ❌ 401 Unauthorized | key 被 redact，不完整 |
+| 阿里云中继 SSH | ✅ 可用 | `/Users/mac/.ssh/id_ed25519_alicloud` 密钥认证通 |
+| DeepSeek API | ✅ 正常 | 直连 api.deepseek.com 200 OK |
+| 微信 API 直连 | 🔴 IP 白名单动态变化 | 本机 IP 每分钟变（89.x.x.x → 222.x.x.x），白名单跟不上 |
+| 微信 API via SOCKS5 | ✅ 跑通 | SSH 隧道 → 47.85.62.133 固定 IP → 微信 API 成功 |
 | Pexels API | ❌ 403 Forbidden | key 已失效 |
 | Unsplash API | ❌ 401 Unauthorized | key 已失效 |
-| 本地直连微信 | ✅ 全链路跑通 | 用户手动提供 App Secret + IP 在白名单 + 旧接口上传成功 |
 
-### 降级路径（按优先级）
+### 降级路径（按优先级，2026-06-21 更新）
 
-1. **用户手动提供 App Secret** → 本地获取 access_token → 旧接口上传 picsum 配图 → 直接调微信 draft/add API（**已全链路跑通，2026-06-18**）
-2. **用户直接提供排版好的 HTML** → Hermes 只做配图+草稿创建
+1. **SOCKS5 隧道直连微信** → SSH 隧道 `--socks5 127.0.0.1:1080` → 阿里云固定 IP → 微信 API（**已验证 access_token 拿到，2026-06-21**）
+2. **直连微信（IP 白名单已配时）** → 本机直接调微信 API（仅当 IP 稳定在名单时可用，不推荐）
 3. **使用 pub2gg-local 技能** → 走 GitHub + WordPress + Telegram 全链路（不依赖微信）
-4. **用户自行复制文章到公众号后台** → Hermes 仅提供排版好的 HTML
 
 ### 配图策略更新（2026-06-18）
 
@@ -102,7 +101,7 @@ WECHAT_SECRET=<用户提供的secret>
 DEEPSEEK_API_KEY=<你的key>
 ```
 
-**写入方式**：用 `write_file` 直接写入整个 `.env` 文件（不要用 patch 追加，避免格式问题）。
+**写入方式**：用 `write_file` 直接写入 `/Users/mac/.hermes/profiles/her-m2/.env`（不要用 `Path.home()` 因为 Hermes 重定向 HOME 到 profile 子目录）。
 
 **验证**：写入后运行 `python3 scripts/publish_article.py --help` 确认不报 `WECHAT_SECRET not available`。
 
@@ -161,28 +160,36 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - 获取方式：先 `batchget_material` 列出已有素材，取第一个可用的
 - ⚠️ 从外部（picsum 等）上传的图片可能因格式/尺寸被微信素材库拒绝
 
-### IP白名单
-- 添加后需 **30-60 分钟** 才生效（不是 2-5 分钟！2026-06-18 实测）
-- 错误码 40164 → IP 不在白名单
-- 如果添加后 10 分钟内仍报错，告诉用户微信有缓存延迟，耐心等待
+### IP白名单 — 动态IP问题与SOCKS5固定出口 (2026-06-21)
 
-### ⚠️ macOS 系统代理劫持（2026-06-19 新增）
+**根本问题**：本机宽带 IP 是动态的（C-G NAT / ISP 轮换），几分钟一变。微信 IP 白名单只能加单个 IP，添加后还需 30-60 分钟生效，无法跟上变化。
 
-**Clash Verge / Surge / Shadowrocket 等透明代理会劫持所有出站 TCP 连接**，包括：
-- `urllib.request.urlopen`
-- `http.client.HTTPSConnection`
-- `socket.create_connection`（raw socket）
-- 直连 IP 地址
+**解决方案**：SSH SOCKS5 隧道 → 阿里云服务器 `47.85.62.133`（固定公网 IP）作为出口。
 
-**全部无效** — 因为代理在 PF firewall / RDR 层面做 NAT 劫持。
+**设置（一次性）**：
+```bash
+# 启动 SSH SOCKS5 隧道（本地 1080 端口 → 阿里云出口）
+ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 \
+  -i /Users/mac/.ssh/id_ed25519_alicloud \
+  -D 1080 -N -f root@47.85.62.133
+```
 
-**排查流程**：
-1. `curl -s ifconfig.me` 看出口 IP 是否是本机真实 IP
-2. 如果是代理 IP → 检查 Clash 配置中 `mode` 是否为 `rule`（不是 `global`）
-3. 确认 `api.weixin.qq.com` 在 Clash 规则中设为 `DIRECT`
-4. 参考 `references/macos-proxy-bypass.md` 获取完整绕过方案
+**使用**：
+```bash
+python3 scripts/publish_article.py --article /tmp/article.md --socks5 127.0.0.1:1080
+```
 
-**publish_article.py 已内置 raw socket + SSL 直连逻辑**，但如果 Clash 规则没配好，仍会走代理。
+**原理**：`--socks5` 参数只在连接 `api.weixin.qq.com` 时走隧道，DeepSeek 和 picsum 仍直连（白名单路由）。
+
+**⚠️ 阿里云 DNS 问题**：服务器 `/etc/resolv.conf` 解析失败，但 TCP 出站正常。SOCKS5 用**本地 DNS 解析**（客户端先解析 IP，再走隧道），完美绕过此问题。
+
+⚠️ **微信白名单需添加 `47.85.62.133`**（不是本机 IP），且添加后 30-60 分钟生效。确认已添加一次后无需再改。
+
+### ⚠️ macOS 系统代理劫持（2026-06-21 更新 — 已由 SOCKS5 隧道解决）
+
+**Clash Verge / Surge / Shadowrocket 等透明代理会劫持所有出站 TCP 连接。**
+
+`publish_article.py` 使用 raw socket + SSL 直连可绕过系统代理，但本机动态 IP 问题仍需 SOCKS5 隧道解决。详见上方「IP白名单 — 动态IP问题与SOCKS5固定出口」。
 
 ## 执行脚本
 
@@ -199,6 +206,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 - `references/publish-article-script.md` — `publish_article.py` 固化程序文档（用法、管线步骤、限制）
 - `references/bug-diagnosis-prd-2026-06-18.md` — **2026-06-18 Bug 诊断 PRD**（3 个已知 Bug 的根因分析 + Cursor 修复任务清单）
 - `references/macos-proxy-bypass.md` — **macOS 系统代理（Clash Verge/Surge）劫持所有出站连接的全套绕过方案**
+- `references/socks5-tunnel-setup.md` — **SOCKS5 隧道配置**（SSH 隧道 → 阿里云固定 IP → 微信 API，解决 IP 白名单动态变化问题）
 
 ## ⛔ 已知 Bug（2026-06-18 诊断 — publish_article.py）
 
@@ -230,7 +238,7 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 
 ---
 
-## ✅ 验证状态 (2026-06-18 更新)
+## ✅ 验证状态 (2026-06-21 更新)
 
 | 组件 | 状态 | 备注 |
 |------|------|------|
@@ -238,5 +246,6 @@ POST `cgi-bin/draft/add` → 返回media_id → 波总在后台确认群发
 | publish_article.py 图片 | 🔴 致命 Bug | 嵌套 img 标签 → 微信当纯文本（Bug #1） |
 | publish_article.py 草稿 | 🔴 重复提交 | 无 dedup（Bug #2） |
 | publish_article.py 输出 | 🟡 HTML 不写盘 | --output 空实现（Bug #3） |
-| 中继服务器 SSH | 🔴 不可用 | Permission denied |
+| SSH 中继服务器 | 🟢 可用 | `/Users/mac/.ssh/id_ed25519_alicloud` 密钥认证通 |
+| SOCKS5 隧道 | 🟢 跑通 | `--socks5 127.0.0.1:1080` → 47.85.62.133 → 微信拿到 access_token |
 | FRP 隧道 | 🟢 在线 | frps :7000 ↔ frpc macOS |

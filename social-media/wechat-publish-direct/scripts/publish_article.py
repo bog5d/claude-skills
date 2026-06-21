@@ -42,14 +42,48 @@ from pathlib import Path
 
 import socket
 import ssl
+import struct
 from urllib.parse import urlparse
+
+# SOCKS5 代理配置 — 用于固定出口 IP（解决公众号 IP 白名单动态变化问题）
+SOCKS5_PROXY = None  # (host, port) 或 None
+SOCKS5_HOSTS = {"api.weixin.qq.com"}  # 仅这些域名走代理
+
+
+def _socks5_connect(target_host: str, target_port: int, timeout: int = 15):
+    """通过 SOCKS5 代理连接目标主机，本地解析 DNS"""
+    proxy_host, proxy_port = SOCKS5_PROXY
+    
+    # 本地解析目标 IP
+    target_ip = socket.gethostbyname(target_host)
+    
+    # 连接代理
+    s = socket.create_connection((proxy_host, proxy_port), timeout=timeout)
+    
+    # SOCKS5 握手: 无认证
+    s.send(b"\x05\x01\x00")
+    resp = s.recv(2, socket.MSG_WAITALL)
+    if resp != b"\x05\x00":
+        raise OSError(f"SOCKS5 handshake failed: {resp.hex()}")
+    
+    # SOCKS5 CONNECT: IPv4
+    req = b"\x05\x01\x00\x01" + socket.inet_aton(target_ip) + struct.pack("!H", target_port)
+    s.send(req)
+    resp = s.recv(10, socket.MSG_WAITALL)
+    if resp[1] != 0x00:
+        raise OSError(f"SOCKS5 connect failed: code={resp[1]}")
+    
+    return s
 
 
 def _build_request(method: str, host: str, path: str, body: bytes = None,
                    headers: dict = None, timeout: int = 15) -> str:
     """用 raw socket + ssl 构建完整 HTTP 请求，绕过系统代理"""
-    # 创建直连 socket
-    sock = socket.create_connection((host, 443), timeout=timeout)
+    # 创建连接：微信 API 走 SOCKS5，其他直连
+    if SOCKS5_PROXY and host in SOCKS5_HOSTS:
+        sock = _socks5_connect(host, 443, timeout=timeout)
+    else:
+        sock = socket.create_connection((host, 443), timeout=timeout)
     
     try:
         # 创建 SSL 上下文（不使用系统代理）
@@ -131,7 +165,7 @@ def _http_download(url: str, timeout: int = 10) -> bytes:
 # =============================================================================
 
 SKILL_DIR = Path(__file__).parent.parent
-ENV_PATH = Path.home() / ".hermes" / "profiles" / "her-m2" / ".env"
+ENV_PATH = Path("/Users/mac/.hermes/profiles/her-m2/.env")
 
 DEESEEK_URL = "https://api.deepseek.com/chat/completions"
 WECHAT_BASE = "https://api.weixin.qq.com"
@@ -687,8 +721,20 @@ def main():
         "--secret", default=None,
         help="微信 AppSecret（默认从 .env 读取）"
     )
+    parser.add_argument(
+        "--socks5", default=None,
+        metavar="HOST:PORT",
+        help="SOCKS5 代理地址（如 127.0.0.1:1080），用于固定出口 IP"
+    )
     
     args = parser.parse_args()
+    
+    # SOCKS5 代理
+    if args.socks5:
+        host, port = args.socks5.rsplit(":", 1)
+        import __main__
+        __main__.SOCKS5_PROXY = (host, int(port))
+        log("PROXY", f"SOCKS5 {host}:{port}", "⚡")
     
     # 读取文章
     with open(args.article, "r", encoding="utf-8") as f:
