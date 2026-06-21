@@ -124,6 +124,7 @@ Then curl test with the real key (Step 1). If it returns 401, the provider is de
   ```
 - **Auto-fallback pattern:** Configure `agnes` as default with `fallback_providers` pointing to `deepseek` (or vice versa) so the system automatically upgrades to a paid model when the free tier is insufficient.
 - **Full reference:** See `references/agnes-ai-integration.md` for the complete integration record, benchmark data, and known issues.
+- **Zhipu GLM:** See `references/zhipu-glm-integration.md` for the complete Zhipu integration record, 401 debugging, and verification commands.
 - **Copilot auth pitfalls:** See `references/copilot-chat-api-auth-pitfalls.md` for PAT vs OAuth token distinction and error message decoding.
 
 ## Pitfall: GitHub Copilot Chat API — Not PAT-Authenticatable
@@ -170,6 +171,76 @@ Some providers use unusual auth formats that break standard OpenAI-compatible as
 | Custom backends | Query param `?api_key=` | Rare but exists on older proxy implementations |
 
 **Debug tip:** When auth fails, first check: (1) is the header name correct? (2) is the scheme correct? (3) is there hidden whitespace in the key? (4) is the token type compatible with this endpoint?
+
+## Built-in Provider: Zhipu GLM (智谱 AI)
+
+Zhipu (智谱AI) is a **built-in** Hermes provider (not custom). It uses the `glm` provider key and `GLM_API_KEY` env var.
+
+### Configuration
+
+```bash
+# 1. Set env var
+echo 'GLM_API_KEY=<your-key>' >> ~/.hermes/.env
+
+# 2. Switch model (optional — or use per-query)
+hermes config set model.provider glm
+hermes config set model.default glm-4-flash
+```
+
+### Key Format
+
+Zhipu keys are `id.secret` format (dot-separated), e.g.:
+```
+3b602c8aecb64509a88d160fcbdfe481.7OeAZogoTqA3Awp
+```
+NOT `sk-` prefixed like OpenAI. The dot separates the API key ID from the secret.
+
+### Base URL & Endpoint
+
+- **Base URL:** `https://open.bigmodel.cn/api/paas/v4/`
+- **Model:** `glm-4-flash` (permanently free, 0元/百万token)
+- **Alternative free model:** `glm-4.7-flash` (newer, also free)
+
+### OpenAI-Compatible Python Test
+
+```python
+from openai import OpenAI
+client = OpenAI(
+    api_key="YOUR_KEY",  # full id.secret string, no prefix
+    base_url="https://open.bigmodel.cn/api/paas/v4/"
+)
+resp = client.chat.completions.create(
+    model="glm-4-flash",
+    messages=[{"role": "user", "content": "你好"}],
+    max_tokens=50
+)
+print(resp.choices[0].message.content)
+```
+
+### Pitfalls
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| `401 身份验证失败` | Key expired / wrong platform / typo | Regenerate at https://open.bigmodel.cn → API Keys |
+| `401` with `zhipuai` SDK | Different auth mechanism | Try `openai` compatible mode instead |
+| Key has `sk-` prefix | Wrong provider — this is NOT OpenAI | Zhipu keys are `id.secret` format |
+| Rate limited | Free tier peak-hour throttling | Acceptable for personal use |
+| Model name wrong | Typed `glm-4-plus` or `glm-4` | Must be exactly `glm-4-flash` |
+
+### Multi-Profile Sync
+
+```bash
+# Apply to all profiles
+for p in her-m2 default english-tutor; do
+  echo 'GLM_API_KEY=<key>' >> ~/.hermes/profiles/$p/.env 2>/dev/null
+done
+```
+
+### When to Use
+
+- Cheap/free fallback for routine tasks (intent classification, extraction, summarization)
+- When primary provider is rate-limited or expensive
+- Not recommended as sole production model until stability improves
 
 ## Step 7: `hermes config set` — The Credential-Lock Bypass
 
