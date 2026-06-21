@@ -580,3 +580,11 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     9. 支付宝小荷包自动攒（如¥0.33）属于内部转账，不计消费
     10. 去重：与现有expenses.json按`日期_金额_商户名_支付宝`键比对，已有则跳过
     11. 新增记录后更新meta.last_updated，cp到repo，git commit+push
+44. **⚠️ Gmail IMAP 拉取支付宝账单 — 两类密码严格区分（2026-06-21 新增）** — 两个完全不同的密码：
+    - **Gmail App Password**（16位字母数字）：用于 IMAP 登录 Gmail 拉邮件。存放在 `/Users/mac/.config/himalaya/gmail-app-password`。用普通密码会报 `AUTHENTICATIONFAILED`。
+    - **支付宝 ZIP 解压密码**（6位数字，每次随机）：用于解压邮件附件中的 ZIP。由波总在支付宝App中获取后发给我。
+    下次拉账单时，先确认波总发的是哪个密码。
+45. **⚠️ Python imaplib 搜索限制（2026-06-21 新增）** — 三个铁律：
+    - 搜索条件只能用 ASCII，中文 Subject 会 `UnicodeEncodeError`
+    - 必须先用 `FROM "service@mail.alipay.com"` 缩小范围，否则搜全部邮件 300s 超时
+    - Himalaya `envelope list` 只返回最近10封，无分页，历史邮件必须用 imaplib

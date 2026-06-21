@@ -141,6 +141,14 @@ for line in lines[header_line+1:]:
 4. **前导元数据** — 前22行不是数据，含导出信息、统计摘要
 5. **不计收支 ≠ 支出** — 余额宝转入、小荷包自动攒是"不计收支"，不计消费
 6. **邮件附件可能为空/占位符** — 如果下载的文件很小（<5KB），可能是加密容器而非真实数据
+7. **⚠️ App Password ≠ 用户密码** — Gmail IMAP 必须用 App Password（16位字母数字，从 `/Users/mac/.config/himalaya/gmail-app-password` 读取），不是波总发的普通密码。用普通密码会报 `AUTHENTICATIONFAILED`。
+8. **⚠️ Python imaplib 搜索中文 Subject 会 UnicodeEncodeError** — Python 3.9 imaplib 用 ASCII 编码搜索条件。必须用 ASCII-safe 条件如 `FROM "service@mail.alipay.com"`。
+9. **⚠️ IMAP 全量搜索会超时** — `SINCE` 不加 `FROM` 限制会搜全部邮件，300s 超时。必须先缩小到 `FROM "service@mail.alipay.com"`。
+10. **⚠️ Himalaya envelope list 只返回最近 ~10 封** — 无分页选项。需要历史邮件必须用 Python imaplib。
+
+## 新增参考
+
+- `references/gmail-alipay-billing-pitfalls-2026-06-21.md` — 本次会话新增的4个陷阱详解 + 整合版 Python 管线代码
 
 ## 参考代码
 

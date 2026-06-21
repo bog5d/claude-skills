@@ -143,9 +143,22 @@ curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendDocument" \
   -F chat_id=<CHAT_ID> -F document=@<FILE> -F caption="..."
 ```
 
+## Troubleshooting: Expired Auth
+
+When `notebooklm list --json` returns `"Authentication expired or invalid"`:
+
+1. **Check if storage_state.json exists**: `ls -la ~/.notebooklm/profiles/default/storage_state.json`
+2. **If it exists but auth is expired** → the tokens inside are stale. `notebooklm login` must be re-run.
+3. **`notebooklm login` requires interactive OAuth**: it opens a Chromium browser window and waits for you to press ENTER after logging in. This means:
+   - It CANNOT run in background mode (`background=true`) — needs PTY + user interaction
+   - It CANNOT be fully automated — the Google OAuth page requires manual credential entry
+   - If run non-interactively, it hits `EOFError: EOF when reading a line` and aborts
+4. **Workaround**: ask the user to run `notebooklm login` themselves in a terminal, then resume the pipeline. Or use the browser tool to manually complete Google Login → NotebookLM homepage → then `notebooklm login` in PTY mode and press ENTER.
+5. **Copy to Hermes profiles after re-auth**: once login succeeds, copy `storage_state.json` to all active profiles (see Step 0).
+
 ## Pitfalls
 
-1. **Auth path mismatch**: `notebooklm login` stores to `~/.notebooklm/` but Hermes profiles expect `~/.hermes/profiles/<name>/home/.notebooklm/`. Must copy. This is per-profile — every gateway profile needs its own copy.
+1. **Auth path mismatch + token expiration**: Two failure modes exist — (a) file missing/wrong path (Step 0 fix), (b) file present but tokens expired (needs full re-login, see Troubleshooting above). Running `notebooklm login` requires interactive OAuth; cannot be background-automated.
 
 2. **Language is GLOBAL**: `notebooklm language set zh_Hans` affects ALL notebooks, not just the current one. Warn user if they have non-Chinese notebooks.
 
