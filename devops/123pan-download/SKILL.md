@@ -23,18 +23,23 @@ browser_navigate(url="https://xxx.share.123pan.cn/...?pwd=XXXX")
 
 ### Step 2: 注入网络拦截器
 
-在点击"浏览器下载"之前，先在 `browser_console` 中注入拦截器：
+在点击"浏览器下载"之前，先在 `browser_console` 中注入拦截器。**注意：必须同时记录所有 fetch URL 到 `__allFetches` 数组**，因为首次点击"浏览器下载"可能只触发 `download/info`（斜杠形式），而真正的 `dispatchList` 在下一次请求中返回。
 
 ```javascript
-var stored = [];
 var _f = window.fetch;
+window.__allFetches = [];
 window.fetch = function() {
   var url = typeof arguments[0] === 'string' ? arguments[0] : arguments[0]?.url || '';
+  window.__allFetches.push(url);
   return _f.apply(this, arguments).then(function(r) {
-    if (url.includes('batch_download') || url.includes('download_info') || url.includes('download_share')) {
+    // Match both /download/info (slash) and /download_info (underscore) patterns
+    if (url.includes('download')) {
       var c = r.clone();
-      c.text().then(function(t) { 
-        window.__dlInfo = t;  // Capture the JSON response
+      c.text().then(function(t) {
+        var trimmed = t.trim();
+        if (trimmed.includes('dispatchList')) {
+          window.__dlInfo = trimmed;
+        }
       });
     }
     return r;
@@ -42,11 +47,24 @@ window.fetch = function() {
 };
 ```
 
+⚠️ **重要：上述拦截器只在注入后才生效**——如果第一次点击"浏览器下载"时拦截器尚未注入，dispatchList 不会被捕获。此时需要关闭弹窗 → 重新点击"浏览器下载" → 重新点击"备用下载线路"。
+
 ### Step 3: 触发下载
 
-点击"浏览器下载"按钮（通过ref），再在弹出的dialog中点击备用下载线路。
+1. `browser_click` 点击"浏览器下载"按钮
+2. 弹窗出现后，`browser_click` 点击"备用下载线路"
+3. 用 `browser_console` 检查 `window.__dlInfo` 是否包含 dispatchList
+4. 如果 `window.__dlInfo` 为 null 或只包含 `vipType` 而不含 `dispatchList`：关闭弹窗，重新点击"浏览器下载"→"备用下载线路"
 
-此时 `window.__dlInfo` 会包含API响应。
+### Step 4: 提取下载URL（走 console 日志，不走 `window.__dlInfo`）
+
+如果 `window.__dlInfo` 多次覆盖仍未捕获到 `dispatchList`，**从 `browser_console()` 的日志输出中手动提取**。console 日志中会包含完整的下载信息：
+
+```
+CAPTURED DOWNLOAD: {"code":0,...,"data":{"dispatchList":[{"prefix":"https://...","isp":"下载线路一"},...],"downloadPath":"/1135-guest-share-free-download-cdn.123295.com/..."}}
+```
+
+注意：`downloadPath` 在日志中可能被截断（超 1000 字符）。用完整的 prefix + downloadPath 拼接 URL。
 
 ### Step 4: 提取下载URL
 
@@ -89,6 +107,9 @@ curl -L -o output_file.zip "https://prefix.xxx.com/path?..."
 | `code:-3` 刷新后重试 | 签名参数过期 | 重新打开分享页再试 |
 | curl下载为0字节 | 302跳转未跟随 | 检查 `curl -L` 是否启用 |
 | 下载到的是HTML页面 | URL被防盗链拦截 | 检查 `Referer` 头是否正确 |
+| 第一次点击`window.__dlInfo`无dispatchList | 拦截器注入晚于第一次API调用 | 关闭弹窗重新点击"浏览器下载"→"备用下载线路" |
+| `window.__dlInfo`被流量检查覆盖 | `traffic/check`也包含"download" | 只保存包含`dispatchList`的响应，过滤掉无dispatchList的 |
+| console日志中downloadPath被截断 | console.log默认截断 | 从日志中分段拼接，或用`browser_console`执行 `JSON.parse(window.__dlInfo).data.dispatchList[0].prefix + JSON.parse(window.__dlInfo).data.downloadPath` 获取完整URL |
 | screencapture/截图失败 | sandbox无display | 用Swift+KVC的方式截屏（`CGDisplayCreateImage` via `dlopen`） |
 
 ## 已知坑点

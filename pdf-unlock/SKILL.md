@@ -26,8 +26,12 @@ metadata:
 cd /Users/mac/.hermes/hermes-agent && source venv/bin/activate && python3 << 'PYEOF'
 import pymupdf
 doc = pymupdf.open("<输入路径>")
-doc.authenticate("<密码>")
-doc.save("<输出路径>")
+result = doc.authenticate("<密码>")
+if result == 0:
+    print("密码错误")
+    doc.close()
+    exit(1)
+doc.save("<输出路径>")  # 不要加任何 encryption 参数，pymupdf 新版本不再接受字符串
 doc.close()
 print("OK")
 PYEOF
@@ -62,6 +66,7 @@ doc.close()
 
 ## Pitfalls
 
-1. **密码可能不对** — 如果 `doc.authenticate(password)` 返回 False，告诉用户"密码不正确"，不要猜
-2. **只解密不改动内容** — 用 `save(output)` 保留原内容，只是去掉加密
-3. **不要问"要我做什么"** — 收到密码就直接解，解完直接发
+1. **密码可能不对** — `doc.authenticate(password)` 返回 `0`（失败），告诉用户"密码不正确"，不要猜
+2. **`TypeError` on `save()`** — pymupdf 新版本 `save()` 的 `encryption` 参数只接受 int（如 `pymupdf.PDF_ENCRYPT_NONE`），不接受字符串 `"store"`。直接用 `doc.save(output_path)` 不加任何 encryption 参数即可去掉密码
+3. **只解密不改动内容** — 用 `save(output)` 保留原内容，只是去掉加密
+4. **不要问"要我做什么"** — 收到密码就直接解，解完直接发
