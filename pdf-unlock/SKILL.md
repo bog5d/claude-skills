@@ -13,7 +13,32 @@ metadata:
 
 ## 什么时候用
 
-用户发了一个加密的PDF文件，给了密码，让你去掉密码。
+用户发了一个加密的PDF或XLSX文件，给了密码，让你去掉密码。
+
+## 支持格式
+
+| 格式 | 工具 | 代码 |
+|------|------|------|
+| PDF | pymupdf | `doc.authenticate(pwd)` → `doc.save(out)` |
+| XLSX | msoffcrypto | `OfficeFile(f).load_key(password=pwd)` → `decrypt(buf)` |
+
+## XLSX 解密命令
+
+```bash
+cd /Users/mac/.hermes/hermes-agent && source venv/bin/activate && python3 << 'PYEOF'
+import io, msoffcrypto
+path = '<输入路径>'
+decrypted = io.BytesIO()
+with open(path, 'rb') as f:
+    office_file = msoffcrypto.OfficeFile(f)
+    office_file.load_key(password='<密码>')
+    office_file.decrypt(decrypted)
+out = '/Users/mac/.hermes/cache/documents/<文件名>_已解密.xlsx'
+with open(out, 'wb') as f:
+    f.write(decrypted.getvalue())
+print('OK')
+PYEOF
+```
 
 ## 铁律：一步到位，别废话
 

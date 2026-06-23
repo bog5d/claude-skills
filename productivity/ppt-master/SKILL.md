@@ -28,6 +28,10 @@ AI 驱动的 PPT 生成系统。走 SVG → PowerPoint DrawingML 路线，不是
 
 完整流程见 `~/ppt-master/skills/ppt-master/SKILL.md`（权威工作流文档）。
 
+## 修改现有PPTX
+
+按修改手册逐页执行（文本替换/删页/插页/重排版）的工作流见 `references/pptx_bulk_edit.md`。
+
 ## 常用命令
 
 ```bash
