@@ -588,3 +588,10 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     - 搜索条件只能用 ASCII，中文 Subject 会 `UnicodeEncodeError`
     - 必须先用 `FROM "service@mail.alipay.com"` 缩小范围，否则搜全部邮件 300s 超时
     - Himalaya `envelope list` 只返回最近10封，无分页，历史邮件必须用 imaplib
+46. **⚠️ IMAP 搜索中文主题失败时的兜底方案（2026-06-23 新增）** — 当 `himalaya envelope list 'subject 支付宝'` 或 `imap.search(None, 'SUBJECT "支付宝"')` 因编码问题失败时：
+    1. 先用 `imap.search(None, 'ALL')` 获取全部邮件ID
+    2. 遍历最近 N 封（如 `all_ids[-20:]`），对每封 `fetch(mid, '(BODY.PEEK[HEADER])')` 拿原始 header
+    3. 从 raw header 字符串中 `if '支付宝' in line` 或 `if 'alipay' in line.lower()` 过滤
+    4. 找到目标邮件后，再用 `fetch(mid, '(RFC822)')` 拉完整 MIME 消息
+    5. 解析 attachment 部分，提取 ZIP 附件
+    注意：`imap.select('INBOX')` 必须在 `search` 之前调用，否则会报 `SEARCH illegal in state AUTH`
