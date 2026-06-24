@@ -1954,13 +1954,13 @@
     "created_at": "2026-06-05T08:50:38.386968+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-10T05:12:25.021142+00:00",
-    "last_used_at": "2026-06-18T13:32:01.741392+00:00",
-    "last_viewed_at": "2026-06-18T13:32:01.737633+00:00",
+    "last_used_at": "2026-06-24T01:41:15.561223+00:00",
+    "last_viewed_at": "2026-06-24T01:41:15.559135+00:00",
     "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 5,
-    "view_count": 5
+    "use_count": 6,
+    "view_count": 6
   },
   "opencode": {
     "archived_at": null,
