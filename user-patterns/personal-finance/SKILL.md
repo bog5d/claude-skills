@@ -121,6 +121,9 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 
 ## 游戏化系统
 
+> 完整设计文档见 `finance-hub` 技能的 `references/game-system-design.md`。<br>
+> 运行时状态追踪文件：`debts.json` 同级目录下的 `game_state.json`。
+
 ### 里程碑（Boss战）
 
 | 阈值 | 名称 | 图标 |
@@ -511,6 +514,9 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 | 波总问"我的负债/总负债" | 先问"哪些有变动？"再输出 | 数据可能过时，直接输出容易出错。先收集更新再出全景 |
 | 波总说"XX抵掉了/用其他方式"（非现金还款） | 标记为 amount=0 + notes="其他方式抵账"，移入 cleared。不记录为还款交易 | 不是现金流入/流出，不应出现在还款流水里 |
 | 花呗截图 | 截图中的"7月账单累计 ¥X" = **总待还余额**（不是新增消费）。账单周期（如 6/5~7/4）是消费归属期 | 波总明确确认单数即总账，不要追问"是新增还是总欠款" |
+| 拿去花截图 | "全部待还 ¥X" = 总余额；"X月X日待还 ¥Y" = 未出账部分。拿去花有"未出账"概念，总待还 > 未出账金额 | 直接更新 amount 为"全部待还"值 |
+| 新增自债（非现金动用） | 创建 ID=I001/2/3（I 系列独立编号）, type="其他", rate=0, notes 标注时间预期 | 如基金储备款被消费占用，1-2个月内填回 |
+| 短期承诺（1-2月填回） | 在 notes 标注 "X个月内填回" | 让波总明确还款时间窗口，系统自动追踪 |
 | 还款日提取 | 截图中"还款日7月15日"即是到期日，更新到 `due_date` 字段 | 平台债 always 有固定还款日 |
 
 ## 陷阱
@@ -539,9 +545,9 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图中的还款记录但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
 21. **截图 OCR 管线（v4.0，2026-06-12 波总指定优先级）** — 引擎优先级：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。详见 `debt-screenshot-auto-update` 技能的 "OCR 引擎" 章节。
-22. **数据文件双重同步（🛑 血坑：直接编辑 vs 脚本模式）** — `~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两个独立目录。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。每次数据修改后必须 **cp 到 repo 目录** 再 commit+push。漏 sync 则 git push 提交的是旧版本。
-    - **脚本模式（安全）**：`finance.py repay / expenses.py add` 写入 `~/.hermes/adjutant/finance/` → `cp` 到 repo → git add+commit+push
-    - **直接编辑模式（🛑 危险）**：用 `patch()` 或 `write_file()` 编辑 `~/.hermes/adjutant/finance/` 下文件时，必须同时编辑或 cp 到 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`。commit 前用 `diff` 检查两副本一致
+22. **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）** — `~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两个独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。如果不小心改了工作副本，必须立即 cp + git push。commit 前用 `diff` 检查两副本一致。<br>
+    - **脚本模式**：`finance.py repay / expenses.py add` → 自动写入工作副本 → `cp` 到 repo → git push<br>
+    - **直接编辑模式（🛑 危险）**：必须写 repo 路径，不得碰工作副本
 23. **⚠️ Git pull 快照冲突（多 AI 并行）** — 本地 `snapshots/YYYY-MM-DD.json` 为 untracked 文件，远程已有同名文件时 `git pull` 报错：`error: untracked working tree files would be overwritten by merge`。解法：`rm -f finance/snapshots/YYYY-MM-DD.json && git pull origin main`。根本原因是周报 cron 创建的本地 snapshot 未 add+commit 就被其他 agent push 的同名文件阻塞。
 24. **⚠️ Cron `cd` 路径解析** — Cron 会话中 `cd ~/.hermes/...` 的 `~` 被 profile 覆盖，解析到 profile sandbox（如 `/Users/mac/.hermes/profiles/finance/home/.hermes/...`）。所有 `cd` 和相对路径必须改用绝对 `/Users/mac/...`。关联 pitfall #10（态B）。
 25. **⚠️ Batch 去重误杀：同日同金额段交易** — `expenses.py batch` 去重逻辑为 `日期相同 + 金额差≤¥2 + 商户名相似度>0.5`。同品类同日相近金额会被误判。**真实案例**：6/8 滴滴快车-宋师傅 ¥18.90 被误判为 滴滴专车-袁师傅 ¥19.00 的重复（similarity 0.75），实际是两笔独立行程。**解法**：确认非真重复后，用 `python3 -c` 手动追加到 expenses.json 再 cp+push。常见误杀场景：滴滴×N、美团外卖×N、同一商户多笔近距离消费。手动插入模板：

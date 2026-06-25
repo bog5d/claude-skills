@@ -9,12 +9,24 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 
 波总的个人债务/还款追踪系统，独立于副官任务管理之外的第二个职能模块。
 
-## 文件位置
+## 文件位置（铁律：只有一个路径）
 
 ```
-~/.hermes/adjutant/finance/          ← 本地工作目录
-~/.hermes/adjutant/repo/hermes-adjutant/finance/  ← Git 仓库（单一事实源）
+🛑 绝对不要编辑 ~/.hermes/adjutant/finance/        ← 这只是一个副本
+✅ 所有操作都去 ~/.hermes/adjutant/repo/hermes-adjutant/finance/  ← Git 仓库（唯一事实源）
 ```
+
+**铁律：直接编辑 REPO 路径，不要碰工作副本。** `patch()`, `write_file()` 等所有操作的目标路径必须是 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`。工作目录 `~/.hermes/adjutant/finance/` 仅供 python 脚本输出，不是给人手改的。
+
+修改后：`cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "finance: ..." && git push`
+
+如果确实从工作副本改了（如跑脚本），必须立即：
+```bash
+cp ~/.hermes/adjutant/finance/debts.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/
+cp ~/.hermes/adjutant/finance/transactions.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/
+cd ~/.hermes/adjutant/repo/hermes-adjutant && git add -A && git commit -m "sync: ..." && git push
+```
+commit 前用 `diff` 检查两副本一致。
 
 | 文件 | 用途 |
 |------|------|
@@ -36,6 +48,9 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 | 波总问"我的负债/总负债" | **先问"哪些有变动？"** 收集更新后再出全景 | 数据可能过时，直接输出易错 |
 | 波总说"XX抵掉了/用其他方式"（非现金） | amount=0 + notes="其他方式抵账"，移入 cleared | 非现金还款，不应入还款流水 |
 | 花呗截图 | "7月账单累计 ¥X" = **总待还余额**，直接更新 | 波总确认单数即总账，不要追问"新增还是总欠" |
+| 拿去花截图 | "全部待还 ¥X" = 总余额；"X月X日待还 ¥Y" = 未出账部分 | 拿去花有"未出账"概念，总待还 > 未出账金额 |
+| 新增自债（非现金动用） | 创建 ID=I001/2/3, type="其他", rate=0, 按 I 系列连续编号 | 如基金储备款被消费占用，1-2个月内填回 |
+| 短期承诺（1-2月填回） | 在 notes 标注 "X个月内填回" 时间预期 | 让波总明确还款时间窗口 |
 | 还款日 | 截图中"还款日X月X日"就是到期日，写入 `due_date` | 平台债总有固定还款日 |
 
 ## 交互模式：三种消息，不会搞混
@@ -143,7 +158,18 @@ python3 finance/scripts/expenses.py report -t monthly -y 2026 -m 6
 python3 finance/scripts/expenses.py summary -d 30
 ```
 
-## 归途驿站 — 显示铁律
+## 归途·星火 — 游戏化系统
+
+完整设计文档见 `references/game-system-design.md`。
+
+### 核心文件
+
+| 文件 | 作用 |
+|:----|:----|
+| `config.json` | 12 座驿站 + 8 个成就（静态定义） |
+| `game_state.json` | 运行时状态：已宣布里程碑、已解锁成就、连胜周数、月度记录、事件日志 |
+
+### 归途驿站 — 显示铁律
 
 **每人一灯，各有姓名。** 生成报告/HTML/Telegram消息时：
 - 每笔亲友债**独立成行**，绝不归并——16个人就是16行，不能出现"菊仙·陈建·刘小兵 ¥20K×3"
@@ -211,7 +237,7 @@ python3 finance/scripts/import_csv.py /path/to/alipay.csv
 
 ## 陷阱
 
-- **数据文件双重同步（🛑 血坑）**：`~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两套独立目录。用 `patch()` 直接编辑前者后，必须 `cp` 到 repo 再 git push。commit 前用 `diff` 检查两副本一致。
+- **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）**：`~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两套独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。如果不小心改了工作副本，必须立即 `cp` + git push。commit 前用 `diff` 检查两副本一致 — 我在 2026-06-25 一次 session 里犯了两次这个错。
 - **不要靠 memory/mem0 获取债务数据**——`debts.json` 是单一事实源
 - **还款前先 git pull**——其他 AI 可能已更新
 - **花呗等平台债金额会波动**——波总发截图时更新 `amount` + `updated_at` + `source`
