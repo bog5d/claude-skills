@@ -29,6 +29,15 @@ trigger: 还了|还款|债务|负债|花呗|借呗|还款进度|财务|欠款|�
 | `scripts/daily_report.sh` | 🆕 日报生成包装脚本（cron 用） |
 | `expenses.json` | 🆕 消费数据 + 17 类别规则引擎 + 截图记录 |
 
+## ⚠️ 波总沟通偏好（本会话确认）
+
+| 场景 | 怎么做 | 原因 |
+|------|--------|------|
+| 波总问"我的负债/总负债" | **先问"哪些有变动？"** 收集更新后再出全景 | 数据可能过时，直接输出易错 |
+| 波总说"XX抵掉了/用其他方式"（非现金） | amount=0 + notes="其他方式抵账"，移入 cleared | 非现金还款，不应入还款流水 |
+| 花呗截图 | "7月账单累计 ¥X" = **总待还余额**，直接更新 | 波总确认单数即总账，不要追问"新增还是总欠" |
+| 还款日 | 截图中"还款日X月X日"就是到期日，写入 `due_date` | 平台债总有固定还款日 |
+
 ## 交互模式：三种消息，不会搞混
 
 | 波总说什么 | 你做什么 | 数据去向 |
@@ -202,6 +211,7 @@ python3 finance/scripts/import_csv.py /path/to/alipay.csv
 
 ## 陷阱
 
+- **数据文件双重同步（🛑 血坑）**：`~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两套独立目录。用 `patch()` 直接编辑前者后，必须 `cp` 到 repo 再 git push。commit 前用 `diff` 检查两副本一致。
 - **不要靠 memory/mem0 获取债务数据**——`debts.json` 是单一事实源
 - **还款前先 git pull**——其他 AI 可能已更新
 - **花呗等平台债金额会波动**——波总发截图时更新 `amount` + `updated_at` + `source`
