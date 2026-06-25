@@ -649,6 +649,7 @@ next_review = today + interval (答对) 或 today (答错)
 - `references/report-template.md` — 学习报告生成格式模板（用户批准的格式）
 - `references/report-code-template.py` — 工作版报告生成代码模板（2026-06-05 实战验证）
 - `references/session-pipeline-architecture.md` — 统一答题流水线架构：Phase 1/2 分离 + LLM 最小化角色 + 新词维护指南
+- `references/tunnel-troubleshooting.md` — ⚠️ 实时档案馆隧道排查：端口冲突/SSH过期/死URL诊断 + 一键修复流程（2026-06-25 事故后整理）
 - `references/data-source-audit.md` — 2026-06-06 数据源审计：所有脚本的数据读取路径 + PAT 提取模式 + 死路径清单
 - `references/cron-daily-report.md` — 每日 Cron 学习日报生成指南：数据源优先级（/tmp/vocab 缓存 > GitHub API）+ 计算规则 + 输出格式 + 毒鸡汤列表
 - `references/cron-daily-report-data-source.md` — Cron 日报数据源速查卡：本地 words.json 数组格式/mastery 浮点/段位顶层字段/安全限制
@@ -1166,7 +1167,29 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **数据契约**：`mastery` 范围 0-100（非 0-1），`sub_rank` 罗马数字（I/II/III/IV），`words.json` 结构 `{"words": [...], "meta": {...}}`
 - **指标计算**：`get_current_stats(words)` 返回 `coverage_pct`(0-100)、`mastery_avg`(0-100)、`error_clear`、`core_count` 等
 - **段位判定**：`check_can_upgrade(stats, rank_config, gam_data)` 返回 `(bool, reason_str, next_rank_name)`
-- **判分**：`student_matches(student_ans, correct_ans)` 支持精确/包含/关键词重叠≥50%
+同时清除 `__pycache__`
+
+### pitfall 45: 隧道端口错位 — 孤儿 HTTP server 导致隧道失联（2026-06-25 发现）
+
+- **现象**：实时档案馆链接打不开，显示 "no tunnel here :("。tunnel_url.txt 有 URL 但隧道服务已死。
+- **根因**：系统重启或 tunnel_daemon 意外退出后，可能残留孤儿 HTTP server 在其他端口（如 9876），而 tunnel_daemon 期待的 8765 端口无服务。tunnel_url.txt 保存过期 URL，session_pipeline.py 仍读取并输出该死 URL。
+- **诊断**：`lsof -ti :8765 && lsof -ti :9876` 检查多端口占用。`ps aux | grep -i 'localhost.run'` 检查 SSH 隧道存活。`curl -s -o /dev/null -w "%{http_code}" "$(cat state/tunnel_url.txt)/chronicle_index.html"` 自测。
+- **修复**：杀死多余 HTTP server → 在 `state/` 目录下重起 `python3 -m http.server 8765` → 重新建立 SSH 隧道。或运行 `state/start_tunnel.py` 一键恢复。
+- **预防铁律**：每次 session 结束时，若检查到 `tunnel_url` 字段有内容，必须先自测 HTTP 200 再发，不发死 URL（见 pitfall 21）。
+
+### pitfall 46: tunnel_daemon.py 非持久运行 — 重启后隧道不自动恢复（2026-06-25 发现）
+
+- **现象**：Mac 重启或 tunnel_daemon 崩溃后，没有进程自动拉起 HTTP server + SSH 隧道。用户侧表现为链接永远 503。
+- **根因**：`tunnel_daemon.py` 未被注册为 launchd plist 或 cron 持久化服务。它是手动启动的后台进程，无自动恢复机制。
+- **修复**：运行 `python3 state/start_tunnel.py` 一键启动 HTTP + SSH + 自检。
+- **状态确认**：巡检时先查 `ps aux | grep -i 'tunnel_daemon\|localhost.run\|http.server 8765'`，缺任何一个就执行修复。
+- **推荐持久化**：注册 launchd plist（KeepAlive=true）让 tunnel_daemon 随系统启动。
+
+### pitfall 47: session_pipeline 输出死 URL 而不自检（2026-06-25 发现）
+
+- **现象**：隧道已死，但 `session_pipeline.py` 的 JSON 输出中 `tunnel_url` 字段仍包含过期 URL → LLM 照发 → 用户打开 503。
+- **根因**：session_pipeline.py 直接从 `tunnel_url.txt` 读取 URL，不验证可用性。即使隧道已死多日，只要文件未被清空，输出就包含死 URL。
+- **LLM 层防御**：即使 pipeline 输出含 `tunnel_url`，LLM 在发 URL 前应自测（见 pitfall 21）。不要信任 pipeline 的 `tunnel_url` 字段——它可能来自死文件。
 
 ### Tier 2.5 新功能 (2026-06-18 更新)
 - **搭配语境不再用于 Phase 1 题面**：禁止在「来一局」里显示 `📝 word → fill-in-blank`，这会泄题。Phase 1 只展示单词和音标；混淆词只显示英文辨析选项。
