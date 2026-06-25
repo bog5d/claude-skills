@@ -99,6 +99,22 @@ cangjie-fos/
 - 各 test 验证 DB 落盘 + Review API 返回，不依赖真实外部服务
 - 内存 job store 和 SQLite 双写已 mock 为同步
 
+## Cursor 开发环境规则
+
+本项目 `.cursor/rules/` 目录包含以下生效规则：
+
+| 规则文件 | 说明 |
+|----------|------|
+| `ponytail.mdc` | **Ponytail 懒人模式**（2026-06-25 安装）。AI 在写代码前先爬 7 层阶梯：这东西需要写吗？标准库有吗？现有代码能复用吗？→ 最后才写最少的代码。减少过度工程化、少装 npm 包、少建抽象层。来源：[DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
+| `cangjie-fos-evolution-flywheel.mdc` | 飞轮开发模式规则 |
+| `cangjie-fos-external-release.mdc` | 外发版本规则 |
+| `cangjie-fos-monorepo.mdc` | 单仓库操作规则 |
+| `cangjie-fos-quality-gate.mdc` | 质量门禁规则 |
+
+修改或新增规则后，Cursor 会自动加载，无需重启服务。
+
+⚠️ **Ponytail 影响**：AI 建新组件/依赖时会更克制。如果你在 Cursor 里看到 AI 拒绝加依赖或用 stdlib 替代——这就是 Ponytail 在工作，不是 bug。
+
 ## 已知代码问题
 
 | 问题 | 严重度 |
