@@ -3,20 +3,23 @@
 ## 管线概览
 
 ```
-波总文章 → DeepSeek排版 → 配图下载 → media/uploadimg→微信CDN URL → draft/add
+波总文章 → Hermes参数层 → 确定性Markdown排版 → 配图下载 → media/uploadimg→微信CDN URL → draft/add
 ```
 
 ## 当前状态（2026-06-26 实测）
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
-| 微信 access_token via SOCKS5 | 🟢 通过 | `--socks5 127.0.0.1:1080` → 47.85.62.133 固定 IP → 微信 API |
+| 微信 access_token via Clash 系统代理 | 🟢 通过 | `api.weixin.qq.com → 节点选择`，不再使用 `--socks5` |
 | DeepSeek API | 🟢 正常 | `urllib.request` 直连（不走 SOCKS5） |
+| 默认排版引擎 | 🟢 正常 | 默认 `--layout-provider deterministic`，AI 不生成最终 HTML |
 | picsum 图片下载 | 🟢 正常 | `urllib.request` 自动跟 302 重定向 |
 | 正文图片上传 media/uploadimg | 🟢 通过 | 返回微信 CDN URL（mmbiz.qpic.cn） |
 | 封面图上传 material/add_material | 🟢 通过 | 返回 media_id 用于 thumb_media_id |
 | 草稿创建 draft/add | 🟢 通过 | 直接使用微信 CDN URL 作为 `<img src>` |
-| 图片渲染验证 | 🟡 待波总确认 | 需在微信后台打开草稿确认图片显示 |
+| 图片渲染验证 | 🟡 待波总确认 | 已修复 CDN URL 完整替换逻辑；仍需在微信后台打开草稿确认图片显示 |
+| 离线单元测试 | 🟢 通过 | `tests/test_publish_article.py` 覆盖 URL 替换、字节截断、解析和插入点 |
+| CLI 干跑 | 🟢 通过 | `--dry-run` 可生成最终 HTML，不触发微信接口 |
 
 ## 架构变更记录
 
@@ -29,5 +32,6 @@
 
 ## 已知限制
 
-1. **章标题正则不匹配「一、内容」格式**：`find_insertion_points()` regex `[一二三四五六七八九十]` 只匹配单字，不匹配带顿号的格式。临时规避：修改 regex 为 `[一二三四五六七八九十][、]?`。
-2. **SOCKS5 隧道需要 live**：隧道掉线时微信 API 因 IP 白名单不可达。检查命令：`ps aux | grep "ssh.*1080" | grep -v grep`。
+1. **配图源仍是 picsum**：seed 可复现，但图片语义与文章弱相关，且依赖外部随机图服务。
+2. **Hermes 对话入口仍是技能说明 + CLI**：脚本内已有参数归一层，但 Hermes 外层还未强制使用 JSON schema 调用。
+3. **图片渲染仍需人工验收**：草稿创建后必须在微信后台确认 `<img src="mmbiz.qpic.cn/...">` 实际显示。

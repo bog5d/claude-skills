@@ -45,10 +45,12 @@ python3 scripts/publish_article.py \
   --article /tmp/test_article.md \
   --cover-seed spring \
   --body-seeds flower,tree,kite \
-  --socks5 127.0.0.1:1080
+  --output /tmp/wechat_final.html
 
 # 成功后登录微信公众平台 → 草稿箱 → 打开最新草稿 → 图片应正常显示
 ```
+
+补充验证（2026-06-26）：`replace_picsum_with_wechat_urls()` 必须完整替换 `src` 属性值，不能把 seed 路径拼到微信 CDN URL 后面；该规则已由 `tests/test_publish_article.py` 覆盖。
 
 ## 关联
 

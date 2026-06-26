@@ -69,12 +69,11 @@ curl -s "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&ap
 
 **铁律**：任一项失败 → 不要运行发布脚本，先修前置条件。
 
-## 📋 管线概览
+## 📋 三层管线概览
 
 ```
-波总文章 → /tmp/article_raw.txt
-  → DeepSeek 排版 MD→HTML（无图片）
-  → 解析 HTML 结构 → 计算插入点
+波总文章 → Hermes 意图/参数层（只提取 title/digest/seeds/author）
+  → 确定性发布引擎（Markdown→HTML、解析结构、计算插入点）
   → 下载 picsum 图片 + media/uploadimg 上传 → 微信 CDN URL
   → 插入 <img src="微信CDN URL"> 到正文
   → 封面图双重上传（material/add_material → media_id + uploadimg → CDN URL）
@@ -87,12 +86,18 @@ curl -s "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&ap
 ### 1. 接收文章
 波总发送 MD 或纯文字 → 保存到 `/tmp/article_raw.txt`。
 
-### 2. DeepSeek 排版
-调用 DeepSeek API（`urllib.request` 直连，不走代理）：
-- 正文原样保留，只转 HTML 标签
-- 每 3-4 段插入 `[IMAGE:具体英文场景词]` 占位符
-- 提炼金句作为 digest（不用第一句话）
-- 生成封面关键词
+### 2. 意图与参数
+Hermes 只负责判断这是公众号发布请求，并填充结构化参数：
+- `article`
+- `title`
+- `digest`
+- `author`
+- `cover_seed`
+- `body_seeds`
+
+默认不让 AI 生成最终 HTML。`publish_article.py` 会用确定性 Markdown 渲染器生成微信 HTML。
+
+DeepSeek 仅保留为兼容模式：显式传 `--layout-provider deepseek` 时才使用。
 
 ### 3. 配图
 - **频率**：每 400-600 字配 1 张图。4000 字 ≈ 6-8 张
@@ -176,6 +181,21 @@ python3 publish_article.py \
 
 **不传 `--socks5`**（已移除）。
 
+### 本地干跑（不触发微信）
+
+收到文章后，优先用干跑验证结构：
+
+```bash
+python3 publish_article.py \
+  --article /tmp/article.md \
+  --cover-seed lantern \
+  --body-seeds road,night,watermelon \
+  --dry-run \
+  --output /tmp/final.html
+```
+
+干跑会执行：参数归一 → 确定性排版 → 插图点计算 → 图片标签插入 → CDN URL 替换校验。不会下载图片、上传微信、创建草稿。
+
 ## ❓ 常见错误码速查
 
 | 错误码 | 含义 | 解决 |
@@ -209,6 +229,7 @@ python3 publish_article.py \
 | 组件 | 状态 | 备注 |
 |------|------|------|
 | DeepSeek 排版 | 🟢 正常 | MD→HTML，无图片 |
+| 默认排版 | 🟢 正常 | 确定性 Markdown→HTML，不依赖 AI |
 | 正文图片 | 🟢 正确 | `media/uploadimg` → 微信 CDN URL → `<img src>` |
 | 封面图 | 🟢 正确 | `material/add_material` → `thumb_media_id` |
 | 草稿查重 | 🟢 正常 | `draft/batchget` → update 或 add |
@@ -216,6 +237,7 @@ python3 publish_article.py \
 | Clash 代理 | 🟢 配置完毕 | `api.weixin.qq.com → 节点选择` |
 | 微信 API 连通性 | 🟢 通过 | 经 Clash 代理节点，access_token 拿到 |
 | 图片渲染 | 🟡 待用户确认 | 上次测试（`data-uimg` 方案）不显示。**本次 `media/uploadimg` 方案修复后需在后台再次确认** |
+| 离线干跑 | 🟢 通过 | `--dry-run --output /tmp/final.html` 可验证主链路，不触发微信 |
 
 ## 🚫 已知 Bug 历史（全部已修复）
 

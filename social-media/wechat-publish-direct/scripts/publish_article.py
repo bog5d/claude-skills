@@ -21,6 +21,7 @@
 
 import argparse
 import hashlib
+import html as html_lib
 import io
 import json
 import os
@@ -31,6 +32,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from typing import Union
 
 
 # =============================================================================
@@ -40,19 +42,38 @@ from pathlib import Path
 # 代理节点固定 IP 在微信白名单中，所以直接走标准库 + 系统代理即可。
 # DeepSeek/picsum 也用标准库（不走 SOCKS5）。
 
+TRANSIENT_HTTP_CODES = {408, 429, 500, 502, 503, 504}
+
+
+def with_retries(operation, *, attempts=3, base_delay=1.0):
+    """Retry transient network/API failures without hiding final errors."""
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code not in TRANSIENT_HTTP_CODES or attempt == attempts:
+                raise
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+            if attempt == attempts:
+                raise
+        time.sleep(base_delay * attempt)
+    raise last_error
+
+
 # 微信 API 走系统代理（urllib.request 自动使用 macOS 系统代理设置）
 def _wechat_post(path: str, body: bytes, headers: dict, timeout: int = 15) -> bytes:
     import urllib.request as urlreq
     url = f"https://api.weixin.qq.com{path}"
     req = urlreq.Request(url, data=body, headers=headers)
-    with urlreq.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+    return with_retries(lambda: urlreq.urlopen(req, timeout=timeout).read())
 
 def _wechat_get(path: str, timeout: int = 15) -> bytes:
     import urllib.request as urlreq
     url = f"https://api.weixin.qq.com{path}"
-    with urlreq.urlopen(url, timeout=timeout) as resp:
-        return resp.read()
+    return with_retries(lambda: urlreq.urlopen(url, timeout=timeout).read())
 
 
 # =============================================================================
@@ -60,17 +81,20 @@ def _wechat_get(path: str, timeout: int = 15) -> bytes:
 # =============================================================================
 
 SKILL_DIR = Path(__file__).parent.parent
-ENV_PATH = Path("/Users/mac/.hermes/profiles/her-m2/.env")
+ENV_PATH = Path(
+    os.environ.get("HERMES_ENV_PATH", "/Users/mac/.hermes/profiles/her-m2/.env")
+)
 
 DEESEEK_URL = "https://api.deepseek.com/chat/completions"
 WECHAT_BASE = "https://api.weixin.qq.com"
 
 PICSUM_BASE = "https://picsum.photos/seed/{}"
 PICSUM_SIZE = "600/400"  # 封面 600x400, 正文 640x427
+DEFAULT_DIGEST = "那年我们刚认识，他请我吃了一碗面，从此成了最好的兄弟。"
 
 STYLES = {
     "article": (
-        'style="font-family:Georgia,\\"宋体\\",serif;'
+        'style="font-family:Georgia,宋体,serif;'
         'font-size:15px;line-height:1.8;color:#333;'
         'padding:10px;"'
     ),
@@ -106,6 +130,130 @@ def extract_title_from_md(md_text: str) -> str:
         if line.startswith("# ") and not line.startswith("## "):
             return line[2:].strip()
     return ""
+
+
+def truncate_utf8_bytes(text: str, max_bytes: int) -> str:
+    """Trim a string to a UTF-8 byte budget without splitting characters."""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    return encoded[:max_bytes].decode("utf-8", errors="ignore").rstrip()
+
+
+def normalize_article_meta(title: str, digest: str) -> tuple[str, str]:
+    """Apply WeChat byte limits before draft/add or draft/update."""
+    return truncate_utf8_bytes(title, 55), truncate_utf8_bytes(digest, 115)
+
+
+def normalize_body_seeds(body_seeds: Union[list[str], str]) -> list[str]:
+    """Intent/parameter layer: normalize user or Hermes seed input."""
+    if isinstance(body_seeds, str):
+        body_seeds = body_seeds.split(",")
+    return [seed.strip() for seed in body_seeds if seed and seed.strip()]
+
+
+def infer_digest_from_md(md_text: str) -> str:
+    """Deterministic digest fallback from the first real paragraph."""
+    for block in split_markdown_blocks(md_text):
+        if block.startswith("#"):
+            continue
+        text = re.sub(r"[*_`>#-]", "", block).strip()
+        if text:
+            return truncate_utf8_bytes(text, 115)
+    return DEFAULT_DIGEST
+
+
+def parse_publish_params(
+    article_md: str,
+    cover_seed: str,
+    body_seeds: Union[list[str], str],
+    title: str = "",
+    author: str = "王波",
+    digest: str = "",
+):
+    """
+    Layer 1: Hermes/CLI intent normalization.
+
+    AI should stop here: decide this is a publish request and fill these fields.
+    Everything after this function is deterministic program flow.
+    """
+    parsed_title = title or extract_title_from_md(article_md) or "未命名文章"
+    parsed_digest = digest or infer_digest_from_md(article_md)
+    parsed_title, parsed_digest = normalize_article_meta(parsed_title, parsed_digest)
+    return {
+        "article_md": article_md,
+        "cover_seed": (cover_seed or "lantern").strip(),
+        "body_seeds": normalize_body_seeds(body_seeds),
+        "title": parsed_title,
+        "author": author or "王波",
+        "digest": parsed_digest,
+    }
+
+
+def split_markdown_blocks(md_text: str) -> list[str]:
+    """Split Markdown into non-empty paragraph/heading blocks."""
+    blocks = []
+    current = []
+    for line in md_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if current:
+                blocks.append("\n".join(current).strip())
+                current = []
+            continue
+        if stripped.startswith("#") and current:
+            blocks.append("\n".join(current).strip())
+            current = []
+        current.append(stripped)
+    if current:
+        blocks.append("\n".join(current).strip())
+    return blocks
+
+
+def render_inline_markdown(text: str) -> str:
+    """Small deterministic inline renderer for WeChat-safe paragraph text."""
+    escaped = html_lib.escape(text)
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    return escaped.replace("\n", "<br>")
+
+
+def is_chapter_heading(text: str) -> bool:
+    plain = text.lstrip("#").strip()
+    return bool(re.match(r"^[一二三四五六七八九十]+[、.．]\s*.+", plain))
+
+
+def markdown_to_wechat_html(md_text: str) -> str:
+    """
+    Layer 2: deterministic Markdown -> WeChat HTML renderer.
+
+    This intentionally handles a conservative Markdown subset so the publishing
+    pipeline is stable. AI can suggest text/metadata, but not own the HTML shape.
+    """
+    parts = [f"<div {STYLES['article']}>"]
+    first_paragraph = True
+
+    for block in split_markdown_blocks(md_text):
+        if block.startswith("# "):
+            continue
+
+        if block.startswith("## ") or is_chapter_heading(block):
+            heading = block.lstrip("#").strip()
+            parts.append(f"<p {STYLES['chapter']}>{html_lib.escape(heading)}</p>")
+            continue
+
+        rendered = render_inline_markdown(block)
+        if first_paragraph and rendered:
+            first_char = rendered[0]
+            rendered = (
+                f"<span {STYLES['dropcap']}>{first_char}</span>"
+                f"{rendered[1:]}"
+            )
+            first_paragraph = False
+        parts.append(f"<p>{rendered}</p>")
+
+    parts.append("</div>")
+    return "\n".join(parts)
 
 
 def read_env():
@@ -147,8 +295,7 @@ def download_image(seed):
     url = PICSUM_BASE.format(seed) + "/" + PICSUM_SIZE
     # urllib 自动跟重定向（picsum 302 → fastly），picsum 不走 SOCKS5
     import urllib.request as urlreq
-    with urlreq.urlopen(url, timeout=10) as resp:
-        return resp.read()
+    return with_retries(lambda: urlreq.urlopen(url, timeout=10).read())
 
 
 def upload_image_for_content(access_token, image_bytes):
@@ -253,8 +400,8 @@ def call_deepseek(article_text, appid, secret):
         data=json.dumps(payload).encode(),
         headers=headers,
     )
-    with urlreq.urlopen(req, timeout=60) as resp:
-        result = json.loads(resp.read().decode())
+    raw = with_retries(lambda: urlreq.urlopen(req, timeout=60).read(), attempts=2)
+    result = json.loads(raw.decode())
     
     html = result["choices"][0]["message"]["content"].strip()
     
@@ -405,11 +552,15 @@ def replace_picsum_with_wechat_urls(html, wechat_urls):
             f"!= wechat_url count ({len(wechat_urls)})"
         )
     
-    for i, (old_tag, wx_url) in enumerate(zip(picsum_tags, wechat_urls)):
-        # 只替换 src 属性值，不动标签其他部分
-        new_tag = old_tag.replace(
-            'src="https://picsum.photos/seed/',
-            f'src="{wx_url}'
+    for old_tag, wx_url in zip(picsum_tags, wechat_urls):
+        if not re.match(r'^https?://mmbiz\.qpic\.cn/', wx_url):
+            raise ValueError(f"Invalid WeChat CDN URL: {wx_url}")
+        # 只替换完整 src 属性值，不动标签其他部分。
+        new_tag = re.sub(
+            r'src="https://picsum\.photos/seed/[^"]*"',
+            f'src="{wx_url}"',
+            old_tag,
+            count=1,
         )
         html = html.replace(old_tag, new_tag, 1)
     
@@ -445,6 +596,8 @@ def find_existing_draft(access_token, title):
 def create_draft(access_token, title, author, digest, content, 
                  thumb_media_id):
     """创建或更新微信草稿（自动查重，避免重复创建）"""
+    title, digest = normalize_article_meta(title, digest)
+
     # 先查重
     exists, existing_mid = find_existing_draft(access_token, title)
     
@@ -514,6 +667,8 @@ def publish_workflow(
     title: str = "",
     author: str = "王波",
     digest: str = "",
+    layout_provider: str = "deterministic",
+    dry_run: bool = False,
 ) -> dict:
     """
     端到端发布流程，每步输出验证日志。
@@ -526,20 +681,41 @@ def publish_workflow(
             "verification_log": list[str],
         }
     """
+    params = parse_publish_params(
+        article_md=article_md,
+        cover_seed=cover_seed,
+        body_seeds=body_seeds,
+        title=title,
+        author=author,
+        digest=digest,
+    )
+    article_md = params["article_md"]
+    cover_seed = params["cover_seed"]
+    body_seeds = params["body_seeds"]
+    title = params["title"]
+    author = params["author"]
+    digest = params["digest"]
+
     log("INIT", f"Starting workflow: article={len(article_md)} chars, "
-               f"seeds={cover_seed} + {body_seeds}")
+               f"seeds={cover_seed} + {body_seeds}, "
+               f"layout={layout_provider}, dry_run={dry_run}")
     
     # ---- Step 1: 排版 ----
-    token = get_access_token(appid, secret)
-    log("STEP 1", "Calling DeepSeek for HTML layout...")
-    html = call_deepseek(article_md, appid, secret)
+    if layout_provider == "deterministic":
+        log("STEP 1", "Rendering Markdown with deterministic layout engine...")
+        html = markdown_to_wechat_html(article_md)
+    elif layout_provider == "deepseek":
+        log("STEP 1", "Calling DeepSeek for optional HTML layout...")
+        html = call_deepseek(article_md, appid, secret)
+    else:
+        raise ValueError(f"Unknown layout provider: {layout_provider}")
     
     # 验证：不应该有图片
     img_count_step1 = len(re.findall(r'<img', html))
-    log("STEP 1", f"DeepSeek排版完成: {len(html)} chars, "
+    log("STEP 1", f"排版完成: {len(html)} chars, "
                f"{img_count_step1} images (should be 0)")
     if img_count_step1 > 0:
-        log("STEP 1", "WARNING: DeepSeek returned images, will strip them", "⚠")
+        log("STEP 1", "WARNING: layout returned images, will strip them", "⚠")
         # Remove all img tags
         html = re.sub(r'<img[^>]*>', '', html)
     
@@ -554,30 +730,41 @@ def publish_workflow(
                f"(封面+{len(body_seeds)}正文)")
     
     # ---- Step 3: 下载并上传配图 ----
-    log("STEP 3", f"Downloading and uploading {total_images} images...")
     all_seeds = [cover_seed] + body_seeds
-    img_bytes_list = []
-    for seed in all_seeds:
-        img_bytes = download_image(seed)
-        img_bytes_list.append(img_bytes)
-        log("STEP 3", f"  Downloaded {seed}: {len(img_bytes)} bytes")
-    
-    # 封面图：用 material/add_material 获取 media_id（用于 thumb_media_id）
-    cover_media_id = upload_to_wechat(token, img_bytes_list[0], "image")
-    log("STEP 3", f"  封面上传完成: media_id={cover_media_id[:20]}...")
-    
-    # 封面图也上传 media/uploadimg 获取微信 CDN URL（用于正文第一张图）
-    cover_wechat_url = upload_image_for_content(token, img_bytes_list[0])
-    log("STEP 3", f"  封面 URL: {cover_wechat_url[:40]}...")
-    
-    # 正文配图：用 media/uploadimg 获取微信 CDN URL（用于正文 <img src>）
-    body_wechat_urls = []
-    for i, img_bytes in enumerate(img_bytes_list[1:], 1):
-        wx_url = upload_image_for_content(token, img_bytes)
-        body_wechat_urls.append(wx_url)
-        log("STEP 3", f"  [{i}] seed={all_seeds[i]}, wx_url={wx_url[:40]}...")
-    
-    log("STEP 3", f"All {total_images} images uploaded ✓")
+    if dry_run:
+        log("STEP 3", f"Dry run: using fake WeChat CDN URLs for {total_images} images...")
+        cover_media_id = "dry_run_cover_media_id"
+        all_wechat_urls = [
+            f"http://mmbiz.qpic.cn/dry-run/{i + 1}-{seed}"
+            for i, seed in enumerate(all_seeds)
+        ]
+        body_wechat_urls = all_wechat_urls[1:]
+    else:
+        token = get_access_token(appid, secret)
+        log("STEP 3", f"Downloading and uploading {total_images} images...")
+        img_bytes_list = []
+        for seed in all_seeds:
+            img_bytes = download_image(seed)
+            img_bytes_list.append(img_bytes)
+            log("STEP 3", f"  Downloaded {seed}: {len(img_bytes)} bytes")
+        
+        # 封面图：用 material/add_material 获取 media_id（用于 thumb_media_id）
+        cover_media_id = upload_to_wechat(token, img_bytes_list[0], "image")
+        log("STEP 3", f"  封面上传完成: media_id={cover_media_id[:20]}...")
+        
+        # 封面图也上传 media/uploadimg 获取微信 CDN URL（用于正文第一张图）
+        cover_wechat_url = upload_image_for_content(token, img_bytes_list[0])
+        log("STEP 3", f"  封面 URL: {cover_wechat_url[:40]}...")
+        
+        # 正文配图：用 media/uploadimg 获取微信 CDN URL（用于正文 <img src>）
+        body_wechat_urls = []
+        for i, img_bytes in enumerate(img_bytes_list[1:], 1):
+            wx_url = upload_image_for_content(token, img_bytes)
+            body_wechat_urls.append(wx_url)
+            log("STEP 3", f"  [{i}] seed={all_seeds[i]}, wx_url={wx_url[:40]}...")
+        
+        all_wechat_urls = [cover_wechat_url] + body_wechat_urls
+        log("STEP 3", f"All {total_images} images uploaded ✓")
     
     # ---- Step 4: 插入图片标签（先用 picsum URL 占位）----
     log("STEP 4", "Inserting image tags at determined positions...")
@@ -596,7 +783,6 @@ def publish_workflow(
     
     # ---- Step 5: 替换 picsum URL 为微信 CDN URL ----
     log("STEP 5", "Replacing picsum URLs with WeChat CDN URLs...")
-    all_wechat_urls = [cover_wechat_url] + body_wechat_urls
     html = replace_picsum_with_wechat_urls(html, all_wechat_urls)
     
     # 正文中所有图片都已替换为微信 CDN URL
@@ -608,20 +794,15 @@ def publish_workflow(
         log("STEP 5", f"所有图片已替换为微信 CDN URL ✓")
     
     # ---- Step 6: 创建草稿 ----
-    log("STEP 6", "Creating WeChat draft...")
-    
-    if not digest:
-        digest = "那年我们刚认识，他请我吃了一碗面，从此成了最好的兄弟。"
-    
-    if not title:
-        title = extract_title_from_md(article_md)
-    if not title:
-        title = "未命名文章"
-    
-    draft_media_id = create_draft(
-        token, title, author, digest, html, cover_media_id
-    )
-    log("STEP 6", f"草稿创建成功: media_id={draft_media_id[:20]}...")
+    if dry_run:
+        log("STEP 6", "Dry run: skipping WeChat draft creation.")
+        draft_media_id = "dry_run_draft_media_id"
+    else:
+        log("STEP 6", "Creating WeChat draft...")
+        draft_media_id = create_draft(
+            token, title, author, digest, html, cover_media_id
+        )
+        log("STEP 6", f"草稿创建成功: media_id={draft_media_id[:20]}...")
     
     return {
         "draft_media_id": draft_media_id,
@@ -630,6 +811,10 @@ def publish_workflow(
         "cover_media_id": cover_media_id,
         "body_wechat_urls": body_wechat_urls,
         "final_html": html,
+        "title": title,
+        "digest": digest,
+        "layout_provider": layout_provider,
+        "dry_run": dry_run,
     }
 
 
@@ -670,6 +855,15 @@ def main():
         help="保存最终 HTML 的文件路径"
     )
     parser.add_argument(
+        "--layout-provider", default="deterministic",
+        choices=["deterministic", "deepseek"],
+        help="排版来源：默认 deterministic；deepseek 仅作为兼容模式"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="只生成最终 HTML，不下载图片、不上传微信、不创建草稿"
+    )
+    parser.add_argument(
         "--appid", default=None,
         help="微信 AppID（默认从 .env 读取）"
     )
@@ -685,15 +879,15 @@ def main():
         article_md = f.read()
     
     # 读取凭证
-    env = read_env()
+    env = {} if args.dry_run else read_env()
     appid = args.appid or env.get("WECHAT_APPID", "wx37940d296d26c91c")
     secret = args.secret or env.get("WECHAT_SECRET", "")
     
-    if not secret or secret.startswith("***"):
+    if not args.dry_run and (not secret or secret.startswith("***")):
         log("ERROR", "WECHAT_SECRET not available in .env", "✗")
         sys.exit(1)
     
-    body_seeds = [s.strip() for s in args.body_seeds.split(",")]
+    body_seeds = normalize_body_seeds(args.body_seeds)
     
     # 执行
     try:
@@ -706,10 +900,14 @@ def main():
             title=args.title,
             author=args.author,
             digest=args.digest,
+            layout_provider=args.layout_provider,
+            dry_run=args.dry_run,
         )
         
         print(f"\n{'='*50}")
-        print(f"✓✓✓ 发布完成!")
+        print("✓✓✓ 干跑完成!" if args.dry_run else "✓✓✓ 发布完成!")
+        print(f"标题: {result['title']}")
+        print(f"摘要: {result['digest']}")
         print(f"草稿 Media ID: {result['draft_media_id']}")
         print(f"HTML 大小: {result['html_length']} 字符")
         print(f"配图数量: {result['image_count']}")
