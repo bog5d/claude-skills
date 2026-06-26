@@ -476,7 +476,7 @@
     "last_viewed_at": null,
     "patch_count": 1,
     "pinned": false,
-    "state": "active",
+    "state": "stale",
     "use_count": 0,
     "view_count": 0
   },
@@ -557,6 +557,19 @@
     "state": "active",
     "use_count": 3,
     "view_count": 3
+  },
+  "computer-use": {
+    "archived_at": null,
+    "created_at": "2026-06-26T15:20:41.074704+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
   },
   "context-compression": {
     "archived_at": null,
@@ -2533,6 +2546,19 @@
     "state": "active",
     "use_count": 3,
     "view_count": 3
+  },
+  "simplify-code": {
+    "archived_at": null,
+    "created_at": "2026-06-26T15:20:41.077342+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
   },
   "sketch": {
     "archived_at": null,
