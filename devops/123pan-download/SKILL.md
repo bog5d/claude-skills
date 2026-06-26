@@ -120,6 +120,21 @@ curl -L -o output_file.zip "https://prefix.xxx.com/path?..."
 - 文件可能被命名为 `.jpg` 实际是zip（123云盘对zip文件做了伪装），下载后用 `file` 命令确认
 - 各分享文件的 `downloadPath` 完全不同，无法复用
 - 123云盘有频率限制：多次重新请求同一文件会被临时封禁
+- **Windows ZIP 中文文件名乱码（血坑）**：从 Windows 上传的 ZIP 文件，在 macOS 上用 `unzip` 解压时中文文件名/目录名会变成乱码（`Illegal byte sequence`）。这是因为 ZIP 使用 CP437 编码存储文件名，需要用 Python 的 `zipfile` 指定 GBK 解码：
+
+```python
+import zipfile
+with zipfile.ZipFile('archive.zip', 'r') as z:
+    for info in z.infolist():
+        try:
+            name = info.filename.encode('cp437').decode('gbk')
+        except:
+            name = info.filename  # fallback
+        info.filename = name
+        z.extract(info, 'extracted/')
+```
+
+- **文件名截断注意**：123云盘批量下载时 ZIP 内文件可能嵌套多层（如 `talant_hub（人才联盟）/Talant_Hub/02_Raw_Data/...`），解压后用 `find . -type f | head -40` 快速查看结构，不要只看顶层目录。**中文目录名在 ZIP 列表（`unzip -l`）中显示为问号是正常的，用 Python 解压即可正确解码。**
 
 ## 备选方案
 

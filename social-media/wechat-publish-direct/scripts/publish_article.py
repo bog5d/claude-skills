@@ -34,130 +34,25 @@ from pathlib import Path
 
 
 # =============================================================================
-# 网络工具 — 绕过 macOS CFNetwork 系统代理
+# 网络工具 — WeChat API 走 Clash 系统代理（已配置节点白名单）
 # =============================================================================
-# macOS 系统级代理（Clash/Surge/Shadowrocket 等）在端口 7897，
-# 会让 urllib、http.client、requests 全部走代理，导致微信 API 拒绝（IP 不在白名单）。
-# 必须用 raw socket + ssl 完全绕过系统代理。
+# 现在 Clash 规则中 api.weixin.qq.com 已改为走「节点选择」，
+# 代理节点固定 IP 在微信白名单中，所以直接走标准库 + 系统代理即可。
+# DeepSeek/picsum 也用标准库（不走 SOCKS5）。
 
-import socket
-import ssl
-import struct
-from urllib.parse import urlparse
+# 微信 API 走系统代理（urllib.request 自动使用 macOS 系统代理设置）
+def _wechat_post(path: str, body: bytes, headers: dict, timeout: int = 15) -> bytes:
+    import urllib.request as urlreq
+    url = f"https://api.weixin.qq.com{path}"
+    req = urlreq.Request(url, data=body, headers=headers)
+    with urlreq.urlopen(req, timeout=timeout) as resp:
+        return resp.read()
 
-# SOCKS5 代理配置 — 用于固定出口 IP（解决公众号 IP 白名单动态变化问题）
-SOCKS5_PROXY = None  # (host, port) 或 None
-SOCKS5_HOSTS = {"api.weixin.qq.com"}  # 仅这些域名走代理
-
-
-def _socks5_connect(target_host: str, target_port: int, timeout: int = 15):
-    """通过 SOCKS5 代理连接目标主机，本地解析 DNS"""
-    proxy_host, proxy_port = SOCKS5_PROXY
-    
-    # 本地解析目标 IP
-    target_ip = socket.gethostbyname(target_host)
-    
-    # 连接代理
-    s = socket.create_connection((proxy_host, proxy_port), timeout=timeout)
-    
-    # SOCKS5 握手: 无认证
-    s.send(b"\x05\x01\x00")
-    resp = s.recv(2, socket.MSG_WAITALL)
-    if resp != b"\x05\x00":
-        raise OSError(f"SOCKS5 handshake failed: {resp.hex()}")
-    
-    # SOCKS5 CONNECT: IPv4
-    req = b"\x05\x01\x00\x01" + socket.inet_aton(target_ip) + struct.pack("!H", target_port)
-    s.send(req)
-    resp = s.recv(10, socket.MSG_WAITALL)
-    if resp[1] != 0x00:
-        raise OSError(f"SOCKS5 connect failed: code={resp[1]}")
-    
-    return s
-
-
-def _build_request(method: str, host: str, path: str, body: bytes = None,
-                   headers: dict = None, timeout: int = 15) -> str:
-    """用 raw socket + ssl 构建完整 HTTP 请求，绕过系统代理"""
-    # 创建连接：微信 API 走 SOCKS5，其他直连
-    if SOCKS5_PROXY and host in SOCKS5_HOSTS:
-        sock = _socks5_connect(host, 443, timeout=timeout)
-    else:
-        sock = socket.create_connection((host, 443), timeout=timeout)
-    
-    try:
-        # 创建 SSL 上下文（不使用系统代理）
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        ssl_sock = ctx.wrap_socket(sock, server_hostname=host)
-        
-        # 构建 HTTP 请求行
-        if method == "GET":
-            req = f"{method} {path} HTTP/1.1\r\n"
-        else:
-            req = f"{method} {path} HTTP/1.1\r\n"
-        
-        req += f"Host: {host}\r\n"
-        if body:
-            req += f"Content-Length: {len(body)}\r\n"
-        if headers:
-            for k, v in headers.items():
-                req += f"{k}: {v}\r\n"
-        req += "Connection: close\r\n"
-        req += "\r\n"
-        
-        ssl_sock.send(req.encode())
-        if body:
-            ssl_sock.send(body)
-        
-        # 读取响应
-        chunks = []
-        ssl_sock.settimeout(timeout)
-        while True:
-            try:
-                chunk = ssl_sock.recv(8192)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-            except socket.timeout:
-                break
-        
-        return b"".join(chunks).decode("utf-8", errors="replace")
-    
-    finally:
-        try:
-            ssl_sock.close()
-        except:
-            sock.close()
-
-
-def _extract_body(http_response: str) -> bytes:
-    """从 HTTP 响应字符串中提取 body"""
-    if "\r\n\r\n" in http_response:
-        return http_response.split("\r\n\r\n", 1)[1].encode("utf-8")
-    return b""
-
-
-def _http_post(host: str, path: str, body: bytes, headers: dict, timeout: int = 15) -> bytes:
-    """POST 请求，raw socket + ssl，不经过系统代理"""
-    raw = _build_request("POST", host, path, body=body, headers=headers, timeout=timeout)
-    return _extract_body(raw)
-
-
-def _http_get(host: str, path: str, timeout: int = 15) -> bytes:
-    """GET 请求，raw socket + ssl，不经过系统代理"""
-    raw = _build_request("GET", host, path, timeout=timeout)
-    return _extract_body(raw)
-
-
-def _http_download(url: str, timeout: int = 10) -> bytes:
-    """下载远程文件（图片），raw socket + ssl，不经过系统代理"""
-    parsed = urlparse(url)
-    host = parsed.hostname
-    path = parsed.path + ("?" + parsed.query if parsed.query else "")
-    raw = _build_request("GET", host, path, timeout=timeout)
-    return _extract_body(raw)
+def _wechat_get(path: str, timeout: int = 15) -> bytes:
+    import urllib.request as urlreq
+    url = f"https://api.weixin.qq.com{path}"
+    with urlreq.urlopen(url, timeout=timeout) as resp:
+        return resp.read()
 
 
 # =============================================================================
@@ -240,7 +135,7 @@ def get_access_token(appid, secret):
     """获取微信 access_token"""
     path = (f"/cgi-bin/token?"
            f"grant_type=client_credential&appid={appid}&secret={secret}")
-    raw = _http_get("api.weixin.qq.com", path, timeout=10)
+    raw = _wechat_get(path, timeout=10)
     data = json.loads(raw)
     if "access_token" not in data:
         raise ValueError(f"Failed to get token: {data}")
@@ -272,11 +167,9 @@ def upload_image_for_content(access_token, image_bytes):
         f"Content-Type: image/jpeg\r\n\r\n"
     ).encode() + image_bytes + f"\r\n--{boundary}--\r\n".encode()
     
-    raw = _http_post(
-        "api.weixin.qq.com", path, body,
+    raw = _wechat_post(path, body,
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        timeout=15
-    )
+        timeout=15)
     data = json.loads(raw)
     if "url" not in data:
         raise ValueError(f"Upload content image failed: {data}")
@@ -296,11 +189,9 @@ def upload_to_wechat(access_token, image_bytes, img_type="image"):
         f"Content-Type: image/jpeg\r\n\r\n"
     ).encode() + image_bytes + f"\r\n--{boundary}--\r\n".encode()
     
-    raw = _http_post(
-        "api.weixin.qq.com", path, body,
+    raw = _wechat_post(path, body,
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        timeout=15
-    )
+        timeout=15)
     data = json.loads(raw)
     if "media_id" not in data:
         raise ValueError(f"Upload failed: {data}")
@@ -339,7 +230,7 @@ def call_deepseek(article_text, appid, secret):
         "   - 首段首字下沉：<span style=\"float:left;font-size:3em;"
         "line-height:1;padding-right:5px;\">首字</span>\n"
         "   - 段落间距：每个段落之间空一行\n"
-        "5. 标题和作者单独一行，不加 <p> 标签。\n"
+        "5. 不要在正文中包含标题和作者，微信会自动显示标题。正文直接以首段开头。\n"
         "\n文章：\n"
         + article_text
     )
@@ -396,8 +287,13 @@ def parse_article_html(html):
     
     container_start = container_match.start()
     
-    # 找到所有章标题
-    chapter_pattern = r'<p style="font-size:18px;color:#888[^"]*">[一二三四五六七八九十]</p>'
+    # 找容器 div 的闭合标签位置（图片不能插到 </div> 外面）
+    container_end_match = re.search(r'</div>\s*$', html)
+    container_end = container_end_match.start() if container_end_match else len(html)
+    
+    # 找到所有章标题（匹配 一、 或 一、标题内容 格式）
+    # DeepSeek 格式：<p style="...">一、 故事：标题</p>
+    chapter_pattern = r'<p style="font-size:18px;color:#888[^"]*">[一二三四五六七八九十]、?[^<]*</p>'
     chapters = list(re.finditer(chapter_pattern, html))
     
     # 找到所有段落
@@ -406,41 +302,60 @@ def parse_article_html(html):
     
     return {
         "container_start": container_start,
+        "container_end": container_end,
         "chapters": chapters,
         "paragraphs": paragraphs,
         "html_length": len(html),
     }
 
 
-def find_insertion_points(parsed, body_image_count=0):
+def find_insertion_points(parsed, body_image_count=0, seed_count=0):
     """
     根据解析结果，确定配图插入位置。
     
     插入策略：
-    - 封面图：放在第一个章标题之前（或文章末尾）
-    - 正文配图：每章之间插入一张，优先使用章标题位置
-    - 如果章节不够，剩余图片放在文章末尾
+    - 封面图：放在第一个章标题之前（或文章开头）
+    - 正文配图：优先分配到每章之间
+    - 如果正文图多于章间隙，多余的均匀分配到段落之间（不堆末尾）
     
     返回恰好 1 + body_image_count 个插入位置的 HTML 偏移量列表。
     """
     chapters = parsed["chapters"]
-    html_end = parsed["html_length"]
+    paragraphs = parsed["paragraphs"]
+    fallback_end = parsed["container_end"]
+    total_body = body_image_count  # 正文图数量（不含封面）
     positions = []
     
     # 封面插入点
     if chapters:
         positions.append(chapters[0].start())
     else:
-        positions.append(html_end)
+        positions.append(fallback_end)
     
-    # 正文配图插入点：从第二章节开始
-    for ch in chapters[1:]:
-        if len(positions) < 1 + body_image_count:
-            positions.append(ch.start())
+    # 正文配图插入点
+    body_positions = []
     
-    # 如果章节不够，剩余图片放在文章末尾
-    while len(positions) < 1 + body_image_count:
-        positions.append(html_end)
+    if chapters:
+        # 优先分配到每章之前（跳过第一章，留给封面了）
+        chapter_slots = [ch.start() for ch in chapters[1:]]
+        body_positions.extend(chapter_slots)
+    
+    # 如果正文图多于章间隙，分配到段落之间
+    # 用 paragraphs 作为额外插槽（跳过首段前面的）
+    extra_needed = total_body - len(body_positions)
+    if extra_needed > 0 and len(paragraphs) > 2:
+        # 取中间段落（跳过首尾），均匀取 extra_needed 个
+        middle_paras = paragraphs[1:-1]
+        step = max(1, len(middle_paras) // (extra_needed + 1))
+        for i in range(extra_needed):
+            idx = min((i + 1) * step, len(middle_paras) - 1)
+            body_positions.append(middle_paras[idx].end())
+    
+    # 如果还不够，回退到容器末尾
+    while len(body_positions) < total_body:
+        body_positions.append(fallback_end)
+    
+    positions.extend(body_positions[:total_body])
     
     return positions
 
@@ -510,9 +425,8 @@ def find_existing_draft(access_token, title):
         "count": 20,
         "no_content": 1,  # 不返回正文内容，节省带宽
     }
-    raw = _http_post("api.weixin.qq.com", path,
-                     json.dumps(payload).encode(),
-                     {"Content-Type": "application/json"}, timeout=15)
+    raw = _wechat_post(path, json.dumps(payload).encode(),
+                       {"Content-Type": "application/json"}, timeout=15)
     result = json.loads(raw)
     
     if "item" in result:
@@ -551,7 +465,7 @@ def create_draft(access_token, title, author, digest, content,
             }]
         }
         path = f"/cgi-bin/draft/update?access_token={access_token}"
-        raw = _http_post("api.weixin.qq.com", path,
+        raw = _wechat_post(path,
                         json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                         {"Content-Type": "application/json"}, timeout=15)
         result = json.loads(raw)
@@ -576,7 +490,7 @@ def create_draft(access_token, title, author, digest, content,
         }]
     }
     
-    raw = _http_post("api.weixin.qq.com", path,
+    raw = _wechat_post(path,
                     json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                     {"Content-Type": "application/json"}, timeout=15)
     result = json.loads(raw)
@@ -763,20 +677,8 @@ def main():
         "--secret", default=None,
         help="微信 AppSecret（默认从 .env 读取）"
     )
-    parser.add_argument(
-        "--socks5", default=None,
-        metavar="HOST:PORT",
-        help="SOCKS5 代理地址（如 127.0.0.1:1080），用于固定出口 IP"
-    )
     
     args = parser.parse_args()
-    
-    # SOCKS5 代理
-    if args.socks5:
-        host, port = args.socks5.rsplit(":", 1)
-        import __main__
-        __main__.SOCKS5_PROXY = (host, int(port))
-        log("PROXY", f"SOCKS5 {host}:{port}", "⚡")
     
     # 读取文章
     with open(args.article, "r", encoding="utf-8") as f:

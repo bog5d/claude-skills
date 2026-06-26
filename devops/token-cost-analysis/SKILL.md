@@ -161,9 +161,11 @@ if max_iterations > 50:
 
 | 组件 | 说明 |
 |------|------|
-| `~/.hermes/scripts/ds_cost_recon.py` | 对账引擎 — 拉余额 + 记录快照 + 异常检测 + 日报 |
-| Cron `05a3e44e8031` | 每小时轮询 DeepSeek 余额（no_agent，零 LLM 成本） |
-| Cron `c18f45b55200` | 每天 9:00 推送对账日报 |
+| `~/.hermes/scripts/ds_cost_recon.py` | 对账引擎 — `./ds_cost_recon.py` 拉余额+记录快照；`./ds_cost_recon.py report` 出日报；含异常检测（日消耗超近7日均值2x→告警）和低余额预警（<¥5） |
+| `~/.hermes/scripts/ds_daily_report.sh` | 日报包装脚本（cron 用，内部调 `ds_cost_recon.py report`） |
+| Cron `05a3e44e8031` | **每小时**轮询 DeepSeek 余额（`0 * * * *`，no_agent，零 LLM 成本） |
+| Cron `c18f45b55200` | **每天 9:00** 推送对账日报（`0 9 * * *`，no_agent） |
+| `~/.hermes/cache/documents/ds_balance_log.json` | 余额历史（新格式：每日期含 `snapshots[{time,balance}]` + `balance`，自动迁移旧格式） |
 
 ### 对账逻辑
 
