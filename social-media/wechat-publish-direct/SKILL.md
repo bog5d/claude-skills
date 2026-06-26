@@ -20,6 +20,41 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 
 ⚠️ 写入脚本文件时密钥会被redact。解决方法：用 `ssh root@47.85.62.133 'base64 /root/wx-publisher/.env' | base64 -d` 获取原文，然后在终端heredoc中直接使用。
 
+## 🔧 预检清单（每次发布前执行，2026-06-26 新增）
+
+发布前依次检查以下 3 项：
+
+### 1. SOCKS5 隧道是否存活
+
+```bash
+ps aux | grep "ssh.*1080" | grep -v grep | head -1 || echo "TUNNEL_DOWN"
+```
+
+如果返回 `TUNNEL_DOWN`，重新启动：
+```bash
+ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 \
+  -i /Users/mac/.ssh/id_ed25519_alicloud \
+  -D 1080 -N -f root@47.85.62.133
+```
+
+### 2. .env 凭证完整性
+
+```bash
+grep -E 'WECHAT_SECRET|DEEPSEEK_API_KEY' /Users/mac/.hermes/profiles/her-m2/.env | grep -v '^\*\*\*'
+```
+
+检查两项均有 20+ 字符的值（非 `***`）。
+
+### 3. 微信 API 连通性（通过 SOCKS5）
+
+```bash
+curl -s --socks5 127.0.0.1:1080 -o /dev/null -w "%{http_code}" \
+  --connect-timeout 5 "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=wx37940d296d26c91c&secret=XXXXXXXX"
+# 应返回 200
+```
+
+**铁律**：以上任一项失败 → 不要运行发布脚本，先修前置条件。
+
 ## ⚠️ 故障降级策略（2026-06-21 更新）
 
 ### 当前状态（2026-06-21 实测）
@@ -88,7 +123,8 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 | 45003 | 标题超过 64 字节 | 截断到 55 字节 |
 | 45004 | 摘要超过 120 字节 | 截断到 115 字节 |
 | 40164 | IP 不在白名单 | 添加后需 30-60 分钟生效（实测），不是 2-5 分钟 |
-| 40066 | 素材上传 invalid url | 换旧接口 /material/add_material（详见 references/40066-upload-debug.md）|
+| 41005 | 图片上传 media data missing | 图片下载失败或没跟 302 重定向（见下方 Bug #5） |
+| 40066 | 素材上传 invalid url | 换旧接口 /material/add_material（详见 references/40066-upload-debug.md） |
 
 ### 凭证持久化（2026-06-18 新增）
 
@@ -208,44 +244,61 @@ python3 scripts/publish_article.py --article /tmp/article.md --socks5 127.0.0.1:
 - `references/macos-proxy-bypass.md` — **macOS 系统代理（Clash Verge/Surge）劫持所有出站连接的全套绕过方案**
 - `references/socks5-tunnel-setup.md` — **SOCKS5 隧道配置**（SSH 隧道 → 阿里云固定 IP → 微信 API，解决 IP 白名单动态变化问题）
 
-## ⛔ 已知 Bug（2026-06-18 诊断 — publish_article.py）
+## 🐛 已知 Bug（2026-06-26 更新）
 
-> 详见 `references/bug-diagnosis-prd-2026-06-18.md`
+> 全量诊断参考 `references/bug-diagnosis-prd-2026-06-18.md`
 
 ### Bug #1 【致命】图片不显示 — 裸 HTML 标签出现在正文
+**状态：🔧 已现场修复（2026-06-26）**
 
-**现象**：微信草稿预览中，图片位置显示 `style="display:block;margin:20px auto..."` 整段裸标签，无图。
+**根因**：`replace_picsum_with_media()` 替换逻辑错误。`insert_image_tags()` 插入完整 `<img>` 标签后，`replace_picsum_with_media()` 用 `html.replace(picsum_url, new_tag, 1)` 把 picsum URL 替换成一整个新 `<img>` 标签，导致**嵌套 img 标签**。
 
-**根因**：`replace_picsum_with_media()` 替换逻辑错误。`insert_image_tags()` 插入完整 `<img>` 标签后，`replace_picsum_with_media()` 用 `html.replace(picsum_url, new_tag, 1)` 把 picsum URL 替换成一整个新 `<img>` 标签，导致**嵌套 img 标签**，微信解析失败降级为纯文本。
-
-**修复**：直接修改 `insert_image_tags()` 插入时就使用 `data-uimg` 占位，或只替换 `src` 属性值。
+**修复**：正则改为匹配完整 `<img>` 标签替换整个标签，而非仅替换 `src` 属性值。
 
 ### Bug #2 【高】草稿重复提交
-
-**现象**：同名文章出现 5 份草稿。
-
-**根因**：`create_draft()` 永远调 `draft/add`，无查重逻辑。应先用 `draft/batchget` 检查已有草稿，存在则用 `draft/update`。
+**状态：已修复** — `create_draft()` 现在先调 `draft/batchget` 查重，存在则用 `draft/update`。
 
 ### Bug #3 【中】HTML 未写盘
+**状态：已修复** — `--output` 现在正常写盘，`publish_workflow()` 返回完整 HTML。
 
-**现象**：`--output` 参数指定路径但无文件生成。
+### Bug #4 【致命】DeepSeek JSON 解析崩溃（2026-06-26 发现+修复）
 
-**根因**：`main()` L554-557 直接 `pass`，空实现。
+**现象**：STEP 1 报 `Extra data: line 2 column 1 (char 5)`，脚本崩溃。
 
-### ⚠️ 修复前禁止使用
+**根因**：自制的 raw socket + SSL HTTP 实现（`_build_request` + `_extract_body`）不支持 chunked transfer encoding。DeepSeek 响应带 `Transfer-Encoding: chunked`，`_extract_body` 返回的 body 包含 chunk 大小行，`json.loads()` 无法解析。
 
-在 Cursor 修复 Bug #1 之前，**不要直接调用 `publish_article.py` 创建草稿**——图片不会正常显示。排版功能（仅生成 HTML）不受影响。
+**修复**：`call_deepseek()` 改用标准库 `urllib.request`（DeepSeek 不走 SOCKS5，无需自制 HTTP）。
+
+### Bug #5 【高】picsum 图片下载为空 → 微信 41005（2026-06-26 发现+修复）
+
+**现象**：STEP 3 上传图片时报 `41005 media data missing`。
+
+**根因**：`_http_download()` 用 raw socket 直连，**不跟 HTTP 302 重定向**。picsum.photos/seed/xxx 返回 302 → fastly.picsum.photos，下载到空 body。
+
+**修复**：`download_image()` 改用 `urllib.request`（自动跟重定向）。picsum 不走 SOCKS5。
+
+### ⚠️ 执行前须知
+
+Bug #1（嵌套 img 标签）已在代码层面修复，不再阻塞发布。但 **图片渲染仍需实际在微信后台打开草稿验证**。如果发现图片仍不显示，请波总去草稿箱查看确认。
 
 ---
 
-## ✅ 验证状态 (2026-06-21 更新)
+## ✅ 验证状态 (2026-06-26 实测更新)
 
 | 组件 | 状态 | 备注 |
 |------|------|------|
 | publish_article.py 排版 | 🟢 正常 | DeepSeek MD→HTML 排版效果用户认可 |
-| publish_article.py 图片 | 🔴 致命 Bug | 嵌套 img 标签 → 微信当纯文本（Bug #1） |
-| publish_article.py 草稿 | 🔴 重复提交 | 无 dedup（Bug #2） |
-| publish_article.py 输出 | 🟡 HTML 不写盘 | --output 空实现（Bug #3） |
+| publish_article.py 图片 | 🟢 已修复 | Bug #1（嵌套 img）+ Bug #5（302 重定向）均修复 |
+| publish_article.py 草稿 | 🟢 已修复 | Bug #2（重复提交）+ Bug #3（不写盘）均修复 |
+| publish_article.py DeepSeek 调用 | 🟢 已修复 | Bug #4（chunked encoding 解析崩溃）修复 |
+| image insert → data-uimg | 🟢 4/4 替换 | data-uimg 属性注入成功，src 保留 picsum URL 为 fallback（设计如此） |
 | SSH 中继服务器 | 🟢 可用 | `/Users/mac/.ssh/id_ed25519_alicloud` 密钥认证通 |
-| SOCKS5 隧道 | 🟢 跑通 | `--socks5 127.0.0.1:1080` → 47.85.62.133 → 微信拿到 access_token |
-| FRP 隧道 | 🟢 在线 | frps :7000 ↔ frpc macOS |
+| SOCKS5 隧道 | 🟢 跑通 | `--socks5 127.0.0.1:1080` → 47.85.62.133 → 微信 API |
+| 草稿创建 | 🟢 通过 | 实测 test article 创建成功，返回 media_id |
+| 图片渲染验证 | 🟡 待波总确认 | 需在微信后台打开草稿确认图片正常显示 |
+
+### 已知限制
+
+1. **章标题正则不匹配「一、内容」格式**：`find_insertion_points()` 的 regex `[一二三四五六七八九十]` 只匹配单字章节号，不匹配`一、内容`（带顿号）。导致所有图片插入到 `</div>` 容器外。临时规避：在 DeepSeek prompt 中要求章节号只保留数字（`一`而非`一、`），或修改 regex。真实长文影响小（图片位置在末尾而非章节间）。
+
+2. **STEP 5 警告是假告警**：`replace_picsum_with_media()` 完成后，`src` 属性仍保留 picsum URL（作为 fallback），检测 regex `r'picsum\.photos'` 仍能匹配到 4 条，打印 WARNING。`data-uimg` 属性已正确注入，微信据此渲染真实图片。

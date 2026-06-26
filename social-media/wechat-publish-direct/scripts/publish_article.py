@@ -250,7 +250,10 @@ def get_access_token(appid, secret):
 def download_image(seed):
     """从 picsum.photos 下载图片，返回 bytes"""
     url = PICSUM_BASE.format(seed) + "/" + PICSUM_SIZE
-    return _http_download(url, timeout=10)
+    # urllib 自动跟重定向（picsum 302 → fastly），picsum 不走 SOCKS5
+    import urllib.request as urlreq
+    with urlreq.urlopen(url, timeout=10) as resp:
+        return resp.read()
 
 
 def upload_to_wechat(access_token, image_bytes, img_type="image"):
@@ -325,11 +328,15 @@ def call_deepseek(article_text, appid, secret):
         "Content-Type": "application/json",
     }
     
-    req_body = json.dumps(payload).encode()
-    headers_raw = "\r\n".join(f"{k}: {v}" for k, v in headers.items())
-    raw_resp = _http_post("api.deepseek.com", "/chat/completions", req_body,
-                          {k: v for k, v in headers.items()}, timeout=60)
-    result = json.loads(raw_resp)
+    # DeepSeek 不走 SOCKS5，用标准库（避免自制 HTTP 的 chunked encoding bug）
+    import urllib.request as urlreq
+    req = urlreq.Request(
+        "https://api.deepseek.com/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers=headers,
+    )
+    with urlreq.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read().decode())
     
     html = result["choices"][0]["message"]["content"].strip()
     

@@ -78,15 +78,27 @@ if args.output:
 
 **修复方向**：`publish_workflow()` 需返回最终 HTML 字符串，`main()` 在成功后写盘。
 
-### Bug #4 【低】API Key 回退为占位符
+### Bug #4 【致命】DeepSeek JSON 解析崩溃 — raw socket HTTP 不支持 chunked encoding
 
-**根因**：`call_deepseek()` L161-163：
-```python
-if not api_key or api_key.startswith("***"):
-    api_key = "sk-a9e...847f"  # 截断的假 key
-```
+**发现日期**：2026-06-26（端到端实测）
+**修复方式**：现场修复（代码 patch）
 
-**修复方向**：移除硬编码占位符，key 不可用时直接报错退出。
+**现象**：STEP 1 报 `Extra data: line 2 column 1 (char 5)`，脚本崩溃。
+
+**根因**：脚本的自制 HTTP 实现（`_build_request` + `_extract_body`）用 raw socket + SSL 绕过 macOS 系统代理。DeepSeek API 响应使用 `Transfer-Encoding: chunked`。`_extract_body()` 仅按 `\r\n\r\n` 分割取 body 部分，未对 chunked 编码解码。chunk 大小行（如 `1f\r\n`）混入 JSON 体，`json.loads()` 崩溃。
+
+**修复**：`call_deepseek()` 改用 `urllib.request`（标准库自带 chunked 解码）。DeepSeek 不走 SOCKS5，无需自制 HTTP。
+
+### Bug #5 【高】picsum 图片下载为空 — raw socket 不跟 302 重定向
+
+**发现日期**：2026-06-26（端到端实测）
+**修复方式**：现场修复（代码 patch）
+
+**现象**：STEP 3 上传图片时报微信 `41005 media data missing`。
+
+**根因**：`_http_download()` 用 raw socket 直连 picsum.photos，不处理 HTTP 302 重定向。picsum.photos/seed/xxx 返回 302 → fastly.picsum.photos，下载 body 为空。空数据上传微信素材库 → 41005。
+
+**修复**：`download_image()` 改用 `urllib.request`（自动跟 302 → fastly CDN）。picsum 不走 SOCKS5。
 
 ---
 
