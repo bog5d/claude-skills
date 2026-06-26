@@ -149,6 +149,54 @@ if max_iterations > 50:
 - **压缩没有浪费 token** — 压缩前的 token 数（如 319K）是原始值，压缩后只剩 ~5K，节省了 98.5%。用户看到"数字很大"是压缩前的值，实际被压缩掉了。
 - **Flash 不是"本身贵"** — 输出 token 单价是 Pro 的 1/3，但如果每个请求输出量是 Pro 的 5-7 倍且 cache_miss 率高，总成本反而更高。
 - **不是泄露** — key 专用、调用模式正常、cache_hit 比例合理，就是行为变化导致的。
+- **⚠️ 禁止说"没有余额数据"** — DeepSeek 官方 API `/user/balance` 可以直接拉余额。每次做成本分析时，必须先调 API 拉官方余额，不要等用户发截图或 CSV。用户对此零容忍。
+
+## 🆕 主动余额对账（Proactive Reconciliation）
+
+**核心原则：每次涉及 DeepSeek 成本/余额的对话，第一步永远是调 API 拉官方余额。不说"没有数据"。**
+
+### 自动化管线
+
+已部署两个 cron job + 一个脚本，实现零人工的余额追踪与对账：
+
+| 组件 | 说明 |
+|------|------|
+| `~/.hermes/scripts/ds_cost_recon.py` | 对账引擎 — 拉余额 + 记录快照 + 异常检测 + 日报 |
+| Cron `05a3e44e8031` | 每小时轮询 DeepSeek 余额（no_agent，零 LLM 成本） |
+| Cron `c18f45b55200` | 每天 9:00 推送对账日报 |
+
+### 对账逻辑
+
+```
+每小时 API 拉余额 → 记录到 ds_balance_log.json
+                    ↓
+每日 9:00 → 日报: 昨日消耗 vs 近7日均值
+                    ↓
+         翻倍? → 🚨 异常告警
+         正常? → 静默
+         余额<¥5? → ⚠️ 充值预警
+```
+
+### 手动对账
+
+```bash
+# 拉余额 + 记录快照（cron 每小时自动跑，手动跑也可以）
+python3 ~/.hermes/scripts/ds_cost_recon.py
+
+# 生成对账日报
+python3 ~/.hermes/scripts/ds_cost_recon.py report
+```
+
+### 定价参考
+
+DeepSeek V4-Pro（促销期，2026-05-31 前）：
+- Input: $0.435/1M tokens (cache miss), $0.003625/1M (cache hit)
+- Output: $0.87/1M tokens
+- 促销期后: $1.74 input, $3.48 output
+
+### ⚠️ 语音转文字陷阱
+
+"DeepSeek" 可能被语音识别误转为 "dc克"、"dpc克"、"dcp克" 等。当用户提及这些看似不认识的平台名时，**先想到 DeepSeek**，不要去想 度小满、借贷平台等其他含义。
 
 ## Token 优化技术
 

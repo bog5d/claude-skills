@@ -256,6 +256,33 @@ def download_image(seed):
         return resp.read()
 
 
+def upload_image_for_content(access_token, image_bytes):
+    """
+    通过 media/uploadimg 上传正文图片，返回微信 CDN URL。
+    
+    media/uploadimg 不占用素材库名额，返回的 URL 可直接用于 draft/add 正文中的 <img src>。
+    """
+    path = f"/cgi-bin/media/uploadimg?access_token={access_token}"
+    
+    boundary = hashlib.md5(str(time.time()).encode()).hexdigest()
+    body = (
+        f"--{boundary}\r\n"
+        f"Content-Disposition: form-data; name=\"media\"; "
+        f"filename=\"img.jpg\"\r\n"
+        f"Content-Type: image/jpeg\r\n\r\n"
+    ).encode() + image_bytes + f"\r\n--{boundary}--\r\n".encode()
+    
+    raw = _http_post(
+        "api.weixin.qq.com", path, body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        timeout=15
+    )
+    data = json.loads(raw)
+    if "url" not in data:
+        raise ValueError(f"Upload content image failed: {data}")
+    return data["url"]  # e.g. "http://mmbiz.qpic.cn/XXXXX"
+
+
 def upload_to_wechat(access_token, image_bytes, img_type="image"):
     """上传图片到微信素材库，返回 media_id"""
     path = (f"/cgi-bin/material/add_material?"
@@ -445,13 +472,11 @@ def insert_image_tags(html, positions, seeds, image_style):
     return html
 
 
-def replace_picsum_with_media(html, url_to_mid):
+def replace_picsum_with_wechat_urls(html, wechat_urls):
     """
-    将 picsum 图片标签替换为带 data-uimg 的格式。
+    将 HTML 中 picsum 图片标签的 src 替换为微信 CDN URL。
     
-    关键修复: 匹配整个 <img> 标签而非 URL 片段，
-    避免嵌套 img 标签（Bug #1 根因）。
-    确定性映射：按图片插入顺序一一对应。
+    按图片插入顺序一一对应替换 src 属性值，不动标签结构。
     """
     # 匹配完整的 <img> 标签（包含 picsum src）
     picsum_img_pattern = (
@@ -459,24 +484,17 @@ def replace_picsum_with_media(html, url_to_mid):
     )
     picsum_tags = re.findall(picsum_img_pattern, html)
     
-    if len(picsum_tags) != len(url_to_mid):
+    if len(picsum_tags) != len(wechat_urls):
         raise ValueError(
             f"Picsum img tag count ({len(picsum_tags)}) "
-            f"!= media_id count ({len(url_to_mid)})"
+            f"!= wechat_url count ({len(wechat_urls)})"
         )
     
-    img_style_val = STYLES["img"]
-    for i, (old_tag, mid) in enumerate(zip(picsum_tags, url_to_mid)):
-        # 从旧标签中提取 picsum URL 作为 src
-        src_match = re.search(
-            r'src="(https://picsum\.photos/seed/[^"]*)"', old_tag
-        )
-        picsum_url = src_match.group(1) if src_match else ""
-        # 构造新标签（替换整个标签，不是只替换 URL 字符串）
-        new_tag = (
-            '<img src="' + picsum_url + '" '
-            + img_style_val + ' '
-            + 'data-uimg="' + mid + '">'
+    for i, (old_tag, wx_url) in enumerate(zip(picsum_tags, wechat_urls)):
+        # 只替换 src 属性值，不动标签其他部分
+        new_tag = old_tag.replace(
+            'src="https://picsum.photos/seed/',
+            f'src="{wx_url}'
         )
         html = html.replace(old_tag, new_tag, 1)
     
@@ -624,18 +642,32 @@ def publish_workflow(
     # ---- Step 3: 下载并上传配图 ----
     log("STEP 3", f"Downloading and uploading {total_images} images...")
     all_seeds = [cover_seed] + body_seeds
-    media_ids = []
-    for i, seed in enumerate(all_seeds):
-        img_type = "thumb" if i == 0 else "image"
+    img_bytes_list = []
+    for seed in all_seeds:
         img_bytes = download_image(seed)
-        mid = upload_to_wechat(token, img_bytes, img_type)
-        media_ids.append(mid)
-        log("STEP 3", f"  [{i}] seed={seed}, media_id={mid[:20]}...")
+        img_bytes_list.append(img_bytes)
+        log("STEP 3", f"  Downloaded {seed}: {len(img_bytes)} bytes")
     
-    log("STEP 3", f"All {len(media_ids)} images uploaded ✓")
+    # 封面图：用 material/add_material 获取 media_id（用于 thumb_media_id）
+    cover_media_id = upload_to_wechat(token, img_bytes_list[0], "image")
+    log("STEP 3", f"  封面上传完成: media_id={cover_media_id[:20]}...")
     
-    # ---- Step 4: 插入图片标签 ----
+    # 封面图也上传 media/uploadimg 获取微信 CDN URL（用于正文第一张图）
+    cover_wechat_url = upload_image_for_content(token, img_bytes_list[0])
+    log("STEP 3", f"  封面 URL: {cover_wechat_url[:40]}...")
+    
+    # 正文配图：用 media/uploadimg 获取微信 CDN URL（用于正文 <img src>）
+    body_wechat_urls = []
+    for i, img_bytes in enumerate(img_bytes_list[1:], 1):
+        wx_url = upload_image_for_content(token, img_bytes)
+        body_wechat_urls.append(wx_url)
+        log("STEP 3", f"  [{i}] seed={all_seeds[i]}, wx_url={wx_url[:40]}...")
+    
+    log("STEP 3", f"All {total_images} images uploaded ✓")
+    
+    # ---- Step 4: 插入图片标签（先用 picsum URL 占位）----
     log("STEP 4", "Inserting image tags at determined positions...")
+    # all_seeds = [cover_seed] + body_seeds → 正文图片用 body_wechat_urls 替换
     html = insert_image_tags(
         html, positions, all_seeds, STYLES["img"]
     )
@@ -648,16 +680,18 @@ def publish_workflow(
             f"Image count mismatch: {img_count_step4} != {total_images}"
         )
     
-    # ---- Step 5: 替换 picsum URL 为 data-uimg ----
-    log("STEP 5", "Replacing picsum URLs with data-uimg...")
-    html = replace_picsum_with_media(html, media_ids)
+    # ---- Step 5: 替换 picsum URL 为微信 CDN URL ----
+    log("STEP 5", "Replacing picsum URLs with WeChat CDN URLs...")
+    all_wechat_urls = [cover_wechat_url] + body_wechat_urls
+    html = replace_picsum_with_wechat_urls(html, all_wechat_urls)
     
-    # 验证：所有 picsum URL 应被替换
+    # 正文中所有图片都已替换为微信 CDN URL
     picsum_remaining = len(re.findall(r'picsum\.photos', html))
     if picsum_remaining > 0:
-        log("STEP 5", f"WARNING: {picsum_remaining} picsum URLs remain!", "⚠")
+        # 封面图在正文中的标签也需替换
+        log("STEP 5", f"WARNING: {picsum_remaining} picsum URLs remain in cover!", "⚠")
     else:
-        log("STEP 5", f"4张图全部替换为 data-uimg ✓")
+        log("STEP 5", f"所有图片已替换为微信 CDN URL ✓")
     
     # ---- Step 6: 创建草稿 ----
     log("STEP 6", "Creating WeChat draft...")
@@ -671,7 +705,7 @@ def publish_workflow(
         title = "未命名文章"
     
     draft_media_id = create_draft(
-        token, title, author, digest, html, media_ids[0]
+        token, title, author, digest, html, cover_media_id
     )
     log("STEP 6", f"草稿创建成功: media_id={draft_media_id[:20]}...")
     
@@ -679,7 +713,8 @@ def publish_workflow(
         "draft_media_id": draft_media_id,
         "html_length": len(html),
         "image_count": img_count_step4,
-        "media_ids": media_ids,
+        "cover_media_id": cover_media_id,
+        "body_wechat_urls": body_wechat_urls,
         "final_html": html,
     }
 
@@ -786,8 +821,9 @@ def main():
             log("OUTPUT", f"Final HTML saved to {args.output}", "✓")
         
         print(f"\n[验证日志]")
-        for mid_idx, mid in enumerate(result["media_ids"]):
-            print(f"  [{mid_idx}] media_id={mid[:40]}...")
+        print(f"  封面 media_id: {result['cover_media_id'][:40]}...")
+        for i, url in enumerate(result["body_wechat_urls"]):
+            print(f"  正文图[{i}]: {url[:50]}...")
         
     except Exception as e:
         log("ERROR", str(e), "✗")

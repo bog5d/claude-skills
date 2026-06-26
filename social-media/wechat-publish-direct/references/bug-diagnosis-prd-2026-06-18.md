@@ -20,38 +20,20 @@
 
 ## 二、已确认 Bug（根因分析）
 
-### Bug #1 【致命】图片不显示 — 裸 HTML 标签出现在正文
+### Bug #1 【致命】图片不显示 — data-uimg 对 draft/add 无效（2026-06-26 更新根因）
 
-**现象**（截图2）：微信草稿预览中，图片位置显示的是：
-```
-style="display:block;margin:20px auto;max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)"
-```
-——整段 `<img>` 标签被微信当作纯文本呈现在正文中。
+**⚠️ 2026-06-26 根因修正**：下方「嵌套 img 标签」分析是**错误诊断**。修复嵌套标签后图片仍不显示，证实 `data-uimg` 属性对 API 创建的草稿（`draft/add`）无效。微信官方要求正文图片 `<img src>` 必须使用通过 **`media/uploadimg`** 接口上传后返回的微信 CDN URL（`http://mmbiz.qpic.cn/xxxx`）。详见 `references/media-uploadimg-fix.md`。
 
-**根因**：`replace_picsum_with_media()` (L304-329) 存在**替换逻辑错误**。
+**现象**（截图2）：微信草稿预览中，图片位置显示 style 属性裸文本，无图。
 
-`insert_image_tags()` 插入的是完整 `<img>` 标签：
-```html
-<img src="https://picsum.photos/seed/road/600/400" style="...">
-```
+**最初猜测（错误）**：`replace_picsum_with_media()` 替换逻辑导致嵌套 img 标签，微信降级为纯文本。
 
-`replace_picsum_with_media()` 用正则 `https://picsum\.photos/seed/[^\s"\'>]+` 匹配到 `src` 属性值中的 URL，然后执行 `html.replace(picsum_url, new_tag, 1)`。
+**实际根因**：`material/add_material` + `data-uimg` 方案对 `draft/add` API 无效。必须用 `media/uploadimg` 接口上传后获取微信 CDN URL，直接作为 `<img src>` 使用。
 
-`new_tag` 本身是完整的 `<img>` 标签：
-```python
-new_tag = '<img src="' + picsum_url + '" style="' + img_style_val + '" data-uimg="' + mid + '">'
-```
-
-**结果**：把 `src` 属性值替换成了一整个 `<img>` 标签，导致**嵌套 img 标签**：
-```html
-<img src="<img src='https://picsum.photos/seed/road/600/400' style='...' data-uimg='...'>" style="...">
-```
-
-微信 API 解析这种非法 HTML 时，将其整体降级为纯文本。
-
-**修复方向**：
-- 方案A：直接在 `insert_image_tags()` 时就用 `data-uimg` 占位，整体跳过 picsum 替换
-- 方案B：在 `replace_picsum_with_media()` 中，只替换 `src` 属性值，不动整个标签结构
+**最终修复**：
+- 正文图片：`media/uploadimg` → 微信 CDN URL → `<img src="...">`
+- 封面图：`material/add_material` → `media_id` → `thumb_media_id`（不变）
+- `replace_picsum_with_media()` 替换为 `replace_picsum_with_wechat_urls()`
 
 ### Bug #2 【高】5 次重复提交
 

@@ -1,42 +1,33 @@
-# 微信公众号发布管线状态（2026-06-18 更新）
+# 微信公众号发布管线状态（2026-06-26 更新）
 
 ## 管线概览
 
 ```
-波总文章 → DeepSeek排版 → 配图 → 微信draft/add → 返回media_id
+波总文章 → DeepSeek排版 → 配图下载 → media/uploadimg→微信CDN URL → draft/add
 ```
 
-## 当前状态（2026-06-18 实测）
+## 当前状态（2026-06-26 实测）
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
-| 微信 access_token | ✅ 本地直连可用 | 用户手动提供 App Secret，IP 在白名单 |
-| 微信素材上传 | ✅ 旧接口可用 | `/cgi-bin/material/add_material` 可成功上传 picsum 图片 |
-| 微信草稿创建 | ✅ 已跑通 | POST draft/add 成功返回 media_id |
-| DeepSeek API | ❌ 余额耗尽 | 主 key 402，排版阶段仍需解决 |
-| 阿里云中继 SSH | ❌ 认证失效 | 无法自动获取凭证 |
-| Unsplash/Pexels API | ❌ Key 失效 | 配图降级到 picsum.photos |
+| 微信 access_token via SOCKS5 | 🟢 通过 | `--socks5 127.0.0.1:1080` → 47.85.62.133 固定 IP → 微信 API |
+| DeepSeek API | 🟢 正常 | `urllib.request` 直连（不走 SOCKS5） |
+| picsum 图片下载 | 🟢 正常 | `urllib.request` 自动跟 302 重定向 |
+| 正文图片上传 media/uploadimg | 🟢 通过 | 返回微信 CDN URL（mmbiz.qpic.cn） |
+| 封面图上传 material/add_material | 🟢 通过 | 返回 media_id 用于 thumb_media_id |
+| 草稿创建 draft/add | 🟢 通过 | 直接使用微信 CDN URL 作为 `<img src>` |
+| 图片渲染验证 | 🟡 待波总确认 | 需在微信后台打开草稿确认图片显示 |
 
-## 恢复阻塞项
+## 架构变更记录
 
-### 1. DeepSeek API 余额
-- 主 key: `sk-a9e82fef...847f`（402 Payment Required）
-- 需要充值或换 provider
-- **临时规避**：用户直接提供排版好的 HTML，Hermes 只做配图+草稿创建
+### 2026-06-26 架构修复：media/uploadimg
 
-### 2. 配图策略
-- picsum.photos 可作为临时配图方案
-- 用户可在公众号后台手动替换为高清图
-- 下载 picsum 图片必须加 `curl -L`（302 重定向到 fastly）
+**问题**：`material/add_material` + `data-uimg` 对 draft/add 无效。
+**修复**：正文图片改用 `media/uploadimg` 获取微信 CDN URL，直接作 `<img src>`。
 
-## 已验证的参数
+详见 `references/media-uploadimg-fix-2026-06-26.md`。
 
-| 参数 | 值 |
-|------|-----|
-| APP_ID | wx37940d296d26c91c |
-| 标题字节限制 | ≤55 UTF-8 bytes |
-| 摘要字节限制 | ≤115 UTF-8 bytes |
-| 配图频率 | 每400-600字1张 |
-| 封面尺寸 | 640x427 |
-| 素材上传接口 | `/cgi-bin/material/add_material`（旧接口） |
-| 草稿创建接口 | `/cgi-bin/draft/add` |
+## 已知限制
+
+1. **章标题正则不匹配「一、内容」格式**：`find_insertion_points()` regex `[一二三四五六七八九十]` 只匹配单字，不匹配带顿号的格式。临时规避：修改 regex 为 `[一二三四五六七八九十][、]?`。
+2. **SOCKS5 隧道需要 live**：隧道掉线时微信 API 因 IP 白名单不可达。检查命令：`ps aux | grep "ssh.*1080" | grep -v grep`。

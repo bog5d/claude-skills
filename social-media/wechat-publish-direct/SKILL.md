@@ -123,8 +123,10 @@ ssh root@47.85.62.133 'cat /root/wx-publisher/.env'
 | 45003 | 标题超过 64 字节 | 截断到 55 字节 |
 | 45004 | 摘要超过 120 字节 | 截断到 115 字节 |
 | 40164 | IP 不在白名单 | 添加后需 30-60 分钟生效（实测），不是 2-5 分钟 |
-| 41005 | 图片上传 media data missing | 图片下载失败或没跟 302 重定向（见下方 Bug #5） |
+| 41005 | 图片上传 media data missing | 图片下载失败或没跟 302 重定向。`download_image()` 必须用自动跟重定向的库（如 `urllib.request`）|
 | 40066 | 素材上传 invalid url | 换旧接口 /material/add_material（详见 references/40066-upload-debug.md） |
+| 40005 | media/uploadimg invalid file type | 仅支持 jpg/png 格式 |
+| 40009 | media/uploadimg invalid image size | 图片必须在 1MB 以下 |
 
 ### 凭证持久化（2026-06-18 新增）
 
@@ -242,18 +244,24 @@ python3 scripts/publish_article.py --article /tmp/article.md --socks5 127.0.0.1:
 - `references/publish-article-script.md` — `publish_article.py` 固化程序文档（用法、管线步骤、限制）
 - `references/bug-diagnosis-prd-2026-06-18.md` — **2026-06-18 Bug 诊断 PRD**（3 个已知 Bug 的根因分析 + Cursor 修复任务清单）
 - `references/macos-proxy-bypass.md` — **macOS 系统代理（Clash Verge/Surge）劫持所有出站连接的全套绕过方案**
+- `references/media-uploadimg-fix-2026-06-26.md` — **draft/add 正文图片架构修复**：`data-uimg` 无效，改用 `media/uploadimg` 获取微信 CDN URL（2026-06-26 现场发现+修复）
 - `references/socks5-tunnel-setup.md` — **SOCKS5 隧道配置**（SSH 隧道 → 阿里云固定 IP → 微信 API，解决 IP 白名单动态变化问题）
 
 ## 🐛 已知 Bug（2026-06-26 更新）
 
 > 全量诊断参考 `references/bug-diagnosis-prd-2026-06-18.md`
 
-### Bug #1 【致命】图片不显示 — 裸 HTML 标签出现在正文
-**状态：🔧 已现场修复（2026-06-26）**
+### Bug #1 【致命】图片不显示 — data-uimg 对 draft/add 无效（已修复）
+**状态：🔧 2026-06-26 现场修复**
 
-**根因**：`replace_picsum_with_media()` 替换逻辑错误。`insert_image_tags()` 插入完整 `<img>` 标签后，`replace_picsum_with_media()` 用 `html.replace(picsum_url, new_tag, 1)` 把 picsum URL 替换成一整个新 `<img>` 标签，导致**嵌套 img 标签**。
+**最初猜测**：嵌套 img 标签导致微信降级为纯文本。
+**实际根因（2026-06-26 验证）**：嵌套 img 标签修复后图片仍不显示，证实 `data-uimg` 属性对 API 创建的草稿（`draft/add`）无效。微信要求正文图片 `<img src>` 必须使用通过 **`media/uploadimg`** 接口上传后返回的微信 CDN URL（`http://mmbiz.qpic.cn/xxxx`）。
 
-**修复**：正则改为匹配完整 `<img>` 标签替换整个标签，而非仅替换 `src` 属性值。
+**最终修复**：拆分为两套上传逻辑——
+- 封面图（`thumb_media_id`）：`material/add_material` → `media_id`
+- 正文图片（`<img src>`）：`media/uploadimg` → 微信 CDN URL
+
+**关键教训**：`data-uimg` 是微信编辑器前端特性，不适用于 API 创建草稿。查阅微信开放社区确认：「涉及图片url必须来源『上传图文消息内的图片获取URL』接口获取」。
 
 ### Bug #2 【高】草稿重复提交
 **状态：已修复** — `create_draft()` 现在先调 `draft/batchget` 查重，存在则用 `draft/update`。
@@ -279,7 +287,7 @@ python3 scripts/publish_article.py --article /tmp/article.md --socks5 127.0.0.1:
 
 ### ⚠️ 执行前须知
 
-Bug #1（嵌套 img 标签）已在代码层面修复，不再阻塞发布。但 **图片渲染仍需实际在微信后台打开草稿验证**。如果发现图片仍不显示，请波总去草稿箱查看确认。
+所有已知 Bug（#1～#5）已在 2026-06-26 现场修复。正文图片使用 `media/uploadimg` 获取微信 CDN URL 后直接用作 `<img src>`，不再依赖 `data-uimg`。**发布后请在微信后台草稿箱打开确认图片正常渲染**。如果仍有问题，联系波总。
 
 ---
 
@@ -291,7 +299,8 @@ Bug #1（嵌套 img 标签）已在代码层面修复，不再阻塞发布。但
 | publish_article.py 图片 | 🟢 已修复 | Bug #1（嵌套 img）+ Bug #5（302 重定向）均修复 |
 | publish_article.py 草稿 | 🟢 已修复 | Bug #2（重复提交）+ Bug #3（不写盘）均修复 |
 | publish_article.py DeepSeek 调用 | 🟢 已修复 | Bug #4（chunked encoding 解析崩溃）修复 |
-| image insert → data-uimg | 🟢 4/4 替换 | data-uimg 属性注入成功，src 保留 picsum URL 为 fallback（设计如此） |
+| image approach | 🟢 已切换 | 从 `material/add_material` + `data-uimg` 改为 `media/uploadimg` → 微信 CDN URL → `<img src>` |
+| 正文图片 | 🟢 正确 | 通过 `media/uploadimg` 接口获取微信 CDN URL 直接用作 `<img src>` |
 | SSH 中继服务器 | 🟢 可用 | `/Users/mac/.ssh/id_ed25519_alicloud` 密钥认证通 |
 | SOCKS5 隧道 | 🟢 跑通 | `--socks5 127.0.0.1:1080` → 47.85.62.133 → 微信 API |
 | 草稿创建 | 🟢 通过 | 实测 test article 创建成功，返回 media_id |
@@ -301,4 +310,4 @@ Bug #1（嵌套 img 标签）已在代码层面修复，不再阻塞发布。但
 
 1. **章标题正则不匹配「一、内容」格式**：`find_insertion_points()` 的 regex `[一二三四五六七八九十]` 只匹配单字章节号，不匹配`一、内容`（带顿号）。导致所有图片插入到 `</div>` 容器外。临时规避：在 DeepSeek prompt 中要求章节号只保留数字（`一`而非`一、`），或修改 regex。真实长文影响小（图片位置在末尾而非章节间）。
 
-2. **STEP 5 警告是假告警**：`replace_picsum_with_media()` 完成后，`src` 属性仍保留 picsum URL（作为 fallback），检测 regex `r'picsum\.photos'` 仍能匹配到 4 条，打印 WARNING。`data-uimg` 属性已正确注入，微信据此渲染真实图片。
+2. **STEP 5 验证已更新**：`replace_picsum_with_wechat_urls()` 将 picsum URL 替换为微信 CDN URL 后，不再有 picsum 残留（除非网络问题导致上传失败）。
