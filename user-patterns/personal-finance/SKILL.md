@@ -35,7 +35,8 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
     ├── expenses.py         ← v3.1 消费引擎（add / batch / report / recat / summary / screenshot, 三层账户 + 可报销）
     ├── income.py           ← v3.1 收入引擎（log / net / show, 净现金流计算）
     ├── import_csv.py       ← CSV导入器（支付宝/微信CSV → 自动解析+过滤+分类+去重）
-    └── nag_screenshots.py  ← 暴力催收脚本（cron no_agent, 检查昨日截图是否到位）
+    ├── nag_screenshots.py  ← 暴力催收脚本（cron no_agent, 检查昨日截图是否到位）
+    └── audit_consistency.py ← 13 项一致性审计（详见 scripts/ 说明）
 ```
 
 **GitHub 双副本**：`hermes-adjutant/finance/`（和副官同一仓库）。每次变更 git push，任何 AI 可通过 `git pull` 接盘。
@@ -75,7 +76,7 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 }
 ```
 
-`type` 字段：`亲友` | `平台`
+`type` 字段：`亲友` | `平台` | `其他`（自债，如 I001 基金储备占用）
 
 ## 交互模型
 
@@ -220,7 +221,13 @@ python3 ~/.hermes/adjutant/finance/scripts/expenses.py recat E005 --sub business
 # CSV 导入
 python3 ~/.hermes/adjutant/finance/scripts/import_csv.py <文件路径>
 
-# ── 收入追踪 (v3.1) ──
+# ── 审计 (v3.3) ──
+# 13 项一致性检查：debts meta vs 求和 / tx 引用 / config 对齐 / game_state / 快照 / expenses 内部 / 双副本同步
+# 从技能目录复制到 finance/scripts/ 后运行：
+#   cp ~/.hermes/profiles/finance/skills/user-patterns/personal-finance/scripts/audit_consistency.py ~/.hermes/adjutant/finance/scripts/
+#   cd ~/.hermes/adjutant/repo/hermes-adjutant
+#   python3 finance/scripts/audit_consistency.py          # 检查模式
+#   python3 finance/scripts/audit_consistency.py --fix    # 自动修复 + push
 python3 ~/.hermes/adjutant/finance/scripts/income.py log -y 2026 -m 6 -o 14002 -n "妈妈冷秀芳转回"
 python3 ~/.hermes/adjutant/finance/scripts/income.py net -y 2026 -m 6   # 净现金流
 python3 ~/.hermes/adjutant/finance/scripts/income.py show               # 全部记录
@@ -276,7 +283,52 @@ python3 ~/.hermes/adjutant/finance/scripts/income.py show               # 全部
 | `travel` | 火车、高铁、机场、航站楼、服务区、高速、携程、汉庭、亚博 |
 | `personal` | 默认（不符合以上任一） |
 
-### 手动覆盖
+### 批量 Layer 推断（旧数据回填）
+
+当发现大量旧记录缺 layer 字段时，按以下规则批量推断（`python3 -c` 直接操作 expenses.json）：
+
+| 推断依据 | 目标 layer | 示例 |
+|---------|-----------|------|
+| category ∈ {餐饮,餐饮美食,交通,交通出行,日用,购物,住房,医疗,通讯,教育,烟酒,娱乐,数码,快递,加油,停车,理发,储物,车位,买菜,水电,高速通行,休闲/足道,AI服务} | `basic_living` | 美团 ¥62 → basic_living |
+| category ∈ {母婴,人情,人情往来,红包} | `relationship` | 红包 ¥560 → relationship |
+| category ∈ {旅行,预存,保险} | `event_reserve` | 携程 ¥410 → event_reserve |
+| category ∈ {经营-软件服务,茶叶/商务} | `business` | 龙森园 ¥2,069 → business |
+| 商户名含关键字 ∈ {龙森园,凯宾斯基,松沪名灶,招待,宴请,客户,代记账,公司} | `business` | 覆盖 category 默认推断 |
+| 商户名含关键字 ∈ {媳妇,老婆,Dily,余玓瓅,布尔乔亚} | `relationship` | 覆盖 category 默认推断 |
+| category ∈ {理财,分付还款,二维码收款,红包,转账,转账-妈妈,转账-李杰,转账-nevis} | 非消费，跳过不移入 | 余额宝 ¥1.88 → skip |
+
+批量推断脚本模板：
+```python
+import json
+from pathlib import Path
+p = Path('/Users/mac/.hermes/adjutant/finance/expenses.json')
+with open(p) as f: ex = json.load(f)
+
+basic_living_cats = {'餐饮','餐饮美食','交通','交通出行','日用','购物','住房','医疗','通讯','教育','烟酒','娱乐','数码','快递','加油','停车','理发','储物','车位','买菜','水电','高速通行','休闲/足道','AI服务'}
+relationship_cats = {'母婴','人情','人情往来','红包'}
+event_reserve_cats = {'旅行','预存','保险'}
+business_cats = {'经营-软件服务','茶叶/商务'}
+skip_cats = {'理财','分付还款','二维码收款','红包','转账','转账-妈妈','转账-李杰','转账-nevis'}
+merchant_biz = ['龙森园','凯宾斯基','松沪名灶','招待','宴请','客户','代记账','公司']
+merchant_rel = ['媳妇','老婆','Dily','余玓瓅','布尔乔亚']
+
+for e in ex['expenses']:
+    if e.get('layer') in ('basic_living','relationship','event_reserve','business'): continue
+    if e.get('category','') in skip_cats: continue
+    m = e.get('merchant','')
+    if any(kw in m for kw in merchant_biz): e['layer']='business'
+    elif any(kw in m for kw in merchant_rel): e['layer']='relationship'
+    elif e['category'] in relationship_cats: e['layer']='relationship'
+    elif e['category'] in event_reserve_cats: e['layer']='event_reserve'
+    elif e['category'] in business_cats: e['layer']='business'
+    elif e['category'] in basic_living_cats: e['layer']='basic_living'
+    else: e['layer']='basic_living'  # 兜底
+
+ex['meta']['total_amount'] = round(sum(e['amount'] for e in ex['expenses']), 2)
+with open(p, 'w') as f: json.dump(ex, f, ensure_ascii=False, indent=2)
+```
+
+⚠️ **执行后必须**：cp 同步到 repo + git push + 运行 `audit_consistency.py` 验证 layer 完整性（项 6）。
 
 ```bash
 # 录入时指定
@@ -581,6 +633,13 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     4. `zipfile.setpassword(b'<密码>')` 解压 ZIP → CSV
     5. 用 `import_csv.py` 或专用 GBK 解析器导入
     6. 同步 + git push
+47. **⚠️ recalc_debt_meta() 不会自动适配新 debt type（🛑 2026-06-27 翻车复盘）** — `finance.py` 的 `recalc_debt_meta()` 硬编码只累加 `type == "亲友"` 和 `type == "平台"`。当新增 `type == "其他"`（如 I001 基金储备自债）时，`grand_total` 漏算了这笔。**症状**：日报数据与波总的石墨 Excel 对不上，差了一个 type 的全部金额。<br>
+    - **修复模式**：每次在 debts.json active 中新增一个 `type` 值，必须同步修改 `recalc_debt_meta()` 的求和逻辑<br>
+    - **正确的代码模式**：`other_active = sum(... for d in debts["active"] if d["type"] == "其他")` + `grand_total = family + platform + other`<br>
+    - **事后验证**：运行 `python3 -c "import json; d=json.load(open('finance/debts.json')); actual=sum(x['amount'] for x in d['active']); print(f'meta={d[\"meta\"][\"grand_total\"]}, actual={actual}, diff={d[\"meta\"][\"grand_total\"]-actual}')"` 检查对齐
+
+48. **⚠️ baseline 与 grand_total 的浮点精度差** — `config.json` 的 `baseline_grand_total` 设为整数（如 `530138`），但 `debts.json` 的 `grand_total` 是浮点计算结果（如 `530137.88`）。差 ¥0.12 会导致日报进度显示 `-1.7%`。**解法**：设 baseline 时从 `grand_total` 取值，不要手写整数。`cp` 同步后必须 `diff` 验证所有 .json 文件。
+
 42. **⚠️ 布尔乔亚(余玓瓅) = 老婆消费分类规则** — 商户名"布尔乔亚(余玓瓅)"对应老婆余玓瓅的消费。分类要点：
     - 日常小额消费（¥15-¥123）→ 归入 **餐饮美食**，layer=relationship, sub_category=personal
     - 大额转账（如 ¥5,000）→ **不是消费**，应从 expenses.json 中移除（这是家庭转账，不是支出）
@@ -614,3 +673,28 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     4. 找到目标邮件后，再用 `fetch(mid, '(RFC822)')` 拉完整 MIME 消息
     5. 解析 attachment 部分，提取 ZIP 附件
     注意：`imap.select('INBOX')` 必须在 `search` 之前调用，否则会报 `SEARCH illegal in state AUTH`
+
+49. **⚠️ import_csv 仍有非消费条目漏网（2026-06-27 审计发现）** — `import_csv.py` 过滤了理财/转账/红包/还款等，但旧数据或手动录入时仍有漏网。**症状**：expenses.json 中混入分类为「理财」「分付还款」「二维码收款」「红包」「转账」的条目，污染总金额（真实案例：305 笔 ¥38,110 理财流水混在消费数据中）。**审计与清理**：
+    ```bash
+    cd ~/.hermes/adjutant/repo/hermes-adjutant
+    python3 -c "
+    import json
+    with open('finance/expenses.json') as f: ex=json.load(f)
+    bad=['理财','分付还款','二维码收款','红包','转账','转账-妈妈','转账-李杰','转账-nevis']
+    bad_items=[e for e in ex['expenses'] if e['category'] in bad]
+    print(f'{len(bad_items)} 笔, ¥{sum(e[\"amount\"] for e in bad_items):,.2f}')
+    ex['expenses']=[e for e in ex['expenses'] if e['category'] not in bad]
+    ex['meta']['total_expenses']=len(ex['expenses'])
+    ex['meta']['total_amount']=round(sum(e['amount'] for e in ex['expenses']),2)
+    ex['meta']['updated']='2026-06-27'
+    with open('finance/expenses.json','w') as f: json.dump(ex,f,ensure_ascii=False,indent=2)
+    print('✅ 已清理')
+    "
+    ```
+    清理后必须 cp 同步 + git push。
+
+50. **⚠️ 老婆 Dily 信用卡不在 debts.json 中** — Dily 的信用卡债务（中信/建行）**未录入 debts.json**，仅在我记忆或石墨 Excel 中有记录。系统日报/周报不会自动追踪信用卡的还款日和余额。**每当波总问"Dily 信用卡情况"时**：
+    - 先查记忆和 session 中的历史记录
+    - 主动问波总有没有新截图或新账单
+    - 如果波总想加进 debts.json，建议创建 `type="信用卡"` 条目并同步更新 `recalc_debt_meta()`
+    - 6/18 历史：中信 ¥3,712.71（7月6日到期），建行 ¥12,150.84（7月2日到期，后已还清）
