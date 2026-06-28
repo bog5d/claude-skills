@@ -313,17 +313,41 @@ mcp_servers:
     connect_timeout: 30
 ```
 
-### Zero-Config HTTP MCP (Firecrawl — no API key needed)
+### HTTP MCP with API Key (Firecrawl)
+
+Firecrawl provides web scraping, crawling, search-with-full-content, structured extraction, academic paper search, and browser interaction as MCP tools. Tools auto-register as `mcp_firecrawl_*`.
+
+**Two modes — keyless is trial-only, API key is real use:**
+
+| Mode | Config | Credits/mo | Daily limit | Concurrency | Verdict |
+|---|---|---|---|---|---|
+| Keyless | `url: "https://mcp.firecrawl.dev/v2/mcp"` (no headers) | 1000 | **~5-10 requests** (hard lock) | 1, throttled | Demo only |
+| Registered | Keyless URL + `headers: {Authorization: "Bearer fc-..."}` | 1000 | None | 2 | Production |
 
 ```yaml
+# Production config (get API key at https://www.firecrawl.dev → Get started → free)
 mcp_servers:
   firecrawl:
     url: "https://mcp.firecrawl.dev/v2/mcp"
+    headers:
+      Authorization: "Bearer fc-xxx...xxxx"
 ```
 
-Firecrawl provides web scraping, crawling, search-with-full-content, and structured extraction as MCP tools. Monthly 1000 free requests, no API key required. Tools auto-register as `mcp_firecrawl_*` (e.g. `mcp_firecrawl_scrape`, `mcp_firecrawl_search`, `mcp_firecrawl_crawl`, `mcp_firecrawl_map`).
+**PITFALL — Keyless is NOT "1000 free per month":** The keyless mode has a hard daily limit of roughly 5-10 requests regardless of monthly quota remaining. After hitting it, all calls return credential errors. Registering a free account (no credit card) gives the same 1000 credits/month but lifts the daily cap entirely, plus 2 concurrent requests. Always use the registered API key path unless doing a quick smoke test.
+
+**Multi-profile sync:** When adding API keys to MCP servers, update all active Hermes profiles (her-m2, default, english-tutor) so tools work in every context.
 
 **Capability overlap note**: Firecrawl's `search` returns full page content per result (vs Hermes `web_search` which returns snippets). Its `crawl` and structured `extract` have no Hermes native equivalent. However, Hermes `web_extract` and `browser_*` remain useful for quick single-page extraction and complex interactions respectively — Firecrawl is complementary, not a replacement.
+
+**Credits cost reference** (see `references/firecrawl-credits.md` for full breakdown):
+
+| Operation | Credits |
+|---|---|
+| Search | 2 / 10 results |
+| Scrape | 1 / page |
+| Structured extract | ~3 / page |
+| Interact (browser) | 2 / minute |
+| Crawl | depends on pages crawled |
 
 ### Multiple Servers
 
