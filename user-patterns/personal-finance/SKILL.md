@@ -648,6 +648,7 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 
 43. **⚠️ 支付宝账单邮件完整处理管线（2026-06-18 确认）** — 当波总发来支付宝账单邮件通知（含"处理中"状态）时：
     1. 邮件本身只有通知文字，**实际CSV在加密ZIP附件里**
+    2. **用 imaplib 搜索时消息 ID 与 Himalaya 显示的不同** — Himalaya 的 envelope ID（如 13038）是 Gmail 的 UID，而 imaplib `fetch()` 用序列号。正确做法：用 `imap.search(None, 'FROM "service@mail.alipay.com"')` 获取真实 ID 再 fetch。
     2. 附件文件名含中文（如`支付宝交易明细(20260616-20260618).zip`），用Python `imaplib` 直连下载（Himalaya v1.2.0无`save-attachment`命令）
     3. ZIP是**加密的**，密码每次随机，在支付宝App"我的-账单-开具交易流水证明-申请记录"中查看，或通过支付宝服务消息获取
     4. 用Python `zipfile` + `zf.read(name, pwd=b'密码')` 解压（不用系统unzip，中文文件名会报`Illegal byte sequence`）
@@ -658,6 +659,7 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     9. 支付宝小荷包自动攒（如¥0.33）属于内部转账，不计消费
     10. 去重：与现有expenses.json按`日期_金额_商户名_支付宝`键比对，已有则跳过
     11. 新增记录后更新meta.last_updated，cp到repo，git commit+push
+    12. 完整验证管线见 `references/gmail-alipay-pipeline-verified.md`（2026-06-29 实测，含翻车记录）
 44. **⚠️ Gmail IMAP 拉取支付宝账单 — 两类密码严格区分（2026-06-21 新增）** — 两个完全不同的密码：
     - **Gmail App Password**（16位字母数字）：用于 IMAP 登录 Gmail 拉邮件。存放在 `/Users/mac/.config/himalaya/gmail-app-password`。用普通密码会报 `AUTHENTICATIONFAILED`。
     - **支付宝 ZIP 解压密码**（6位数字，每次随机）：用于解压邮件附件中的 ZIP。由波总在支付宝App中获取后发给我。
@@ -698,3 +700,10 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     - 主动问波总有没有新截图或新账单
     - 如果波总想加进 debts.json，建议创建 `type="信用卡"` 条目并同步更新 `recalc_debt_meta()`
     - 6/18 历史：中信 ¥3,712.71（7月6日到期），建行 ¥12,150.84（7月2日到期，后已还清）
+
+51. **⚠️ 支付宝 CSV 过滤缺口：投资理财/小荷包/退款仍混入消费（🛑 2026-06-29 翻车复盘）** — `import_csv.py` 的 Alipay parser `parse_alipay()` 只检查 `direction != "支出"`，但以下场景漏网：
+    - **余额自动转入/小荷包自动攒**：方向为"支出"，不被过滤（真实案例：每天¥500×30天=¥15,000 余额宝定时转入被当消费导入）
+    - **支付宝小荷包**：自动攒¥0.33/次，方向"支出"，不是消费
+    - **零金额条目**：部分交易为¥0.00（如亲我**寞），不应入库
+    - **退款原始购买**：退款条目本身是"不计收支"（已过滤），但原始购买条目可能同时被导入（米莫**店¥203退款）
+    - **地址**：`parse_alipay()` 新增了批量过滤逻辑：跳过 `tx_category="投资理财"`、`merchant/desc含小荷包`、`amount≤0`、`退款` in tx_category。核心铁律：**只要涉及支付宝内部资金流转（理财/余额宝/小荷包/定时转入），都跳过，不管方向字段**。

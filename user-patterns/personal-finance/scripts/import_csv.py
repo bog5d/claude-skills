@@ -28,7 +28,12 @@ def save_expenses(data):
 
 
 def parse_alipay(filepath):
-    """Parse Alipay CSV (already UTF-8). Returns list of {date, amount, merchant}."""
+    """
+    Parse Alipay CSV (already UTF-8). Returns list of {date, amount, merchant}.
+
+    🛑 过滤铁律：只要涉及支付宝内部资金流转（理财/余额宝/小荷包/定时转入），都跳过，不管方向字段。
+    真实翻车：2026-06-29 余额宝每天¥500定时转入，方向="支出"，217条全被当消费导入。
+    """
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -49,8 +54,9 @@ def parse_alipay(filepath):
             continue
 
         date_str = parts[0].strip()
+        tx_category = parts[1].strip() if len(parts) > 1 else ""
         merchant = parts[2].strip()
-        desc = parts[4].strip()
+        desc = parts[4].strip() if len(parts) > 4 else ""
         direction = parts[5].strip()
 
         try:
@@ -58,13 +64,31 @@ def parse_alipay(filepath):
         except ValueError:
             continue
 
-        # Filter: only expenses (支出)
+        # ── 过滤链 ──
+
+        # 1. 零金额跳过
+        if amount <= 0:
+            skipped["zero_amount"] += 1
+            continue
+
+        # 2. 非支出方向跳过
         if direction != "支出":
             skipped["non_expense"] += 1
             continue
 
-        # Skip tax, transfers,理财
-        if any(kw in merchant + desc for kw in ["个人所得税", "缴税", "余额宝", "基金", "转账"]):
+        # 3. 投资理财全类跳过（余额宝/基金等，不管方向）
+        if tx_category in ("投资理财",):
+            skipped["investment"] += 1
+            continue
+
+        # 4. 退款类跳过（这是退款本身，不是原始购买）
+        if "退款" in tx_category:
+            skipped["refund"] += 1
+            continue
+
+        # 5. 关键字跳过：支付宝内部资金流转
+        skip_keywords = ["个人所得税", "缴税", "余额宝", "基金", "转账", "小荷包"]
+        if any(kw in merchant + desc + tx_category for kw in skip_keywords):
             skipped["excluded"] += 1
             continue
 
@@ -109,8 +133,8 @@ def parse_wechat(filepath):
             skipped["non_expense"] += 1
             continue
 
-        # Skip transfers, red packets,理财
-        if tx_type in ("转账", "红包", "零钱充值", "零钱提现", "信用卡还款"):
+        # Skip transfers, red packets, props, repayment
+        if tx_type in ("转账", "红包", "零钱充值", "零钱提现", "信用卡还款", "分付还款"):
             skipped["excluded"] += 1
             continue
 
