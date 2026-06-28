@@ -243,6 +243,24 @@ pip install --upgrade mcp
 
 The client retries up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s, capped at 60s). If the server is fundamentally unreachable, it gives up after 5 attempts. Check the server process and network connectivity.
 
+### Agent cannot edit config.yaml to add MCP servers
+
+Hermes has a hard security guard that blocks `patch`, `write_file`, and `terminal` from modifying `config.yaml` files (including profile-specific ones). When the agent says "Refusing to write to Hermes config file", this is intentional — not a transient error.
+
+**Workaround**: Ask the user to run `hermes config set` directly in their terminal:
+
+```bash
+# For the active profile:
+hermes config set mcp_servers.<name>.url <url>
+
+# For a specific profile:
+hermes --profile <profile> config set mcp_servers.<name>.url <url>
+```
+
+This creates the nested YAML structure automatically. After the user confirms, restart the gateway.
+
+**Why this happens**: The `command_allowlist` includes `in-place edit of Hermes config/env` as a blocked pattern. All agent-accessible tools enforce this — the only path is the user's direct terminal.
+
 ## Examples
 
 ### Time Server (uvx)
@@ -294,6 +312,18 @@ mcp_servers:
     timeout: 180
     connect_timeout: 30
 ```
+
+### Zero-Config HTTP MCP (Firecrawl — no API key needed)
+
+```yaml
+mcp_servers:
+  firecrawl:
+    url: "https://mcp.firecrawl.dev/v2/mcp"
+```
+
+Firecrawl provides web scraping, crawling, search-with-full-content, and structured extraction as MCP tools. Monthly 1000 free requests, no API key required. Tools auto-register as `mcp_firecrawl_*` (e.g. `mcp_firecrawl_scrape`, `mcp_firecrawl_search`, `mcp_firecrawl_crawl`, `mcp_firecrawl_map`).
+
+**Capability overlap note**: Firecrawl's `search` returns full page content per result (vs Hermes `web_search` which returns snippets). Its `crawl` and structured `extract` have no Hermes native equivalent. However, Hermes `web_extract` and `browser_*` remain useful for quick single-page extraction and complex interactions respectively — Firecrawl is complementary, not a replacement.
 
 ### Multiple Servers
 
@@ -355,3 +385,7 @@ Disable sampling for untrusted servers with `sampling: { enabled: false }`.
 - The native MCP client is independent of `mcporter` -- you can use both simultaneously
 - Server connections are persistent and shared across all conversations in the same agent process
 - Adding or removing servers requires restarting the agent (no hot-reload currently)
+
+## Support Files
+
+- `references/mcp-capability-analysis.md` — Structured framework for evaluating new MCP servers against Hermes native tools before installation.
