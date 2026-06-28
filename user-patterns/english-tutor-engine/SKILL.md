@@ -1185,6 +1185,21 @@ cp <原文件> ~/.hermes/cache/screenshots/safe_name.ext
 - **状态确认**：巡检时先查 `ps aux | grep -i 'tunnel_daemon\|localhost.run\|http.server 8765'`，缺任何一个就执行修复。
 - **推荐持久化**：注册 launchd plist（KeepAlive=true）让 tunnel_daemon 随系统启动。
 
+### pitfall 48: wanted_list 与 round_words 混淆 — 数据源铁律（2026-06-28 发现）
+
+- **现象**：用户发来 cron 推送的挑战题，误把 wanted_list 当成 round_words。例如 cron 推送 round_words=[desperate,exclusive,heritage,primitive,drastic,humble]，wanted_list=[humble,drastic,manufacturer]，回答「当前战况：humble、drastic、manufacturer」——混淆了两条独立数据源，且 manufacturer 根本不在当前考题中。
+- **根因**：从 cron 输出聊天记忆中提取词表，没读 state/vocab_escalating.json 的 round_words 字段。
+- **正确做法**：用户问「当前战况/哪一局/答什么」时，必须 terminal 读 state/vocab_escalating.json 的 round_words[str(current_round)]。state 不存在则说「不能确认，需要调用脚本」。
+- **铁律**：wanted_list ≠ round_words。wanted_list 中的词可能同时出现在 round_words 中，但 round_words 才是考题全貌。
+
+### pitfall 49: cron 推送后 state 文件被清理，pipeline 无题可判（2026-06-28 发现）
+
+- **现象**：cron no_agent 模式运行 fast_vocab_round.py 后，vocab_escalating.json 被清理/归档。用户几小时后回答时 session_pipeline.py 报「路由异常，无待判分题目」。需重新出题，但新词表与旧答案不匹配。
+- **根因**：cron 运行结束清理了 state 副作用文件。
+- **临时应对**：重跑 fast_vocab_round.py 生新 state → 用户答新题。
+- **推荐修复**：cron 只发提醒，由用户「来一局」触发 real-time 出题，避免 state 生命周期问题。
+- **必检**：用户提交答案前先检查 state/vocab_escalating.json 是否存在。不存在则先 fast_vocab_round.py 再 pipeline。
+
 ### pitfall 47: session_pipeline 输出死 URL 而不自检（2026-06-25 发现）
 
 - **现象**：隧道已死，但 `session_pipeline.py` 的 JSON 输出中 `tunnel_url` 字段仍包含过期 URL → LLM 照发 → 用户打开 503。
