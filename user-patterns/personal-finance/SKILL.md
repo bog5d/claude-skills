@@ -571,6 +571,86 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 | 短期承诺（1-2月填回） | 在 notes 标注 "X个月内填回" | 让波总明确还款时间窗口，系统自动追踪 |
 | 还款日提取 | 截图中"还款日7月15日"即是到期日，更新到 `due_date` 字段 | 平台债 always 有固定还款日 |
 
+## 消费洞察生成流程（v2026-06-29）
+
+当波总说"洞察我的消费"或"深度分析"时，按以下流程：
+
+### 步骤1：数据清洗（先清洗再分析）
+
+执行前务必先检查数据质量——**不清洗出洞察等于报假数**。
+
+```python
+# 快速审计
+python3 -c "
+import json
+from collections import Counter
+d = json.load(open('finance/expenses.json'))
+# 检查非消费分类
+bad = ['理财','分付还款','二维码收款','转账','红包']
+for e in d['expenses']:
+    if e['category'] in bad or (e['amount']>=2000 and '个人所得税' in e['merchant']):
+        print(f'  🗑️ {e[\"date\"]} ¥{e[\"amount\"]:>8,.0f} [{e[\"category\"]}] {e[\"merchant\"][:30]}')
+print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 笔')
+"
+```
+
+清洗清单：
+1. **移除非消费** — 个人所得税/缴税、花呗还款、家庭大额转账（布尔乔亚≥¥2,000）、小荷包自动攒、余额宝定时转入
+2. **合并重复分类** — `餐饮→餐饮美食`、`交通出行→交通`、`日用-快递→快递`、`交通-停车→停车`、`人情往来→人情`
+3. **Recat「其他」类** — 按商户名判断归属，补充关键字到 `categories` 字段
+4. **重新编号** — `e['id'] = f'E{i+1:03d}'`
+5. **更新 meta** — total_amount/expenses/updated
+6. cp 同步 + git push
+
+### 步骤2：分析维度
+
+| 维度 | 内容 | 输出信号 |
+|------|------|---------|
+| 📅 月度趋势 | 上月 vs 本月总额+日均 | 消费涨跌方向 |
+| 💰 收入对比 | 月消费 vs 粗估收入¥40-50K | 留存空间 |
+| 🏷️ 分类结构 | 餐饮/交通/日用等占比 | 消费画像（工作型 vs 享乐型） |
+| 🔲 三层账户 | basic_living / relationship / event_reserve / business | 生活分账比例 |
+| 🏪 商户集中度 | TOP10 占总额% | 供应商风险 / 可优化空间 |
+| 🍜 餐饮深度 | 日均、高频商户、商务 vs 个人 | 外卖占比、商务招待频率 |
+| 🚗 交通深度 | 高铁 vs 滴滴 vs 自驾 | 差旅模式 |
+| ⚡ 异常峰值 | 单日超 3x 日均的日期 | 大额事件回溯 |
+| 📆 周模式 | 周一~周日消费差异 | 周末 vs 工作日习惯 |
+
+### 步骤3：输出结构
+
+```
+📊 波总消费深度洞察 | 截至 YYYY-MM-DD
+
+总消费 ¥XX,XXX | XXX笔 | 笔均 ¥XX
+
+📅 月度趋势: 5月¥X日均¥X → 6月¥X日均¥X | 6月预估¥X
+💰 收入对比: 月收入¥40-50K | 消费占比XX% | 可留存¥X~¥X
+
+🏷️ 消费结构（TOP6 + 其他汇总）
+🏪 TOP10商户 + 集中度%
+🍜 餐饮深度 + 交通深度
+💼 经营独立分析（如可报销）
+⚡ 峰值日TOP3
+
+🎯 核心洞察（5-6条bullet，每条一句话）
+   1️⃣ 结构判断
+   2️⃣ 留存/风险管理
+   3️⃣ 可优化点（滴滴高频/外卖占比）
+   4️⃣ 可报销追踪提醒
+   5️⃣ 还债空间
+```
+
+### 步骤4：AI 交接 JSON
+
+当波总说"打成JSON"但上下文在讨论消费洞察 → 生成 `reports/consumption_deep_analysis.json`（类型一）。格式见 `references/consumption-analysis-schema.md`。
+
+### ⚠️ 常见陷阱
+
+- **不清洗就分析**：税/花呗/转账蹭在消费里，"其他"类占 50%+，洞察全是错的
+- **分类合并遗漏**：`餐饮`和`餐饮美食`是两个独立分类但意思一样，必须合并后再出占比
+- **布尔乔亚处理不当**：日常小额→餐饮美食/layer=relationship/sub=personal；大额≥¥2,000→从 expenses 移除（家庭转账）
+- **小荷包残留**：每天¥0.33 看起来不起眼，但连续30天×¥0.33=¥10，虽然金额小但污染"笔数"统计
+
 ## 陷阱
 
 1. **不要手改 JSON，用 finance.py / expenses.py** — 脚本已处理元数据更新、去重、清债转移、交易记录
@@ -701,7 +781,23 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
     - 如果波总想加进 debts.json，建议创建 `type="信用卡"` 条目并同步更新 `recalc_debt_meta()`
     - 6/18 历史：中信 ¥3,712.71（7月6日到期），建行 ¥12,150.84（7月2日到期，后已还清）
 
-51. **⚠️ 支付宝 CSV 过滤缺口：投资理财/小荷包/退款仍混入消费（🛑 2026-06-29 翻车复盘）** — `import_csv.py` 的 Alipay parser `parse_alipay()` 只检查 `direction != "支出"`，但以下场景漏网：
+51. **⚠️ 支付宝 CSV 三关过滤（🛑 2026-06-29 修复）** — `import_csv.py` 的 `parse_alipay_row()` 原始只检查 `direction != "支出"`，但有致命缺口：**「不计收支」含"收""支"二字**，原有 `"收" in direction and "支" not in direction` 逻辑不命中 → 余额宝/小荷包流水混入消费。修复的三关过滤：
+
+    **第1关 → 方向过滤（前置）**：
+    ```python
+    if "不计收支" in direction: return None
+    if "收" in direction and "支" not in direction: return None
+    if direction and "支" not in direction: return None
+    ```
+    **第2关 → `交易分类` 列过滤（新增）**：
+    ```python
+    tx_category = row.get("交易分类", "")
+    skip_tx_cats = ["投资理财", "退款", "保险", "充值缴费-预存", "信用卡还款"]
+    if tx_category and any(cat in tx_category for cat in skip_tx_cats): return None
+    ```
+    **第3关 → 关键字扩展**：新增 `小荷包`、`花呗分期还款`，`余额宝` 改为模糊匹配（原要求精确匹配"转入/转出"）。
+
+    **验证**：支付宝 CSV 523行，旧逻辑 504笔（含222笔非消费），新逻辑 **125笔真实消费**。注意修复了 `parse_alipay_row` 中的 `parse_alipay()` 过时引用——当前代码是 DictReader 驱动的 `parse_alipay_row()`。
     - **余额自动转入/小荷包自动攒**：方向为"支出"，不被过滤（真实案例：每天¥500×30天=¥15,000 余额宝定时转入被当消费导入）
     - **支付宝小荷包**：自动攒¥0.33/次，方向"支出"，不是消费
     - **零金额条目**：部分交易为¥0.00（如亲我**寞），不应入库
