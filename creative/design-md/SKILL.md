@@ -36,6 +36,10 @@ instead. For *process and taste* when designing a one-off HTML artifact
 from scratch (prototype, deck, landing page, component lab), use
 `claude-design`. This skill is for the *formal spec file* itself.
 
+For a real-world worked example with a complex dark-theme system (24 colors,
+12 type scales, 27 components, 4-file delivery package), see
+`references/cangjie-fos-example.md`.
+
 ## File anatomy
 
 ```md
@@ -176,8 +180,43 @@ structurally.
 When the user cares about accessibility, call this out explicitly in your
 summary — WCAG findings are the most load-bearing reason to use the CLI.
 
+## Workflow: dual export (Tailwind + CSS Variables)
+
+If the project is NOT exclusively Tailwind-based, generate **both** exports:
+the Tailwind `tailwind.theme.json` (for Tailwind-based tools) AND a native CSS
+variables file (for vanilla HTML/CSS skills like `guizang-ppt`, `reveal-ppt`,
+`architecture-diagram`, `sketch`). The CSS file resolves all token references
+to literal values so it's self-contained.
+
+```bash
+# Tailwind (as documented)
+npx -y @google/design.md export --format tailwind DESIGN.md > tailwind.theme.json
+
+# CSS Variables — manual generation from the YAML tokens
+# Output shape: :root { --color-primary: #xxx; --color-secondary: #xxx; ... }
+# Resolve ALL token references to literal hex/px values.
+```
+
+A typical companion file is `<project>-theme.css` with sections for colors,
+typography, spacing, rounded, and component-level variables. Every token in
+the DESIGN.md YAML front matter gets a `--` prefixed CSS variable. Token
+references like `{colors.plasma}` are resolved to the literal hex value.
+
+For a complete delivery, also write a `design-system-demo.html` that renders
+every component in a visual gallery. See `references/cangjie-fos-example.md`
+for a real-world 4-file package (DESIGN.md + tailwind.theme.json +
+cangjie-theme.css + design-system-demo.html).
+
 ## Pitfalls
 
+- **Purple/violet/indigo primary colors often fail WCAG AA on white.**
+  `#7b5cff` on white = 4.36:1 (under AA 4.5:1). The Tailwind default
+  `indigo-500` (#6366f1) is 4.18:1 — also fails. When choosing a primary
+  color in the purple-blue range, pre-check contrast against both white
+  text-on-color AND color text-on-dark-background. Darken by 5-8% luminance
+  to pass (e.g. `#7b5cff` → `#5a3fd4`). The lint CLI catches this but
+  only for component pairs, not for the color definition itself — check
+  early before building out 27 components.
 - **Don't nest component variants.** `button-primary.hover` is wrong;
   `button-primary-hover` as a sibling key is right.
 - **Hex colors must be quoted strings.** YAML will otherwise choke on `#` or
@@ -190,6 +229,8 @@ summary — WCAG findings are the most load-bearing reason to use the CLI.
   is marked alpha — watch for breaking changes.
 - **Token references resolve by dotted path.** `{colors.primary}` works;
   `{primary}` does not.
+- **When patching a DESIGN.md, re-read the full file first.** Partial reads
+  (offset/limit) produce stale `old_string` context that won't match.
 
 ## Spec source of truth
 
