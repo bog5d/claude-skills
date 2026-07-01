@@ -75,6 +75,33 @@ python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py send
 
 用户说"照片做MV"、"生成视频"、"remotion做相册"、"给照片配乐做视频"
 
+## 主题 ↔ BPM 映射
+
+mv_pipeline 的三个主题对应固定的 `switch_seconds`，选主题前先跑 BPM 分析再匹配：
+
+| 主题 | switch_seconds | 转换帧数 | 匹配 BPM（2拍/切） | 适用场景 |
+|------|:---:|:---:|:---:|------|
+| `fast_pop` | 1.0s | 30帧 | 120-140 | 快节奏、生日/派对、BPM≥120 |
+| `travel_beat` | 2.0s | 60帧 | 60-80 | 旅行、中等节奏 |
+| `family_warm` | 3.5s | 105帧 | 30-40 | 慢节奏、温馨回顾 |
+
+**规则**：BPM ≥ 120 → 选 `fast_pop`；BPM 60-120 → 选 `travel_beat`；BPM < 60 → 选 `family_warm`。
+
+## 照片数量规划
+
+```
+每张出现次数 = 总帧数 / (照片数 × switch_frames)
+理想区间: 5-15 次/张（太少=单调，太多=眼花）
+```
+
+| 歌曲时长 | 推荐最少照片数 (fast_pop) | 每张出现约 |
+|---------|:---:|:---:|
+| 2分钟 | 12张 | 10次 |
+| 4分钟 | 24张 | 10次 |
+| 6分钟 | 36张 | 10次 |
+
+实际案例：238秒 + 29张 + fast_pop → 7138/(29×30) ≈ 8次/张 ✅
+
 ## 工作流
 
 ### Phase 0: 音乐源获取
@@ -99,34 +126,40 @@ ls -la ~/aider_workspace/photo_mv/public/*.mp3 ~/aider_workspace/photo_mv/public
 
 **方法1：Beat Spectrum法（推荐，鲁棒性强）**
 
-```bash
-# 1. 解码为单声道16kHz WAV
-ffmpeg -y -i public/background_music.mp3 -ac 1 -ar 16000 /tmp/bpm.wav
+⚠️ 长音频（>2分钟）必须先截取前60秒再做BPM分析，否则 `min_lag > max_lag` 导致 range 为空、`max()` 报错。
 
-# 2. 计算beat spectrum
+```bash
+# 1. 截取前60秒并解码为单声道16kHz WAV
+ffmpeg -y -i public/background_music.mp3 -ac 1 -ar 16000 -t 60 /tmp/bpm_60s.wav
+
+# 2. 计算beat spectrum（修正版：确保 min_lag ≤ max_lag）
 python3 -c "
 import numpy as np, wave
-with wave.open('/tmp/bpm.wav') as wf:
+with wave.open('/tmp/bpm_60s.wav') as wf:
     sr = wf.getframerate()
     audio = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(float)/32768.0
 hop = 512
 n = (len(audio)-hop)//hop + 1
+bpm_fr = sr / hop
 energy = np.array([np.sum(audio[i*hop:(i+1)*hop]**2) for i in range(n)])
 onset = np.maximum(np.diff(energy).astype(float), 0)
-lags = range(max(1,int(60*n/(sr/hop))), min(len(onset),int(200*n/(sr/hop))))
+# 修正：用BPM边界(60~200)反算lag范围，避免空range
+min_lag = max(1, int(60 * bpm_fr / 200))   # 200 BPM → min lag
+max_lag = min(len(onset)-1, int(60 * bpm_fr / 60))  # 60 BPM → max lag
+lags = list(range(min_lag, max_lag+1))
 scores = [(int(np.sum(onset[:-l]*onset[l:])), l) for l in lags]
 best_score, best_lag = max(scores)
-bpm = (sr/hop) * 60 / best_lag
-print(f'BPM: {bpm:.1f} (lag={best_lag})')
+bpm = bpm_fr * 60 / best_lag
+print(f'BPM: {bpm:.1f} (lag={best_lag}, score={best_score})')
 top5 = sorted(scores, reverse=True)[:5]
 for s, l in top5:
-    print(f'  {(sr/hop)*60/l:.1f} BPM (score={s})')
+    print(f'  {bpm_fr*60/l:.1f} BPM (score={s})')
 "
 ```
 
 **方法2：快速假设（Suno歌曲）**
 
-Suno AI生成的歌曲BPM通常稳定在120左右。如果确认音乐来自Suno，可直接用 `BPM=120, BEAT_INTERVAL=15帧`，跳过分析。
+Suno AI 生成的歌曲 BPM 通常在 120-140 区间。如果确认来源为 Suno 且无法立即分析，可用 `BPM=130` 作为临时默认，但仍强烈建议跑方法1确认。实际案例：Suno 生日歌《大飞飞吹蜡烛》实测 BPM=134。
 
 **参数映射（得到BPM后）：**
 ```
@@ -298,21 +331,36 @@ export const Root: React.FC = () => (
 ```bash
 cd ~/aider_workspace/photo_mv
 
-# TypeScript校验
-npx tsc --noEmit
+# 首次渲染前装依赖（已有 node_modules 则跳过）
+npm install --legacy-peer-deps 2>&1 | tail -3
 
-# 渲染
-npx remotion render src/index.ts PhotoMV out_beat.mp4 --codec h264
+# 渲染（后台模式，10-15分钟）
+npx remotion render src/index.ts PhotoMV output_remotion.mp4 --codec h264
 
-# 压缩（Telegram友好）
-ffmpeg -i out_beat.mp4 -c:v libx264 -preset fast -crf 32 -c:a aac -b:a 64k -vf "scale=854:480" -movflags +faststart out_small.mp4 -y
+# 压缩（Telegram <50MB）：720p CRF28 通常能将 130MB+ 压缩到 20-25MB
+ffmpeg -y -i output_remotion.mp4 \
+  -c:v libx264 -preset fast -crf 28 \
+  -c:a aac -b:a 96k \
+  -vf "scale=1280:720" \
+  -movflags +faststart \
+  output_tg.mp4
+
+# 备选：若 720p 仍 >50MB，降为 480p CRF32
+ffmpeg -y -i output_remotion.mp4 \
+  -c:v libx264 -preset fast -crf 32 \
+  -c:a aac -b:a 64k \
+  -vf "scale=854:480" \
+  -movflags +faststart \
+  output_tg.mp4
 ```
 
 ### Phase 5: 交付
 
-- 原始文件 >50MB时，用ffmpeg压缩到~7MB（480p, CRF32）
-- 通过 MEDIA: 协议发送到Telegram
-- 如果MEDIA发送失败（大文件超时），先用 `-crf 32 -vf "scale=854:480"` 压缩到<10MB再发
+- 原始文件 >50MB时，用ffmpeg压缩（720p CRF28 → 通常 20-25MB）
+- 发送前复制到白名单目录：`cp output_tg.mp4 ~/.hermes/cache/documents/视频名.mp4`
+- 通过 `MEDIA:/Users/mac/.hermes/cache/documents/视频名.mp4` 发送到 Telegram
+- 根目录 `/tmp/` 和项目目录不在 MEDIA 白名单内，必须经过 `~/.hermes/cache/documents/` 中转
+- 如果 MEDIA 发送失败（大文件超时），先用 `-crf 32 -vf "scale=854:480"` 压缩到 <10MB 再发
 
 ## 关键约束
 
@@ -336,6 +384,10 @@ ffmpeg -i out_beat.mp4 -c:v libx264 -preset fast -crf 32 -c:a aac -b:a 64k -vf "
 - **MP3比WAV可靠** → Suno的MP3自带元数据，直接使用，无需转码
 - **ffmpeg压缩时加 `-movflags +faststart`** → 否则视频无法流式播放，Telegram加载慢
 - **渲染耗时** → 258秒(4分18秒)的MV渲染约需10-15分钟。使用 `background=true + notify_on_complete=true` 异步等待
+- **QC 会误报压缩版码率** → `qc` 对 bitrate < 800kbps 标记失败。这是压缩版（Telegram用）的正常水平，原版1080p码率通常 >4000kbps。压缩版 QC 失败时可忽略，直接用原版 QC 结果判断
+- **用户分批发照片** → 如果渲染已在后台跑，不要中途停掉重建。等当前渲染跑完，累积所有照片后一次性 `build + render`。项目已有 `node_modules` 时跳过 `npm install`
+- **PhotoMV.tsx 的 `staticFile()` 路径** → mv_pipeline 生成代码用 `staticFile("zt_pic/01.jpg")` 而非 `staticFile(`zt_pic/${f}`)`。扩增照片后必须 `build` 重新生成，不能手动改 PHOTO_FILES 数组（pipeline 会覆写）
+- **⚠️ BPM 分析用 `-t 60` 截取前60秒** → 完整长音频（>2分钟）直接做 beat spectrum 会导致 lag range 为空、`max()` 报 `ValueError`。已在 Phase 0 代码中修正
 
 ## 视频+照片混合MV（进阶）
 
@@ -347,5 +399,9 @@ ffmpeg -i out_beat.mp4 -c:v libx264 -preset fast -crf 32 -c:a aac -b:a 64k -vf "
 
 ## 参考实现
 
-现有参考项目：`~/aider_workspace/photo_mv/`
-核心文件：`src/PhotoMV.tsx`, `src/Root.tsx`
+现有参考项目：
+- `~/aider_workspace/photo_mv/` — 44张照片 + 258秒音乐（旧版，BPM=120）
+- `~/aider_workspace/photo_mv_gushan/` — 20张鼓山照片 + 190秒音乐（BPM=127）
+- `~/aider_workspace/photo_mv_feifei/` — 29张生日照 + 238秒 Suno 歌（BPM=134, fast_pop）
+
+核心文件：`src/PhotoMV.tsx`, `src/Root.tsx`, `mv_config.json`
