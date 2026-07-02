@@ -425,7 +425,37 @@ expenses.py recat E003 -c "商务-招待" --layer business --sub business
 ```bash
 # 记录其他收入（妈妈转回、报销到账等）
 income.py log -y 2026 -m 6 -o 14002 -n "妈妈转回"
+```
 
+### 批量导入银行流水收入（首次补全历史数据）
+
+当从银行 PDF 提取到 12+ 个月的收入数据时，不要逐条跑 `income.py log`（太慢且它只支持单月单次）。直接操作 `income.json`：
+
+1. 读取银行分析报告中的月度汇总
+2. 为每个有数据的月份创建一条 `records` 条目
+3. 保留已有记录（不覆盖），追加新发现的历史月份
+4. 每条 notes 标注「（银行流水提取）」作为来源
+5. 不要动 `monthly_baseline` 字段（那是波总口述的粗估，与银行实际数互不替代）
+
+```python
+# 批量导入模板
+income['records'].append({
+    "period": "2026-01",
+    "salary": 52794.46,           # 银行工资代发总额
+    "bonus_prorated": 10400,      # 保留波总口述的年度奖金均摊
+    "bonus_extra": 36210.0,       # 额外奖金（银行提取）
+    "other_income": 10000.0,      # 他行汇入等
+    "total": 62794.46,
+    "notes": "工资¥52,794（含补充代发）+ 备用金¥10,000（银行流水提取）",
+    "logged_at": "2026-07-02"
+})
+```
+
+⚠️ 银行数据和波总口述的收入口径不同——银行只捕捉到卡到账的，妈妈的微信转回、现金等不在银行流水里。两者可以并存，在 notes 里标明来源即可。
+
+### 净现金流计算
+
+```bash
 # 净现金流 = 收入 - 消费 + 预估报销
 income.py net -y 2026 -m 6
 # → {"income": 54402, "expenses": 5158.98, "reimbursable_estimate": 3662.74, "net_after_reimburse": 52905.76}
@@ -546,6 +576,129 @@ HTML 原型模板：`~/.hermes/cache/documents/return_starfire_v2.html`
 - 不确定时：先问"要消费深度分析还是全量财务画像？"，不要猜
 
 详细 JSON schema 见 `references/consumption-analysis-schema.md`
+
+## 银行对账单处理管线（银行PDF → 结构化数据）
+
+当波总发来手机银行短信（含解压密码）并确认邮件已发送到 Gmail 时，按以下流程处理。
+
+### 步骤1：搜索银行邮件
+
+方式A（Himalaya — 快速浏览）：
+```bash
+himalaya envelope list -a gmail --page-size 200 | grep -i "银行\|abc\|95555\|95588\|icbc"
+```
+
+方式B（Python imaplib — 下载附件）：
+```python
+import imaplib, email
+with open('/Users/mac/.config/himalaya/gmail-app-password') as f:
+    pwd = f.read().strip()
+imap = imaplib.IMAP4_SSL('imap.gmail.com', 993)
+imap.login('wangbo8805@gmail.com', pwd)
+imap.select('INBOX')
+# 按发件人搜索（ASCII safe）
+result, data = imap.search(None, '(FROM "abc-mobile-bank@abchina.com" SINCE "01-Jul-2026")')
+# 或遍历全部后 20-50 封：imap.search(None, 'ALL') → all_ids[-30:]
+```
+
+### 步骤2：下载附件
+
+用 `imap.fetch(mid, '(RFC822)')` 拉取完整 MIME 消息，遍历 `msg.walk()` 找 `part.get_filename()` 非空的 attachment。Himalaya v1.2.0 无 `save-attachment` 命令，必须用 Python imaplib。
+
+⚠️ **IMAP 状态陷阱**：`search()` 前必须先 `imap.select('INBOX')`，否则报 `SEARCH illegal in state AUTH`。
+
+### 步骤3：解压加密 ZIP
+
+常见银行 ZIP 压缩方式差异：
+
+| 银行 | 加密方式 | 解压工具 | 密码来源 |
+|------|---------|---------|---------|
+| 农业银行 | AES-256（compress_type=99） | `7z` (p7zip) | 短信 | 
+| 招商银行 | 标准ZIP加密 | `7z` 或 Python `zipfile` | 招行App→流水打印→申请记录 |
+| 工商银行 | 不加密（直接PDF） | 无需解压 | 无 |
+
+**铁律**：Python 内置 `zipfile` 不支持 AES-256 解压（`That compression method is not supported`）。必须用 `p7zip`：
+```bash
+brew install p7zip  # 首次安装
+7z x <file.zip> -p<password> -o<outdir>/ -y
+```
+
+⚠️ **每家银行密码独立** — 波总短信发的是农业银行的密码。招商银行需要在招行App里单独查，工商银行通常不加密。必须逐个确认，不要假设所有 ZIP 用同一个密码。
+
+### 步骤4：解析银行 PDF
+
+中国三大银行 PDF 格式差异大，按各自格式解析：
+
+**农业银行（ABC）** — 13页起
+- 账户: 6228484101670076415
+- 格式: `交易日期 交易时间 交易摘要 交易金额(±) 本次余额 对手信息 日志号 交易渠道 交易附言`
+- 摘要: `转存(+)/微信支付(-)/财付通(-)/支付宝(-)/跨行汇款/他行汇入`
+- 附言含详细商户名（如 `NA2026010905155216519793710210402相思椒餐饮...`）
+
+**招商银行（CMB）** — 16页起
+- 账户: 6214********5398（长沙麓谷支行）
+- 格式: `记账日期 货币 交易金额(±) 联机余额 交易摘要 对手信息`
+- 摘要: `快捷支付/转账汇款/代发款项/银证转账`
+- 注意表格跨页时重复表头，需跳过
+
+**工商银行（ICBC）** — 6页起
+- 账户: 6212262317000300695
+- 格式: `交易日期 时间 储种 摘要 地区 收入/支出金额 余额 对方户名 对方账号 渠道`
+- 摘要: `微信零钱提现(+)/消费(-)/跨行汇款/他行汇入/贷款本息`
+- 注意金额分「收入金额」和「支出金额」两列（不是带符号的单列）
+
+### 步骤5：去重分析（关键）
+
+银行 PDF 中大量交易是**支付宝/微信过路消费**（已在 `expenses.json` 中），直接导入会产生大量重复。
+
+**去重策略**：
+1. **支付宝/微信过路**（摘要含"支付宝""财付通""微信支付"）→ 大概率已在 expenses.json → 标记 probable_existing，不导入
+2. **精确去重**：按 `日期_金额_商户名前6位_来源` 匹配 expenses.json 的 `dedup_key` 字段
+3. **银行独有交易**（跨行汇款/贷款本息/银证转账）→ 这些不会在 expenses.json 中，按需导入
+4. **自转跳过**（王波账户间转账）→ 不是消费也不是收入，直接跳过
+
+典型结果（以千条数据规模）：
+- ~55% 支付宝/微信过路 → 已有
+- ~30% 新增（银行级交易）
+- ~5% 收入 → 入 income.json
+- ~1-2% 债务还款 → 核对 debts.json
+- ~5% 自转跳过
+
+### 步骤6：使用产出
+
+**A) 收入数据 → income.json**
+
+银行 PDF 是填充收入数据的**最佳来源**（工资代发、奖金、他行汇入）。提取所有正金额交易 + 工资代发，按月份汇总后批量导入 income.json。
+
+```python
+# 为每个有数据的月份创建一条记录
+income['records'].append({
+    "period": "2026-01",
+    "salary": 52794.46,
+    "bonus_prorated": 10400,
+    "bonus_extra": 0,
+    "other_income": 10000.0,
+    "total": 62794.46,
+    "notes": "工资¥52,794（含补充代发）+ 备用金¥10,000（银行流水提取）",
+    "logged_at": "2026-07-02"
+})
+```
+
+⚠️ 银行流水是**首次填充收入数据的唯一途径**（波总不记收入，只口述粗估）。导入后收益：获得 12+ 个月的完整收入画像。
+
+**B) 债务发现 → 核对 debts.json**
+
+银行还款记录中可能发现未追踪的债务（如携程金融、各类贷款等）。将还款对手方与 `debts.json` 的 `creditor` 字段逐一比对，有未追踪的向波总确认：
+
+| 发现场景 | 处理 |
+|---------|------|
+| 还款记录在 debts.json 中有对应债务 | 正常，可忽略或记录为历史还款 |
+| 还款记录但 debts.json 中无此债主 | 向波总确认：还有余额吗？要录入吗？ |
+| 已清债务的尾款 | 确认 debts.json 的 cleared 中已有 |
+
+**C) 新增消费 → 酌情导入**
+
+银行独有的消费（非支付宝/微信过路）可酌情导入 expenses.json：跨行汇款（Dily转账等）、保险扣款、贷款利息。大多已在 Alipay/WeChat CSV 中覆盖，不需要导入。
 
 ## 邮件拉取（Gmail + Himalaya）
 
@@ -674,7 +827,7 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
 16. **Layer 默认值** — 新录入的消费默认 layer 为 `basic_living`。商务招待/经营相关必须在录入时手动指定 `--layer business`，或事后 `expenses.py recat` 纠正。
 17. **外部AI金额建议不盲从** — 外部报告提出的具体金额阈值（如"月¥18-20K"）是主观估算，不是实测数据。必须先跑满3个月 layer 分布再定阈值，不要直接写入系统配置。
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
-19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图中的还款记录但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。
+19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图或**银行记录中的还款记录**但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。银行还款记录中发现携程金融等未追踪债是常见场景。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
 21. **截图 OCR 管线（v4.0，2026-06-12 波总指定优先级）** — 引擎优先级：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。详见 `debt-screenshot-auto-update` 技能的 "OCR 引擎" 章节。
 22. **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）** — `~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两个独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。如果不小心改了工作副本，必须立即 cp + git push。commit 前用 `diff` 检查两副本一致。<br>
@@ -780,6 +933,12 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
     - 主动问波总有没有新截图或新账单
     - 如果波总想加进 debts.json，建议创建 `type="信用卡"` 条目并同步更新 `recalc_debt_meta()`
     - 6/18 历史：中信 ¥3,712.71（7月6日到期），建行 ¥12,150.84（7月2日到期，后已还清）
+
+52. **⚠️ 银行 ZIP 可能用 AES-256 加密 — Python zipfile 不支持（🛑 2026-07-02 翻车）** — 农业银行等使用 AES-256 加密（compression type=99），Python 内置 `zipfile` 报 `That compression method is not supported`。`unzip` 命令也无法解密 AES ZIP（只支持传统 PKWARE 加密）。**必须用 `7z`（p7zip）**：`brew install p7zip && 7z x file.zip -p<password> -o<outdir>/ -y`。验证：`7z l file.zip` 可正常列出内容但 Python `zipfile.ZipFile.infolist()` 的 `compress_type` 为 99。
+
+53. **⚠️ imaplib search() 必须在 select() 之后** — 连接 Gmail 后 `imap.login()` → 必须先 `imap.select('INBOX')` 再 `imap.search()`。如果在 AUTH 状态直接 search，报 `command SEARCH illegal in state AUTH, only allowed in states SELECTED`。这是 IMAP 协议规定的状态机要求。
+
+54. **⚠️ 每家银行 ZIP 密码独立——不要假设同一密码通吃** — 波总短信发的密码（如 800562）是农业银行的。招商银行需要到招行App→流水打印→申请记录 查另一组密码。工商银行通常直接发 PDF 不加密。在等待用户的确认前，不要尝试用错误的密码硬解。
 
 51. **⚠️ 支付宝 CSV 三关过滤（🛑 2026-06-29 修复）** — `import_csv.py` 的 `parse_alipay_row()` 原始只检查 `direction != "支出"`，但有致命缺口：**「不计收支」含"收""支"二字**，原有 `"收" in direction and "支" not in direction` 逻辑不命中 → 余额宝/小荷包流水混入消费。修复的三关过滤：
 
