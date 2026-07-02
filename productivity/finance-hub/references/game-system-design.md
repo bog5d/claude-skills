@@ -100,11 +100,25 @@
 |:----|:--------|
 | 12座驿站定义 (config.json) | ✅ 完好 |
 | 8个成就定义 (config.json) | ✅ 完好 |
-| 运行时状态 (game_state.json) | ✅ 已创建，感知引擎自动维护 |
-| 里程碑触发检测 | ❌ 无自动化(当前靠手动或感知引擎) |
-| 成就解锁引擎 | ❌ 无自动化 |
-| 归途地图 HTML 可视化 | ❌ 模板存在但未接入 |
+| 运行时状态 (game_state.json) | ✅ 含 adjusted_baseline + discovered_debts + milestones_passed |
+| 归途地图 HTML 可视化 | ✅ `scripts/generate_starfire.py` → 灌数据到 template → 截图输出 |
+| 星火台（已清荣誉墙） | ✅ HTML 模板 + generate_starfire.py 引擎 |
+| 里程碑/成就检测 | ✅ `scripts/gamification.py check` 自动化检测 |
+| 归途志叙事 | ✅ `scripts/gamification.py narrative` 自动化生成 |
+| 连胜计数器 | ✅ game_state.json weekly_streak |
+| 调整基线模型（v4.0新修） | ✅ game_state.json.adjusted_baseline — 发现新债自动上调基线，里程碑永不撤销 |
 | 归途点灯亮度追踪 | ❌ 无 per-debt progress_pct 字段 |
-| 星火台（已清荣誉墙） | ❌ 无前端展示 |
-| 连胜计数器 | ✅ game_state.json 有 weekly_streak |
-| 归途志叙事 | ❌ 无代码生成 |
+| 归途志叙事自动推送 | ❌ 无集成到 cron |
+
+## 可视化生成命令
+
+```bash
+# 1. 先跑游戏引擎检查
+python3 finance/scripts/gamification.py check
+
+# 2. 再生成 HTML 可视化
+python3 finance/scripts/generate_starfire.py
+# 输出: ~/.hermes/cache/documents/return_starfire_live.html
+
+# 3. 打开浏览器截图发给波总
+```

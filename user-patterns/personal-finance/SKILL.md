@@ -35,8 +35,10 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
     ├── expenses.py         ← v3.1 消费引擎（add / batch / report / recat / summary / screenshot, 三层账户 + 可报销）
     ├── income.py           ← v3.1 收入引擎（log / net / show, 净现金流计算）
     ├── import_csv.py       ← CSV导入器（支付宝/微信CSV → 自动解析+过滤+分类+去重）
-    ├── nag_screenshots.py  ← 暴力催收脚本（cron no_agent, 检查昨日截图是否到位）
-    └── audit_consistency.py ← 13 项一致性审计（详见 scripts/ 说明）
+    ├── nag_screenshots.py     ← 暴力催收脚本（cron no_agent, 检查昨日截图是否到位）
+       ├── audit_consistency.py  ← 13 项一致性审计（详见 scripts/ 说明）
+       ├── gamification.py       ← v4.0 游戏引擎：成就/里程碑检测 + 归途志叙事。`python3 finance/scripts/gamification.py check` 检测新解锁；`narrative` 生成叙事
+       └── generate_starfire.py  ← v4.0 归途星火 HTML 可视化生成器。从 debts.json + config.json + game_state.json 自动生成完整可视化页面。`python3 finance/scripts/generate_starfire.py`
 ```
 
 **GitHub 双副本**：`hermes-adjutant/finance/`（和副官同一仓库）。每次变更 git push，任何 AI 可通过 `git pull` 接盘。
@@ -123,7 +125,31 @@ trigger: "波总说还款、债务、财务、花呗、借呗、度小满、分�
 ## 游戏化系统
 
 > 完整设计文档见 `finance-hub` 技能的 `references/game-system-design.md`。<br>
-> 运行时状态追踪文件：`debts.json` 同级目录下的 `game_state.json`。
+> 运行时状态追踪文件：`debts.json` 同级目录下的 `game_state.json`。<br>
+> 可视化生成：`python3 ~/.hermes/adjutant/repo/hermes-adjutant/finance/scripts/generate_starfire.py` → 输出HTML → 浏览器截图发给波总。<br>
+
+### 重要：调整基线模型（v4.0）
+
+游戏化系统使用 **adjusted_baseline** 而非固定基线。当发现新债务（之前未录入的借呗、老婆信用卡等）时，基线自动上调，确保进度反映真实的净偿还额而非总额波动：
+
+```
+original_baseline = ¥530,138   — 5月31日初始基线
+discovered_total  = ¥146,399   — 之后发现的全部新债额
+adjusted_baseline = ¥676,537   — 调整后的真实起点
+
+progress = adjusted_baseline - current_total
+pct      = progress / adjusted_baseline * 100
+```
+
+**里程碑永不撤销。** 一旦跨过（如「点亮50万驿站」），即使后面发现新债导致总额回升，里程碑标记依然保留。
+
+**数据文件：**
+- `game_state.json.original_baseline` — 初始基线
+- `game_state.json.adjusted_baseline` — 调整后基线
+- `game_state.json.discovered_debts[]` — 新发现债务日志
+- `game_state.json.milestones_passed[]` — 已通过里程碑（永不撤销）
+- `config.json` — 里程碑阈值 + 成就定义
+- `game_state.json` — 运行时状态
 
 ### 里程碑（Boss战）
 
@@ -740,9 +766,17 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 | 拿去花截图 | "全部待还 ¥X" = 总余额；"X月X日待还 ¥Y" = 未出账部分。拿去花有"未出账"概念，总待还 > 未出账金额 | 直接更新 amount 为"全部待还"值 |
 | 新增自债（非现金动用） | 创建 ID=I001/2/3（I 系列独立编号）, type="其他", rate=0, notes 标注时间预期 | 如基金储备款被消费占用，1-2个月内填回 |
 | 短期承诺（1-2月填回） | 在 notes 标注 "X个月内填回" | 让波总明确还款时间窗口，系统自动追踪 |
-| 还款日提取 | 截图中"还款日7月15日"即是到期日，更新到 `due_date` 字段 | 平台债 always 有固定还款日 |
+| 还款日提取 | 截图中的"还款日7月15日"即是到期日，更新到 `due_date` 字段 | 平台债 always 有固定还款日 |
+| 债务报告格式：总分总 | 先说总金额，再分项展开，最后重申总金额。第一条消息就亮总额 | 波总多次明确要求 |
+| 游戏化展示：渲染HTML截图 | 运行 generate_starfire.py 生成HTML，浏览器截图发送。禁止用LLM文字描述进度 | 波总指出文字版是"LLM编的" |
+| 借呗vs花呗区分 | 银行"支付宝信贷待还款账户"可能是花呗或借呗。借呗先息后本，月付利息到期还本 | 本会话遗漏借呗因误归花呗 |
+| 债务置换给一个方案 | 算一个最优方案直接说，不列ABC选项 | 波总不要选择题 |
+| 银行流水含报销 | "代发款项"总包含月薪+报销，不是纯工资 | 波总多次纠正口径 |
 | 债务置换建议 | 直接给推荐方案，不要列多选项让波总选 | 波总明确偏好——问"带多少出来"就按数据算一个数，而不是给A/B方案 |
 | 收入修正 | 波总说"不对，实际是XX"时，立即停下用修正值重算所有结论 | 波总的数字比系统的数字更准（系统数据可能有口径误差） |
+| **债务报告格式：总分总** | 先说总金额 → 再分项展开 → 最后重申总金额。第一条消息就亮总额：¥XXX,XXX — 先让人一眼看到总数 | 波总明确要求。先列详情最后丢总数会被骂"无语" |
+| **游戏化展示：必须渲染 HTML 模板** | 运行 debttracker/game_viz.py 生成归途星火 HTML → 浏览器截图 → 发给波总。严禁用 LLM 文字描述进度条/里程碑 | 波总指出文字版游戏化是"LLM编的"。归途星火页面才是真正的程序输出 |
+| **支付宝信贷识别：花呗 vs 借呗** | 银行记录中的「支付宝信贷业务待还款账户」可以是花呗或借呗。借呗是「先息后本」（月付利息，到期还本），花呗是循环额度。遇到支付宝信贷相关扣款，必须主动确认是花呗还是借呗 | 本会话遗漏借呗就是因为它被误归类为花呗 |
 
 ## 消费洞察生成流程（v2026-06-29）
 
@@ -887,7 +921,7 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
 16. **Layer 默认值** — 新录入的消费默认 layer 为 `basic_living`。商务招待/经营相关必须在录入时手动指定 `--layer business`，或事后 `expenses.py recat` 纠正。
 17. **外部AI金额建议不盲从** — 外部报告提出的具体金额阈值（如"月¥18-20K"）是主观估算，不是实测数据。必须先跑满3个月 layer 分布再定阈值，不要直接写入系统配置。
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
-19. **平台债类型发现** — 系统当前追踪 4 种平台债（花呗/拿去花/度小满/工行贷款），但截图可能暴露未追踪的新平台债（如微信分付、借呗、微粒贷等）。遇到截图或**银行记录中的还款记录**但 creditor 不在 debts.json 中时，必须主动询问波总总余额和还款日，不要默默忽略。银行还款记录中发现携程金融等未追踪债是常见场景。
+19. **平台债类型发现** — 系统当前追踪的平台债类型包括：花呗、拿去花、度小满、工行贷款、借呗、微信分付。截图或银行记录中可能暴露未追踪的新平台债。**特别是：银行记录中的「支付宝信贷业务待还款账户」扣款可能是花呗或借呗。借呗是「先息后本」（月付利息≈¥80，到期一次性还本金），花呗是循环额度。两者都走支付宝通道，不主动区分就会被遗漏。**遇到此类记录必须向波总确认具体是哪一种、余额多少、还款日。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
 21. **截图 OCR 管线（v4.0，2026-06-12 波总指定优先级）** — 引擎优先级：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。详见 `debt-screenshot-auto-update` 技能的 "OCR 引擎" 章节。
 22. **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）** — `~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两个独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。如果不小心改了工作副本，必须立即 cp + git push。commit 前用 `diff` 检查两副本一致。<br>

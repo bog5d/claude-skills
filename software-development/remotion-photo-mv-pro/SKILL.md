@@ -1,6 +1,6 @@
 ---
 name: remotion-photo-mv-pro
-description: 用 Remotion 4.0 生成智能照片MV，支持鼓点同步切换（BPM量化）、照片循环复用、运镜动画。输出1080p 30fps H.264 MP4。
+description: 用 Remotion 4.0 生成智能照片MV，支持真实onset鼓点同步切换、anti-strobe最小间隔过滤、结构化歌词字幕叠加、关键歌词节点强制切换。输出1080p 30fps H.264 MP4。
 ---
 
 # Remotion Photo MV Pro — 智能照片MV生成
@@ -67,10 +67,11 @@ python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py send
 
 核心问题与解法（v2 升级）：
 1. **照片数量远少于音乐时长** → 照片循环复用，不是拉长每张停留时间
-2. **切换与音乐脱节** → **v2 升级：真实 Onset 检测**，五步管道（BPM→峰值→合并→补拍→采样），每个切换点对应实际音乐节拍
-3. **切换间隔可变** → Chorus 高潮密集切片，Verse 稀疏切片，完全跟随音乐强弱起伏
+2. **切换与音乐脱节** → **Onset 检测六步管道**：BPM检测→峰值拾取→近邻合并→长间隙补拍→节拍采样→**anti-strobe最小间隔过滤**。每个切换点对应实际音乐节拍，且保证不低于0.6秒（18帧）
+3. **切换间隔可变** → Chorus 密集切片，Verse 稀疏切片，完全跟随音乐强弱起伏
 4. **运镜单调** → 每张照片用缩放动画（Ken Burns）+平移，fade 时长按真实节拍间隔自适应
-5. **歌词字幕不同步** → Suno歌词时间轴估算不准，**默认不加歌词**，稳定优先
+5. **歌词字幕** → 支持 `--lyrics` 参数，按结构化段落（[Intro]/[Chorus]等）+ BPM 估算时间轴。关键歌词节点（"Three!Two!One!"、"吹蜡烛"等）标记为强制切换帧，与beat帧合并
+6. **底线稳定** → 任何新模块有降级路径。onset失败→固定间隔；歌词无时间戳→字数均匀分布；千问欠费→跳过打标
 
 ## 触发条件
 
@@ -212,7 +213,55 @@ detect_onsets(music_file, beats_per_switch=2):
 
 实际案例：238秒 + BPM=134 + fast_pop(每2拍) → 274个切换点 + 29张照片 → 每张约9次 ✅
 
-### Phase 3: 项目生成
+### Phase 2.5: 歌词字幕与强制切换（可选）
+
+当用户提供歌词文本时，流水线自动生成时间轴并叠加字幕。歌词须为结构化格式（`[Intro]`/`[Chorus]` 等段落标记）。通过 `--lyrics` 参数启用。
+
+```bash
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py build \
+  --project /path/to/project \
+  --theme fast_pop \
+  --title "歌名" \
+  --lyrics /path/to/lyrics.txt
+```
+
+**歌词文件格式：**
+```
+[Intro]
+嘿——！
+今天是谁过生日？
+Three！
+Two！
+One！
+
+[Verse 1]
+妈妈一早就出发
+悄悄准备惊喜呀
+...
+
+[Chorus]
+大飞飞——吹蜡烛！
+呼——哈哈哈哈！
+...
+```
+
+**时间轴生成逻辑（`generate_lyrics_timeline()`）：**
+- 每个段落按 Suno 歌曲约定分配节拍数（Intro=32, Verse=64, Pre-Chorus=32, Chorus=56 等）
+- 段内歌词均匀分布
+- 包含 `"Three"/"Two"/"One"/"吹蜡烛"/"点起来"/"吹下去"/"吹一下"/"吹两下"/"吹三下"` 的行自动标记为 `force_switch: true`
+- 强制切换帧与 beat 帧合并去重 → `merged_switch_frames`
+
+**字幕渲染（PhotoMV.tsx）：**
+- 底部居中，42px 粗体，黑色半透明背景，文字阴影
+- 每条歌词 fade-in/fade-out 平滑过渡
+- 无歌词数据时组件不渲染，不影响稳定性
+
+**⚠️ 人声倒数 vs 能量法：**
+- Onset 检测只能抓"响"的瞬间（鼓点、重拍）
+- 人声倒数（"Three! Two! One!"）、念白、旋律线无法被能量法检测
+- **必须走歌词时间轴 → forced switch 补上这些节点**
+
+
 
 #### 目录结构
 ```
@@ -373,13 +422,15 @@ ffmpeg -y -i output_remotion.mp4 \
 4. **音频用 `<Audio>` 组件** — Web Audio API不会被渲染器捕获
 5. **React 19 + Remotion 4.x 的 `<Audio>` 类型问题** — 加 `// @ts-ignore`
 6. **Sunosong时长必须从ffprobe读取** — 不要靠猜
-7. **歌词字幕默认不加** — Suno歌词时间轴是估算的，不同步。除非用户明确要求且愿意容忍误差
+7. **歌词字幕通过 `--lyrics` 参数启用** — 提供结构化歌词文本（含[Intro]/[Chorus]段落标记）即可自动生成时间轴。不提供歌词时组件不渲染，零影响
 
 ## Pitfalls（从实战中总结）
 
 - **‼️ 不要用 file:// 引用图片** → 黑屏。用 `staticFile()`
 - **‼️ 不要平均分配照片时长** → 当音乐(258秒) >> 照片数量(44张)，每张停留会太久(6秒)。要循环
-- **‼️ 歌词时间轴估算不准** → Suno的歌词分段是纯文本标记，没有时间戳。按比例估算会偏离0.5-2秒
+- **‼️ Anti-strobe 过滤器是必需的** → 没有最小间隔过滤时，309次切换中64次低于0.6秒，用户反馈"晃眼睛"。`detect_onsets()` Step 6 强制 `min_gap = max(round(beat_interval * beats_per_switch * 0.6), 18)`。BPM=134/fast_pop时最低18帧=0.6秒
+- **‼️ 人声倒数/念白不能被能量法抓到** → "Three! Two! One!" 波形上没有暴烈能量峰，onset检测必然漏掉。唯一解法：歌词文本 → 时间轴 → forced switch。不要试图调参解决
+- **‼️ 歌词时间轴估算不准** → Suno的歌词分段是纯文本标记，没有时间戳。按段落节拍分配+段内均匀分布估算，偏差0.5-2秒。用户接受即可，不接受需提供LRC精确时间轴
 - **‼️ 123云盘不要去爬** → 它的下载保护有服务端签名校验，curl/requests/browser拦截全试过都失败。直接让用户发文件
 - **照片没放在 `public/` 下** → `staticFile()` 只在 `public/` 目录下查找文件
 - **npm install 超时** → 用 `npm install remotion@4.0.0 @remotion/cli@4.0.0 @remotion/renderer@4.0.0 --legacy-peer-deps`

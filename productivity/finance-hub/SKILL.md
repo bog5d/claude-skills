@@ -39,6 +39,8 @@ commit 前用 `diff` 检查两副本一致。
 | `scripts/nag_screenshots.py` | 🆕 暴力催收脚本（检查昨日截图到位否，没到位输出催收消息） |
 | `scripts/import_csv.py` | 🆕 CSV 流水导入器（自动识别支付宝/微信，解析+去重+分类入库） |
 | `scripts/daily_report.sh` | 🆕 日报生成包装脚本（cron 用） |
+| `scripts/gamification.py` | 🆕 游戏引擎：成就/里程碑检测 + 归途志叙事。`check`检测新解锁，`narrative`生成叙事 |
+| `scripts/generate_starfire.py` | 🆕 HTML可视化生成器：从3个JSON → 归途星火页面 → 截图发给波总 |
 | `expenses.json` | 🆕 消费数据 + 17 类别规则引擎 + 截图记录 |
 
 ## ⚠️ 波总沟通偏好（本会话确认）
