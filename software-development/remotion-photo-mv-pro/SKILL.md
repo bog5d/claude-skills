@@ -65,25 +65,28 @@ python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py send
 
 ## 概览
 
-核心问题与解法：
+核心问题与解法（v2 升级）：
 1. **照片数量远少于音乐时长** → 照片循环复用，不是拉长每张停留时间
-2. **切换与音乐脱节** → BPM分析 + 节拍量化，每N拍切一次
-3. **歌词字幕不同步** → Suno歌词时间轴估算不准，**默认不加歌词**，稳定优先
-4. **运镜单调** → 每张照片用缩放动画 + 在拍点做闪切
+2. **切换与音乐脱节** → **v2 升级：真实 Onset 检测**，五步管道（BPM→峰值→合并→补拍→采样），每个切换点对应实际音乐节拍
+3. **切换间隔可变** → Chorus 高潮密集切片，Verse 稀疏切片，完全跟随音乐强弱起伏
+4. **运镜单调** → 每张照片用缩放动画（Ken Burns）+平移，fade 时长按真实节拍间隔自适应
+5. **歌词字幕不同步** → Suno歌词时间轴估算不准，**默认不加歌词**，稳定优先
 
 ## 触发条件
 
 用户说"照片做MV"、"生成视频"、"remotion做相册"、"给照片配乐做视频"
 
-## 主题 ↔ BPM 映射
+## 主题 ↔ 节拍映射
 
-mv_pipeline 的三个主题对应固定的 `switch_seconds`，选主题前先跑 BPM 分析再匹配：
+主题现在用 `beats_per_switch`（每个切换跨几个节拍），由 `detect_onsets()` 自动分析真实节拍后采样。
 
-| 主题 | switch_seconds | 转换帧数 | 匹配 BPM（2拍/切） | 适用场景 |
-|------|:---:|:---:|:---:|------|
-| `fast_pop` | 1.0s | 30帧 | 120-140 | 快节奏、生日/派对、BPM≥120 |
-| `travel_beat` | 2.0s | 60帧 | 60-80 | 旅行、中等节奏 |
-| `family_warm` | 3.5s | 105帧 | 30-40 | 慢节奏、温馨回顾 |
+| 主题 | beats_per_switch | 典型间隔 | 适用场景 |
+|------|:---:|:---:|------|
+| `fast_pop` | 2 | ~0.8-0.9s（@134BPM） | 快节奏、生日/派对、BPM≥120 |
+| `travel_beat` | 3 | ~1.3s | 旅行、中等节奏 |
+| `family_warm` | 6 | ~3.5s | 慢节奏、温馨回顾 |
+
+**不再是固定间隔！** `detect_onsets()` 对音频做真实节拍检测，每个切换点的帧号都是实际的音乐节拍位置。Chorus 高潮段切换密集，Verse 段落切换稀疏——完全跟音乐走。
 
 **规则**：BPM ≥ 120 → 选 `fast_pop`；BPM 60-120 → 选 `travel_beat`；BPM < 60 → 选 `family_warm`。
 
@@ -178,40 +181,36 @@ ls -1 photos/zt_pic/*.jpg | wc -l  # 照片数量
 
 照片按文件名排序（`IMG_YYYYMMDD_HHMMSS.jpg` 天然按时间排序）。
 
-### Phase 2: 节奏与切换调度计算
+### Phase 2: Onset 检测与节拍调度
 
-**核心公式：**
+**核心变化（v2）：不再使用固定间隔。** 流水线调用 `detect_onsets()` 五步管道：
 
 ```
-总帧数 = 音乐时长(秒) × 30fps
-BEAT_INTERVAL = 15 帧  (0.5秒, BPM=120时的1拍)
-SWITCH_INTERVAL = 2    (每2拍切换一次照片 = 1秒)
-SWITCH_FRAMES = BEAT_INTERVAL × SWITCH_INTERVAL = 30 帧
-
-照片索引 = Math.floor(当前帧 / SWITCH_FRAMES) % 照片总数
+detect_onsets(music_file, beats_per_switch=2):
+  ① BPM 检测 — beat spectrum 自相关（前60秒）
+  ② Onset 峰值拾取 — 能量差分 + 85th percentile 阈值
+  ③ 近邻合并 — 间距 < beat_interval/2 的合并
+  ④ 长间隙补拍 — 间距 > 2.5×beat_interval 处插入合成节拍
+  ⑤ 节拍采样 — 按 beats_per_switch 间隔采样
+  → 返回 beat_frames: [19, 48, 69, 85, ...]（帧号）
 ```
 
-**关键决策：照片应该循环，而不是平均分配时长**
+**输出写入 `mv_config.json`**：
+```json
+{
+  "beats_per_switch": 2,
+  "beat_frames": [19, 48, 69, 85, 111, 129, ...],
+  "transition_frames": 6
+}
+```
 
-当音乐长度(258秒)远大于照片能合理展示的时间时(44张×2秒=88秒)：
-- ❌ 不要 `durationPerPhoto = 总帧数 / 照片数`（每张近6秒，太慢）
-- ✅ 用循环：`照片索引 = (帧 / SWITCH_FRAMES) % 照片数`，每张1秒，循环约6轮
+**照片仍然循环**：
+```
+照片索引 = beatIdx % 照片数
+每张出现次数 ≈ beat_frames.length / 照片数
+```
 
-**切换节奏可选方案：**
-| 方案 | 每几张Beat切 | 每张时长 | 总切换次数 | 每张出现次数(44张) |
-|------|-------------|---------|-----------|-----------------|
-| 紧凑 | 1 beat | 0.5s | 516次 | ~11次 |
-| 推荐 | **2 beats** | **1s** | **258次** | **~6次** |
-| 缓和 | 4 beats | 2s | 129次 | ~3次 |
-
-**Suno歌曲结构参考（BPM=120时）：**
-- Intro: 0-8拍 (4秒)
-- Verse: 8-72拍 (32秒)
-- Pre-Chorus: 72-104拍 (16秒)
-- Chorus: 104-152拍 (24秒)
-- (重复结构)
-- Bridge: 较缓和
-- Outro: 渐慢
+实际案例：238秒 + BPM=134 + fast_pop(每2拍) → 274个切换点 + 29张照片 → 每张约9次 ✅
 
 ### Phase 3: 项目生成
 
@@ -230,80 +229,84 @@ photo_mv/
 └── package.json
 ```
 
-#### PhotoMV.tsx 核心实现
+#### PhotoMV.tsx 核心实现（v2 节拍驱动）
 
 ```tsx
 import React from "react";
 import {
   AbsoluteFill,
-  useCurrentFrame,
-  useVideoConfig,
-  staticFile,
   Audio,
   interpolate,
+  staticFile,
+  useCurrentFrame,
 } from "remotion";
 
-// 照片列表（已排序）
-const PHOTO_FILES = [...]; // 从 ls 结果生成
-const PHOTO_URLS = PHOTO_FILES.map((f) => staticFile(`zt_pic/${f}`));
-const PHOTO_COUNT = PHOTO_FILES.length;
+const PHOTO_FILES = ["zt_pic/01.jpg", ...];  // pipeline 生成
+const BEAT_FRAMES: number[] = [19, 48, 69, ...];  // 真实节拍帧号
+const BEAT_ESTIMATE = 23;  // 平均间隔，用于最后一个节拍之后的回退
+const TRANSITION_FRAMES = 6;
 
-// 节奏参数（BPM=120）
-const BEAT_INTERVAL = 15;           // 每拍15帧@30fps
-const PHOTO_SWITCH_INTERVAL = 2;    // 每2拍切一次
-const SWITCH_FRAMES = 30;           // 每张照片持续30帧=1秒
-const TRANSITION_FRAMES = 6;        // 转场过渡6帧≈0.2秒
+// 二分查找：找到 ≤ frame 的最大节拍索引
+function findBeatIndex(frame: number): number {
+  let lo = 0, hi = BEAT_FRAMES.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    if (BEAT_FRAMES[mid] <= frame) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
 
 export const PhotoMV: React.FC = () => {
   const frame = useCurrentFrame();
+  const beatIdx = findBeatIndex(frame);
+  const photoIndex = beatIdx % PHOTO_FILES.length;
 
-  // 循环照片索引
-  const beatCycle = Math.floor(frame / SWITCH_FRAMES);
-  const currentPhotoIndex = beatCycle % PHOTO_COUNT;
-  const frameInBeat = frame % SWITCH_FRAMES;
+  const lastSwitch = BEAT_FRAMES[beatIdx];
+  const nextSwitch = beatIdx + 1 < BEAT_FRAMES.length
+    ? BEAT_FRAMES[beatIdx + 1]
+    : lastSwitch + BEAT_ESTIMATE;
+  const beatDuration = nextSwitch - lastSwitch;  // 动态！不是固定值
+  const frameSinceSwitch = frame - lastSwitch;
+  const progress = beatDuration > 0 ? frameSinceSwitch / beatDuration : 0;
 
-  // 转场动画：快速pop效果
-  let opacity: number;
-  let scale: number;
-
-  if (frameInBeat < TRANSITION_FRAMES) {
-    const t = frameInBeat / TRANSITION_FRAMES;
-    opacity = interpolate(t, [0, 0.3, 1], [0.3, 0.6, 1]);
-    scale = interpolate(t, [0, 0.5, 1], [1.12, 0.98, 1]);
-  } else {
-    const steadyProgress = (frameInBeat - TRANSITION_FRAMES) /
-      (SWITCH_FRAMES - TRANSITION_FRAMES);
-    opacity = 1;
-    scale = interpolate(steadyProgress, [0, 1], [1, 1.03]);
-  }
+  const fadeIn = interpolate(frameSinceSwitch, [0, TRANSITION_FRAMES], [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fadeOut = interpolate(frameSinceSwitch,
+    [beatDuration - TRANSITION_FRAMES, beatDuration], [1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const opacity = Math.min(fadeIn, fadeOut);
+  const scale = interpolate(progress, [0, 1], [1.02, 1.09]);
+  const pan = interpolate(progress, [0, 1], [-1.5, 1.5]);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "black" }}>
+    <AbsoluteFill style={{ backgroundColor: "#050505", overflow: "hidden" }}>
       {/* @ts-ignore */}
-      <Audio src={staticFile("background_music.mp3")} volume={0.85} />
-
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-        <img
-          src={PHOTO_URLS[currentPhotoIndex]}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity,
-            transform: `scale(${scale})`,
-          }}
-        />
+      <Audio src={staticFile("background_music.mp3")} volume={0.88} />
+      <AbsoluteFill>
+        <img src={staticFile(PHOTO_FILES[photoIndex])} style={{
+          width: "100%", height: "100%", objectFit: "cover",
+          opacity,
+          transform: `scale(${scale}) translateX(${pan}%)`,
+        }} />
       </AbsoluteFill>
+      <div style={{
+        position: "absolute", left: 36, bottom: 30,
+        padding: "10px 14px", borderRadius: 6,
+        background: "rgba(0,0,0,0.38)", color: "rgba(255,255,255,0.88)",
+        fontSize: 24
+      }}>{CAPTION}</div>
     </AbsoluteFill>
   );
 };
 ```
 
-**转场动画说明：**
-- 每张照片显示30帧（1秒），刚好2个拍子
-- 前6帧为转场期：快速pop效果（scale 1.12→0.98→1, opacity 0.3→1）
-- 后24帧为稳定期：缓慢推近（scale 1→1.03）
-- 转场在拍点上完成
+**关键区别 vs v1：**
+- ❌ v1: `Math.floor(frame / SWITCH_FRAMES)` — 固定间隔
+- ✅ v2: `findBeatIndex(frame)` — 每帧二分查找当前节拍位置
+- ❌ v1: `SWITCH_FRAMES = 30` 全局常量
+- ✅ v2: `beatDuration` 每段动态计算（11~52帧不等）
+- fade 动画根据真实节拍间隔自适应（短节拍快切、长节拍慢切）
 
 #### Root.tsx
 ```tsx
@@ -388,6 +391,10 @@ ffmpeg -y -i output_remotion.mp4 \
 - **用户分批发照片** → 如果渲染已在后台跑，不要中途停掉重建。等当前渲染跑完，累积所有照片后一次性 `build + render`。项目已有 `node_modules` 时跳过 `npm install`
 - **PhotoMV.tsx 的 `staticFile()` 路径** → mv_pipeline 生成代码用 `staticFile("zt_pic/01.jpg")` 而非 `staticFile(`zt_pic/${f}`)`。扩增照片后必须 `build` 重新生成，不能手动改 PHOTO_FILES 数组（pipeline 会覆写）
 - **⚠️ BPM 分析用 `-t 60` 截取前60秒** → 完整长音频（>2分钟）直接做 beat spectrum 会导致 lag range 为空、`max()` 报 `ValueError`。已在 Phase 0 代码中修正
+- **⚠️ Onset 阈值用百分位数** → 简单 mean+std 阈值会检出太多 sub-beat 瞬态（敲击乐、鼓点细节）。用 `np.percentile(onset_env, 85)` 只取能量 top 15% 的峰。BPM=134 时从 ~800 峰降到 ~588 有效节拍
+- **⚠️ Onset 需要长间隙补拍** → Intro、Outro、Bridge 等低能量段落检测不到节拍。`gap > 2.5*beat_interval` 时插入合成节拍（均匀间隔），否则视频在这些段落会长时间停滞在同一张照片
+- **⚠️ Python f-string 中生成 JSX 模板** → 双花括号 `{{` `}}` 是 Python 转义，四花括号 `{{{{` `}}}}` 是 JSX `{{` `}}`。模板字符串 `${scale}` 在 f-string 中要写成 `${{scale}}`。出错会导致 PhotoMV.tsx 出现乱码行
+- **⚠️ numpy 依赖** → `detect_onsets()` 需要 numpy。确认 Python 环境可用：`python3 -c "import numpy"`。已确认 macOS 系统 Python 自带 numpy 2.0.2
 
 ## 视频+照片混合MV（进阶）
 
