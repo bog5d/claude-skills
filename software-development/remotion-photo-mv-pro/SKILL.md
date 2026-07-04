@@ -253,7 +253,9 @@ One！
 
 **字幕渲染（PhotoMV.tsx）：**
 - 底部居中，42px 粗体，黑色半透明背景，文字阴影
-- 每条歌词 fade-in/fade-out 平滑过渡
+- 每条歌词基于**歌词时间窗**独立 fade-in/fade-out，不随照片切换闪灭
+- LYRICS 数组每条包含 `{f, e, t}`（start frame, end frame, text），end frame = 下一条歌词 start
+- 字幕透明度由 `lyricStart → lyricEnd` 控制，照片切换完全不干预字幕生命周期
 - 无歌词数据时组件不渲染，不影响稳定性
 
 **⚠️ 人声倒数 vs 能量法：**
@@ -448,6 +450,7 @@ ffmpeg -y -i output_remotion.mp4 \
 - **⚠️ numpy 依赖** → `detect_onsets()` 需要 numpy。确认 Python 环境可用：`python3 -c "import numpy"`。已确认 macOS 系统 Python 自带 numpy 2.0.2
 - **‼️ Anti-strobe 必须在合并后再次过滤** → `detect_onsets()` 的 Step 6 只过滤 beat_frames。歌词的 forced_switch_frames 是在 `generate_project()` 里通过 `set()` 合并进去的，合并后没有 anti-strobe pass。结果：frame 509（One! forced）和 frame 511（onset beat）只差 2 帧。**修复**：合并后用 `MIN_GAP=18` 再做一次 anti-strobe，forced switch 优先保留（见 `mv_pipeline.py` L439-454）
 - **⚠️ fast_pop 与视觉疲劳** → BPM≥134 时 beats_per_switch=2 造成 ~0.9s 切换间隔，用户反馈"很费眼睛"。已调整为 `beats_per_switch=3`（~1.2-1.3s），视频节奏略有损失但舒适度显著提升。等待 Phase 3（千问VL画面匹配）做语义补偿
+- **⚠️ 字幕不能跟随照片切换周期 fade** → 旧版字幕 opacity 绑定在 photo switch interval 上，Chorus 段 1 秒一切换导致字幕频繁闪灭。**修复**：LYRICS 增加 `e`（end frame）字段，字幕 fade-in/fade-out 基于歌词自身的时间窗 `[f, e]`，与照片切换完全解耦。`findCurrentLyric()` 返回 `LyricEntry | null` 对象而非纯字符串
 
 ## 自动化测试（禁止人工肉眼验证）
 

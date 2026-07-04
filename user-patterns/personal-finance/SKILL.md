@@ -1058,17 +1058,50 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
 57. **⚠️ SiliconFlow 模型名精确匹配问题** — `vision_analyze` 工具可能报 "Model does not exist (code 20012)" 即使直接 API 文本请求正常。原因可能是 Hermes 构造请求时模型名格式差异。先通过 `curl` 直接测试带图片的请求确认模型可用性，再尝试其他模型版本（如 8B 或 32B-Thinking）。
 
 55. **⚠️ `finance.py repay` 输出说成功但文件没有更新（🛑 2026-07-02 发现）** — `finance.py repay -c "花呗" -a 10000` 输出 `"ok": true, "paid": 10000, "new_remaining": 3729.51` 但实际 debts.json 文件中花呗金额**没有变化**。症状：执行后立即检查文件，花呗余额还是原值。疑似脚本内 `write_json()` 未正确执行或路径写到了错误位置。<br>
-    - **解法**：执行 `finance.py repay` 之后，**必须手动验证** debts.json 文件中的金额是否确实更新了。如果没更新，手动编辑 debts.json 修改对应条目的 `amount` 字段 + 更新 `meta` 的合计，然后用 `finance.py snapshot` 或者手动算一下 `grand_total`。<br>
+    - **解法**：执行 `finance.py repay` 之后，**必须手动验证** debts.json 文件中的金额是否确实更新了。如果没更新，使用以下脚本手动修复（在 repo 路径执行）：<br>
+      ```bash
+      cd ~/.hermes/adjutant/repo/hermes-adjutant
+      # 手动更新 debts.json 金额 + 重算 meta
+      python3 -c "
+      import json
+      with open('finance/debts.json') as f:
+          d = json.load(f)
+      # 修改单笔债务金额（按实际情况替换 creditor 和 amount）
+      for debt in d['active']:
+          if debt['creditor'] == '花呗':
+              debt['amount'] = 5587.37  # ← 替换为截图显示的余额
+              debt['updated_at'] = '2026-07-04 10:00'
+      # 重算 grand_total
+      family = sum(x['amount'] for x in d['active'] if x['type'] == '亲友')
+      platform = sum(x['amount'] for x in d['active'] if x['type'] == '平台')
+      other = sum(x['amount'] for x in d['active'] if x['type'] == '其他')
+      d['meta']['grand_total'] = family + platform + other
+      d['meta']['total_active_family'] = family
+      d['meta']['total_active_platform'] = platform
+      with open('finance/debts.json', 'w') as f:
+          json.dump(d, f, ensure_ascii=False, indent=2)
+      print(f'Updated: grand_total={d[\"meta\"][\"grand_total\"]}')
+      "
+      # 追加还款流水到 transactions.json
+      python3 -c "
+      import json
+      with open('finance/transactions.json') as f:
+          txs = json.load(f)
+      txs.append({'date':'2026-07-04','creditor':'花呗','amount':3692.96,'old_remaining':9280.33,'new_remaining':5587.37,'cleared':False})
+      with open('finance/transactions.json','w') as f:
+          json.dump(txs, f, ensure_ascii=False, indent=2)
+      print(f'Transactions: {len(txs)} entries')
+      "
+      # 同步 work copy + git push
+      cp finance/debts.json /Users/mac/.hermes/adjutant/finance/debts.json
+      cp finance/transactions.json /Users/mac/.hermes/adjutant/finance/transactions.json
+      git add -A && git commit -m \"finance: 手动修复还款记录\" && git push
+      ```
     - **两步验证**：<br>
       ```bash
-      # 先看 workdir
-      python3 -c "import json; d=json.load(open('/Users/mac/.hermes/adjutant/finance/debts.json')); print([x for x in d['active'] if x['creditor']=='花呗'])"
-      # 再看 repo
-      python3 -c "import json; d=json.load(open('/Users/mac/.hermes/adjutant/repo/hermes-adjutant/finance/debts.json')); print([x for x in d['active'] if x['creditor']=='花呗'])"
+      python3 -c "import json; d=json.load(open('/Users/mac/.hermes/adjutant/finance/debts.json')); print([x['amount'] for x in d['active'] if x['creditor'] in ('花呗','拿去花')])"
+      python3 -c "import json; d=json.load(open('/Users/mac/.hermes/adjutant/repo/hermes-adjutant/finance/debts.json')); print([x['amount'] for x in d['active'] if x['creditor'] in ('花呗','拿去花')])"
       ```
-**⚠️ 每家银行解压密码独立** — 农业银行短信中的密码只用于农行 ZIP。招商银行需要到招行App→流水打印→申请记录查自己的密码。工商银行直接发PDF不加密。不要用一个密码尝试解所有银行ZIP。
-    - **解法**：执行 repay 后**必须手动验证** debts.json 中金额已更新。如未更新，直接编辑 debts.json 修改 `amount` + 重算 `meta.grand_total`。<br>
-    - **验证命令**：`python3 -c "import json; d=json.load(open('/Users/mac/.hermes/adjutant/finance/debts.json')); print([x['amount'] for x in d['active'] if '花呗' in x['creditor']])"`
 
 **⚠️ 每家银行 ZIP 密码独立——不要假设同一密码通吃** — 波总短信发的密码（如 800562）是农业银行的。招商银行需要到招行App→流水打印→申请记录 查另一组密码。工商银行通常直接发 PDF 不加密。在等待用户的确认前，不要尝试用错误的密码硬解。
 
