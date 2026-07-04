@@ -71,7 +71,8 @@ python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/mv_pipeline.py send
 3. **切换间隔可变** → Chorus 密集切片，Verse 稀疏切片，完全跟随音乐强弱起伏
 4. **运镜单调** → 每张照片用缩放动画（Ken Burns）+平移，fade 时长按真实节拍间隔自适应
 5. **歌词字幕** → 支持 `--lyrics` 参数，但默认 `--lyrics-mode key_only`：只显示 "Three!Two!One!"、"吹蜡烛" 等关键歌词，避免全曲估算字幕漂移刺眼。需要完整估算字幕时必须显式传 `--lyrics-mode full_estimated`
-6. **底线稳定** → 任何新模块有降级路径。onset失败→固定间隔；歌词无时间戳→关键字幕降级；千问欠费→跳过打标
+6. **精准校准实验** → 需要精准关键歌词时，先跑 `alignment_lab.py` 生成 ASR 候选、beat 候选、debug 视频和评分；通过后再接入正式 MV
+7. **底线稳定** → 任何新模块有降级路径。onset失败→固定间隔；歌词无时间戳→关键字幕降级；千问欠费→跳过打标
 
 ## 触发条件
 
@@ -264,6 +265,28 @@ One！
 - LYRICS 数组每条包含 `{f, e, t}`（start frame, end frame, text）。`key_only` 下 `e` 是短显示窗口，`full_estimated` 下 `e` 通常是下一条歌词 start
 - 字幕透明度由 `lyricStart → lyricEnd` 控制，照片切换完全不干预字幕生命周期
 - 无歌词数据时组件不渲染，不影响稳定性
+
+### Phase 2.6: 精准关键歌词校准实验
+
+当用户要求 `Three/Two/One/吹蜡烛` 这类关键歌词精准切换时，不要直接全片渲染。先跑 60 秒 alignment lab：
+
+```bash
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/alignment_lab.py \
+  --project /path/to/project \
+  --duration 60 \
+  --model tiny
+```
+
+输出：
+- `alignment_lab/alignment_lab_report.json`：ASR 分段、beat 候选、关键歌词候选、旧估算偏差、评分
+- `alignment_lab/alignment_lab_debug.mp4`：60 秒快速审查视频，不作为最终交付
+- `alignment_lab/alignment_lab_debug.ass`：字幕审查文件
+
+验收规则：
+- `Three/Two/One` 必须全部找到，`score.passed=true`
+- 关键点应用到测试项目后，必须跑 `test_mv.py --render-test --test-duration 20`
+- 测试脚本必须抽取关键歌词帧并通过非黑帧检查
+- 通过前不要渲染完整 MV
 
 **⚠️ 人声倒数 vs 能量法：**
 - Onset 检测只能抓"响"的瞬间（鼓点、重拍）
@@ -458,6 +481,7 @@ ffmpeg -y -i output_remotion.mp4 \
 - **‼️ Anti-strobe 必须在合并后再次过滤** → `detect_onsets()` 的 Step 6 只过滤 beat_frames。歌词的 forced_switch_frames 是在 `generate_project()` 里通过 `set()` 合并进去的，合并后没有 anti-strobe pass。结果：frame 509（One! forced）和 frame 511（onset beat）只差 2 帧。**修复**：合并后用 `MIN_GAP=18` 再做一次 anti-strobe，forced switch 优先保留（见 `mv_pipeline.py` L439-454）
 - **⚠️ fast_pop 与视觉疲劳** → BPM≥134 时 beats_per_switch=2 造成 ~0.9s 切换间隔，用户反馈"很费眼睛"。已调整为 `beats_per_switch=3`（~1.2-1.3s），视频节奏略有损失但舒适度显著提升。等待 Phase 3（千问VL画面匹配）做语义补偿
 - **⚠️ 字幕不能跟随照片切换周期 fade** → 旧版字幕 opacity 绑定在 photo switch interval 上，Chorus 段 1 秒一切换导致字幕频繁闪灭。**修复**：LYRICS 增加 `e`（end frame）字段，字幕 fade-in/fade-out 基于歌词自身的时间窗 `[f, e]`，与照片切换完全解耦。`findCurrentLyric()` 返回 `LyricEntry | null` 对象而非纯字符串
+- **‼️ 精准切换点不能黑闪** → 单图 fade-in 会导致在强制切换精确帧出现黑底。模板必须渲染 previous/current 双图交叉淡入；测试脚本会抽取关键歌词帧做非黑帧检查
 
 ## 自动化测试（禁止人工肉眼验证）
 
@@ -478,6 +502,7 @@ python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/test_mv.py \
 6. 最紧间隙的两帧画面是否确实不同（文件 size 差异检查）
 7. 字幕帧（如 frame 363 "Three!"）是否成功提取
 8. 基线评分：switch_safety、forced_cues、subtitle_strategy、photo_coverage、build_test_health、next_invocation_guard，总分目标 ≥75/100
+9. 渲染测试段中，关键歌词帧必须非黑帧（亮度/方差检查）
 
 验证脚本保存在 `scripts/test_mv.py`，详细帧验证保存在 `scripts/verify_frames.py`。
 
