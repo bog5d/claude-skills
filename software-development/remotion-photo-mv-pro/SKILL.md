@@ -446,6 +446,31 @@ ffmpeg -y -i output_remotion.mp4 \
 - **⚠️ Onset 需要长间隙补拍** → Intro、Outro、Bridge 等低能量段落检测不到节拍。`gap > 2.5*beat_interval` 时插入合成节拍（均匀间隔），否则视频在这些段落会长时间停滞在同一张照片
 - **⚠️ Python f-string 中生成 JSX 模板** → 双花括号 `{{` `}}` 是 Python 转义，四花括号 `{{{{` `}}}}` 是 JSX `{{` `}}`。模板字符串 `${scale}` 在 f-string 中要写成 `${{scale}}`。出错会导致 PhotoMV.tsx 出现乱码行
 - **⚠️ numpy 依赖** → `detect_onsets()` 需要 numpy。确认 Python 环境可用：`python3 -c "import numpy"`。已确认 macOS 系统 Python 自带 numpy 2.0.2
+- **‼️ Anti-strobe 必须在合并后再次过滤** → `detect_onsets()` 的 Step 6 只过滤 beat_frames。歌词的 forced_switch_frames 是在 `generate_project()` 里通过 `set()` 合并进去的，合并后没有 anti-strobe pass。结果：frame 509（One! forced）和 frame 511（onset beat）只差 2 帧。**修复**：合并后用 `MIN_GAP=18` 再做一次 anti-strobe，forced switch 优先保留（见 `mv_pipeline.py` L439-454）
+- **⚠️ fast_pop 与视觉疲劳** → BPM≥134 时 beats_per_switch=2 造成 ~0.9s 切换间隔，用户反馈"很费眼睛"。已调整为 `beats_per_switch=3`（~1.2-1.3s），视频节奏略有损失但舒适度显著提升。等待 Phase 3（千问VL画面匹配）做语义补偿
+
+## 自动化测试（禁止人工肉眼验证）
+
+每次修改流水线后，必须运行自动化测试脚本。脚本做程序级检查 + 渲染测试段 + 帧提取验证，不依赖人眼：
+
+```bash
+python3 /Users/mac/.hermes/profiles/her-m2/tools/mv_pipeline/test_mv.py \
+  --project /path/to/project \
+  --build-first --render-test --test-duration 60
+```
+
+检查项：
+1. switch gap ≥ 18 帧（anti-strobe），输出 min/max/avg
+2. 14 个强制切换帧（Three/Two/One/吹蜡烛/点起来/吹下去/吹一下/两下/三下）是否在合并列表中
+3. LYRICS 时间轴是否单调递增、无碰撞、首末帧覆盖完整时长
+4. 每张照片出现次数是否均匀（差值 ≤ 2 次）
+5. 渲染 60 秒测试段 + ffmpeg 提取关键帧（6 帧采样）
+6. 最紧间隙的两帧画面是否确实不同（文件 size 差异检查）
+7. 字幕帧（如 frame 363 "Three!"）是否成功提取
+
+验证脚本保存在 `scripts/test_mv.py`，详细帧验证保存在 `scripts/verify_frames.py`。
+
+**铁律：测试不过不发视频。** 用户不应成为测试工具。
 
 ## 视频+照片混合MV（进阶）
 

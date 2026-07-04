@@ -511,10 +511,10 @@ income.py net -y 2026 -m 6
 
 ### 两条输入通道
 
-| 通道 | 触发方式 | 处理引擎 |
-|------|---------|---------|
-| 📸 截图 | 波总发微信/支付宝账单截图 | 千问 VL API（首选）→ Apple Vision（降级）→ expenses.py batch |
-| 📎 CSV/xlsx | 波总发导出文件（支付宝CSV是GBK，微信是xlsx） | import_csv.py 自动解析 + 编码检测 + 格式检测 |
+| 通道 | 触发方式 | 处理引擎 | 配置方法 |
+|------|---------|---------|---------|
+| 📸 截图 | 波总发微信/支付宝/平台账单截图 | 🥇 SiliconFlow (Qwen3-VL-32B) → 🥈 Apple Vision → 🥉 Tesseract | `hermes config set auxiliary.vision.*` (不能用 patch 直接改 config.yaml) |
+| 📎 CSV/xlsx | 波总发导出文件（支付宝CSV是GBK，微信是xlsx） | import_csv.py 自动解析 + 编码检测 + 格式检测 | — |
 
 - **支付宝** → `.zip` 内含 GBK CSV → `import_csv.py` 自动解压 → 解码 → 跳过元数据 → 解析
 - **微信** → `.xlsx` → `import_csv.py` 通过 `openpyxl` 直接读取（`parse_wechat_xlsx()` 函数）
@@ -774,6 +774,7 @@ Himalaya CLI v1.2.0 (Homebrew) 不支持 oauth2/keyring。配置 Gmail 用 App P
 | 银行流水含报销 | "代发款项"总包含月薪+报销，不是纯工资 | 波总多次纠正口径 |
 | 债务置换建议 | 直接给推荐方案，不要列多选项让波总选 | 波总明确偏好——问"带多少出来"就按数据算一个数，而不是给A/B方案 |
 | 收入修正 | 波总说"不对，实际是XX"时，立即停下用修正值重算所有结论 | 波总的数字比系统的数字更准（系统数据可能有口径误差） |
+| **"只能再还XX" 不是还款记录** | 波总说"只能再还1000多"是**约束描述**（额度/能力限制），不是已发生的还款行为。只有当波总明确说"还了XX"才记入流水 | 本会话我误把"只能再还"当成了实际还款，被波总纠正。只有"还了XX""还了""清了"才是还款动作 |
 | **债务报告格式：总分总** | 先说总金额 → 再分项展开 → 最后重申总金额。第一条消息就亮总额：¥XXX,XXX — 先让人一眼看到总数 | 波总明确要求。先列详情最后丢总数会被骂"无语" |
 | **游戏化展示：必须渲染 HTML 模板** | 运行 debttracker/game_viz.py 生成归途星火 HTML → 浏览器截图 → 发给波总。严禁用 LLM 文字描述进度条/里程碑 | 波总指出文字版游戏化是"LLM编的"。归途星火页面才是真正的程序输出 |
 | **支付宝信贷识别：花呗 vs 借呗** | 银行记录中的「支付宝信贷业务待还款账户」可以是花呗或借呗。借呗是「先息后本」（月付利息，到期还本），花呗是循环额度。遇到支付宝信贷相关扣款，必须主动确认是花呗还是借呗 | 本会话遗漏借呗就是因为它被误归类为花呗 |
@@ -923,7 +924,7 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
 19. **平台债类型发现** — 系统当前追踪的平台债类型包括：花呗、拿去花、度小满、工行贷款、借呗、微信分付。截图或银行记录中可能暴露未追踪的新平台债。**特别是：银行记录中的「支付宝信贷业务待还款账户」扣款可能是花呗或借呗。借呗是「先息后本」（月付利息≈¥80，到期一次性还本金），花呗是循环额度。两者都走支付宝通道，不主动区分就会被遗漏。**遇到此类记录必须向波总确认具体是哪一种、余额多少、还款日。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
-21. **截图 OCR 管线（v4.0，2026-06-12 波总指定优先级）** — 引擎优先级：🥇千问 VL API (dashscope/qwen-vl-max) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。详见 `debt-screenshot-auto-update` 技能的 "OCR 引擎" 章节。
+21. **截图 OCR 管线（v4.1，2026-07-04 更新）** — 引擎优先级：🥇 SiliconFlow (Qwen3-VL-32B-Instruct, openai协议) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。配置方式：`hermes config set auxiliary.vision.*`（patch 工具拒绝直接改 config.yaml）。详见 `references/siliconflow-vision-setup.md`。⚠️ SiliconFlow 模型名需精确匹配，`vision_analyze` 工具汇报 "Model does not exist" 时先用 `curl` 测试文本请求确认 API 连通性。如需更改模型（如 Qwen3-VL-8B 或 72B），确认 SiliconFlow 上该模型 ID 后再通过 `hermes config set` 更新。
 22. **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）** — `~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两个独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。如果不小心改了工作副本，必须立即 cp + git push。commit 前用 `diff` 检查两副本一致。<br>
     - **脚本模式**：`finance.py repay / expenses.py add` → 自动写入工作副本 → `cp` 到 repo → git push<br>
     - **直接编辑模式（🛑 危险）**：必须写 repo 路径，不得碰工作副本
@@ -1031,6 +1032,30 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
 52. **⚠️ 银行 ZIP 可能用 AES-256 加密 — Python zipfile 不支持（🛑 2026-07-02 翻车）** — 农业银行等使用 AES-256 加密（compression type=99），Python 内置 `zipfile` 报 `That compression method is not supported`。`unzip` 命令也无法解密 AES ZIP（只支持传统 PKWARE 加密）。**必须用 `7z`（p7zip）**：`brew install p7zip && 7z x file.zip -p<password> -o<outdir>/ -y`。验证：`7z l file.zip` 可正常列出内容但 Python `zipfile.ZipFile.infolist()` 的 `compress_type` 为 99。
 
 53. **⚠️ imaplib search() 必须在 select() 之后** — 连接 Gmail 后 `imap.login()` → 必须先 `imap.select('INBOX')` 再 `imap.search()`。如果在 AUTH 状态直接 search，报 `command SEARCH illegal in state AUTH, only allowed in states SELECTED`。这是 IMAP 协议规定的状态机要求。
+
+56. **⚠️ Vision 配置必须用 `hermes config set`，不能直接改 config.yaml** — `patch` 和 `write_file` 工具拒绝修改 Hermes 配置文件（安全机制）。修改 vision provider/base_url/api_key/model 的唯一方法是通过 `hermes config set auxiliary.vision.*` 命令。常见操作：
+
+    ```bash
+    # 查看当前配置
+    grep -A 6 "vision:" ~/.hermes/profiles/finance/config.yaml
+
+    # 修改 provider
+    hermes config set auxiliary.vision.provider openai
+
+    # 修改模型
+    hermes config set auxiliary.vision.model "Qwen/Qwen3-VL-32B-Instruct"
+
+    # 修改 base_url
+    hermes config set auxiliary.vision.base_url "https://api.siliconflow.cn/v1"
+
+    # 修改 API key
+    hermes config set auxiliary.vision.api_key "sk-xxx..."
+
+    # 修改超时（SiliconFlow 需要 120s 而非默认 60s）
+    hermes config set auxiliary.vision.timeout 120
+    ```
+
+57. **⚠️ SiliconFlow 模型名精确匹配问题** — `vision_analyze` 工具可能报 "Model does not exist (code 20012)" 即使直接 API 文本请求正常。原因可能是 Hermes 构造请求时模型名格式差异。先通过 `curl` 直接测试带图片的请求确认模型可用性，再尝试其他模型版本（如 8B 或 32B-Thinking）。
 
 55. **⚠️ `finance.py repay` 输出说成功但文件没有更新（🛑 2026-07-02 发现）** — `finance.py repay -c "花呗" -a 10000` 输出 `"ok": true, "paid": 10000, "new_remaining": 3729.51` 但实际 debts.json 文件中花呗金额**没有变化**。症状：执行后立即检查文件，花呗余额还是原值。疑似脚本内 `write_json()` 未正确执行或路径写到了错误位置。<br>
     - **解法**：执行 `finance.py repay` 之后，**必须手动验证** debts.json 文件中的金额是否确实更新了。如果没更新，手动编辑 debts.json 修改对应条目的 `amount` 字段 + 更新 `meta` 的合计，然后用 `finance.py snapshot` 或者手动算一下 `grand_total`。<br>
