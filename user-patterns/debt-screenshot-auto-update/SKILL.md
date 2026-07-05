@@ -15,7 +15,7 @@ category: user-patterns
 
 ## 管线 A：平台债务截图（已有，新增还款日提取）
 
-## OCR 引擎（v4.0，2026-06-12 波总指定优先级）
+## OCR 引擎（v4.1，2026-07-05 迁移至 SiliconFlow）
 
 ⚠️ `ocr_orchestrator.py`、`ocr_pro.swift`、EasyOCR 均未部署。
 
@@ -23,45 +23,97 @@ category: user-patterns
 
 | 优先级 | 引擎 | 适用场景 | 备注 |
 |--------|------|---------|------|
-| 🥇 | **千问 VL API** (dashscope/qwen-vl-max) | 所有截图（首选） | 通过 `vision_analyze_tool` 或直接 API 调用 |
-| 🥈 | **Apple Vision** (Swift VNRecognizeTextRequest) | 千问不可用时降级 | 微信账单效果好，支付宝较差 |
+| 🥇 | **SiliconFlow (Qwen/Qwen3-VL-32B-Instruct)** | 所有截图（首选） | 通过 `vision_analyze` 工具自动走 `auxiliary.vision` |
+| 🥈 | **Apple Vision** (Swift VNRecognizeTextRequest) | SiliconFlow 不可用时降级 | 微信账单效果好，支付宝较差 |
 | 🥉 | **Tesseract** (`chi_sim`) | 最后备选 | 数字误读已知，金额必须人眼确认 |
 
-**千问 VL 不可用的情况：**
-- API key 无效/过期（DashScope 返回 `invalid_api_key`）
+**SiliconFlow 不可用的情况：**
+- API key 无效/截断（config.yaml 中显示 `sk-yys...abvn` 仅13字符 → 被截断）
+- 模型名不匹配（`code 20012 "Model does not exist"`）
+- 超时（默认 60s 不够，需要 120s）
 - 配额耗尽
-- 网络超时
 
-遇到以上任一 → 立即降级到 Apple Vision，不要反复重试千问。
+遇到以上任一 → 先修复配置；修复失败再降级到 Apple Vision。
 
-### 🥇 千问 VL API — 默认首选
+### 🥇 SiliconFlow — 默认首选
 
-配置位置：`config.yaml` → `auxiliary.vision`：
-```yaml
-auxiliary:
-  vision:
-    provider: dashscope
-    model: qwen-vl-max
-    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-    api_key: sk-xxx    # 需有效 DashScope key
-    timeout: 60
+#### ⚠️ 架构铁律：vision_analyze 读的是 default config 的 auxiliary.vision
+
+`vision_analyze` 工具读取的是 **`~/.hermes/config.yaml`（默认 config）的 `auxiliary.vision`** 段，**不是**当前 profile 的 `vision` 段。两个位置必须同时配置：
+
+```
+~/.hermes/config.yaml                          ← vision_analyze 读这里
+  auxiliary.vision: provider=openai, model=Qwen/Qwen3-VL-32B-Instruct,
+                    base_url=https://api.siliconflow.cn/v1
+
+~/.hermes/profiles/<name>/config.yaml          ← profile 自己的 vision 段
+  vision: provider=openai, model=Qwen/Qwen3-VL-32B-Instruct,
+          base_url=https://api.siliconflow.cn/v1
 ```
 
-**方式 A：通过 `vision_analyze_tool`（推荐，走 Hermes 辅助路由）**
-```python
-# 异步调用，自动走 auxiliary.vision 配置
-from tools.vision_tools import vision_analyze_tool
-result = await vision_analyze_tool(image_path, prompt)
-```
+**诊断 vision 失效时**：先查默认 config 的 `auxiliary.vision`，不要只看 profile config。
 
-**方式 B：直接调 DashScope API（调试用，当 vision_analyze_tool 路由失败时）**
+**两种 config 同时失效的典型场景**：换了 API 后只更新了 profile 的 `vision`，没更新 default 的 `auxiliary.vision`。
+
+#### 配置方式
+
+只能用 `hermes config set` 命令：
 ```bash
-cd /Users/mac/.hermes/hermes-agent && HERMES_HOME=/Users/mac/.hermes/profiles/finance/home \
-  ./venv/bin/python3 references/qwen-vl-direct-call.py <image_path>
+hermes config set auxiliary.vision.provider openai
+hermes config set auxiliary.vision.model "Qwen/Qwen3-VL-32B-Instruct"
+hermes config set auxiliary.vision.base_url "https://api.siliconflow.cn/v1"
+hermes config set auxiliary.vision.api_key "sk-完整key..."
+hermes config set auxiliary.vision.timeout 120
 ```
-详细脚本见 `references/qwen-vl-direct-call.py`
 
-### 🥈 Apple Vision (Swift) — 千问不可用时降级
+⚠️ 如果用 `patch` 或 `python3 -c` 直接写 config.yaml，必须验证 key 完整性。
+
+#### ⚠️ API Key 截断陷阱
+
+`patch`/`write_file` 写入 API key 时可能被**截断**。症状：config.yaml 中 key 显示为 `sk-yys...abvn`（仅约 13 字符），导致 401。**验证：**
+```bash
+python3 -c "
+import re
+with open('/Users/mac/.hermes/config.yaml','rb') as f:
+    for m in re.findall(rb'api_key: sk-(.+?)\n', f.read()):
+        print(f'Key suffix bytes: {len(m.split()[0])}')
+"
+```
+完整 SiliconFlow key 应为 40-60 字符。截断时需用户提供完整 key 重新写入。
+
+#### 连通性验证
+
+**Step 1 — 文本测试（先确认 API + key 有效）：**
+```bash
+curl -s https://api.siliconflow.cn/v1/chat/completions \
+  -H "Authorization: Bearer sk-xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"Qwen/Qwen3-VL-32B-Instruct","messages":[{"role":"user","content":"hello"}],"stream":false}'
+```
+
+**Step 2 — 图片测试（确认 vision 通路正常）：**
+```python
+import base64, json, urllib.request
+with open('/path/to/test.jpg', 'rb') as f:
+    img = base64.b64encode(f.read()).decode()
+payload = {"model":"Qwen/Qwen3-VL-32B-Instruct","messages":[{"role":"user","content":[
+    {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{img}"}},
+    {"type":"text","text":"提取金额数字"}]}]}
+req = urllib.request.Request("https://api.siliconflow.cn/v1/chat/completions",
+    data=json.dumps(payload).encode(),
+    headers={"Authorization":"Bearer sk-完整key","Content-Type":"application/json"})
+print(json.loads(urllib.request.urlopen(req, timeout=30).read()))
+```
+
+#### 可用模型
+
+| 模型 | 场景 | 备注 |
+|------|------|------|
+| `Qwen/Qwen3-VL-32B-Instruct` | 通用截图OCR（首选） | ✅ 2026-07-04 验证通过 |
+| `Qwen/Qwen3-VL-8B-Instruct` | 快速预览 | 精度略低于 32B |
+| `Qwen/Qwen3-VL-72B-Instruct` | 复杂布局 | 更慢更贵 |
+
+### 🥈 Apple Vision (Swift) — SiliconFlow 不可用时降级
 
 ```bash
 # 编译一次
@@ -315,6 +367,13 @@ python3 scripts/expenses.py batch --items '<JSON>' -s "微信" --sid "wx_bill_20
 - **🥇 curl 直调 Telegram Bot API**（100% 可靠，绕过 Hermes 白名单）
 - **🥈 MEDIA 标签**（不可靠，需白名单 + gateway 重启才生效）
 - 详见 `media-file-delivery` 技能
+
+### 参考文件
+
+| 文件 | 用途 |
+|------|------|
+| `references/visualization-and-gamification-research.md` | 游戏化设计研究 |
+| `references/vision-config-architecture.md` | 🆕 vision_analyze 配置架构、API key 截断陷阱、双位置配置指南 |
 
 ### 金额更新命令
 ```bash
