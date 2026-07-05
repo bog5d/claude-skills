@@ -337,6 +337,81 @@ python3 scripts/expenses.py batch --items '<JSON>' -s "微信" --sid "wx_bill_20
 
 ⚠️ CSV 数据质量优于截图 OCR，优先使用 CSV。截图仅作补充（CSV 日期范围不够时）。
 
+## 🆕 石墨文档债务表评论提取（2026-07-05）
+
+波总在石墨文档 `https://shimo.im/sheet/ll1x4P3IDZcSBf5F/` 维护了完整的债务台账。每个债主单元格有**详细评论/备注**，记录每笔借款的时间、地点、背景故事（"来时路"）。
+
+### 评论提取方法（按可靠性排序）
+
+#### 方法1：Shimo SDK 评论 API（首选，但需登录态）
+
+石墨表格页面加载后，`window['@shimo/editor-sdk-sheet']` 可用：
+
+```javascript
+// 1. 初始化 SDK
+const sdk = await window['@shimo/editor-sdk-sheet'].createSheetSDK(document.body);
+
+// 2. 获取所有评论
+// 方法 A: query + 事件监听
+sdk.commentModel.query();
+sdk.commentModel.on('updateComment', (commentList) => {
+  // commentList 包含所有评论数据
+});
+
+// 方法 B: Utils 辅助方法（含行列映射）
+sdk.comment.Utils.sheetComments();      // 当前 sheet 全部评论
+sdk.comment.Utils.editorComments();     // 全部 sheet 评论
+sdk.comment.Utils.commentsByRowAndCol(row, col);  // 指定单元格
+```
+
+**⚠️ 已知问题：** `sdk.comments.getAll()` 返回 "Method not implemented"；`commentModel` 可能不可用。
+
+#### 方法2：REST API（需登录态的 token + 文件 GUID）
+
+```
+GET /api/comment/${guid}
+Authorization: Bearer <token>
+
+// GUID 可从页面 URL 或 window.__INITIAL_STATE__ 获取
+```
+
+#### 方法3：截图回退（最可靠）⭐ 推荐
+
+当 SDK 和 API 都不可用时（无需登录、公开分享链接场景）：
+
+```
+1. 在浏览器中打开石墨表格
+2. 点击数字单元格 → 右侧显示评论面板
+3. browser_vision 截图 → vision_analyze 提取评论文本
+4. 逐条记录到 debts.json 的 notes 字段
+```
+
+### 同步工作流
+
+```
+收到石墨链接 → 浏览器打开
+  ├─ 如可登录 → 方法1/2 批量拉取全部评论
+  └─ 如公开分享（只读）→ 方法3 截图逐条提取
+
+提取后：
+1. 解析评论中的金额变更、借款时间线
+2. 更新 debts.json active/cleared
+3. 将完整评论写入对应 creditor 的 notes 字段
+4. git push
+```
+
+### notes 字段格式
+
+```json
+{
+  "notes": "2026-07-05 更新: 石墨表同步\n\n📜 来时路·债主名：\n\n2022/5/17 XX事件，XX转账¥X,XXX\n2023/4/20 XX事件，XX转账¥XX,XXX，约定X%利息\n当时正在XX地点（高铁/酒店/老家...）\n\n备注：¥XX,XXX有来源记录，剩余¥X,XXX待补充。"
+}
+```
+
+### debts.json 金额核对
+
+石墨表总亲友债 vs 系统总亲友债 → 差值为石墨中已清但系统未同步的记录（如小马哥¥5K等），需手动确认。
+
 ## 注意事项
 
 ### OCR 陷阱（真实案例）
