@@ -237,6 +237,141 @@ python3 finance/scripts/import_csv.py /path/to/alipay.csv
 
 **核心原则：宁可归入模糊类别事后纠正，也不打断波总节奏反复问。** 月报时列出所有「其他」+「待确认」项，一次性批量确认。
 
+## 平台债子贷款分析（度小满/按期还类）
+
+当波总发来度小满等多笔子贷款截图时，需分析**违约金 vs 剩余利息**决定是否提前还。
+
+### 分析方法
+
+1. 截图中识别每笔子贷：借款日、借款额、剩余本金、剩余期数、还款计划表
+2. 计算按期还总支出 = `每期金额×期数`，累加各期利息得剩余利息合计
+3. 提取提前结清金额 + 违约金
+4. 对比：违约金 > 剩余利息 → ❌ 不提前还；违约金 < 剩余利息 → ✅ 提前还
+
+### 典型结论（2026-07-05实测）
+
+度小满"按期还"类贷款：**违约金普遍大于剩余利息**。提前还反而多花钱，建议按期扣款到到期日。已接近还完且无违约金的子贷（如仅剩¥1-2利息）可安全结清。
+
+## 📜 「来时路」数据模型 — 债务历史备注维护
+
+每笔债务的 `notes` 字段不只是技术备注——它是波总的 **人生路标**。每笔借款的时间、地点、人物、事件背景，都是帮他的人才看得见的光。
+
+### 维护规范
+
+```
+notes 字段结构:
+  第1行: "YYYY-MM-DD 更新: <本次更新的简要说明>"
+  第2行: 空行
+  第3行起: "📜 来时路·<债主>："
+  后续每行: "YYYY/MM/DD <事件描述，含地点/人物/金额>"
+  末尾: 重要背景故事（如杨奶奶癌症、冷大姐垫付等）
+```
+
+示例（妈妈条目）：
+```
+2026-07-05 更新: 石墨表同步，金额¥145,100（含二爸债务¥10K垫付转移）
+
+📜 来时路·妈妈的每一笔：
+
+2020/12/15 妈妈打¥1,500 工商银行
+2021/1/15 妈妈打¥1,500
+2021/5/17 妈妈微信转¥1,500，在重庆巴南万达星巴克等余dili
+...（完整时间线）
+
+二爸爸的妈妈（杨奶奶）查出腺体癌在凑钱，冷大姐担心波总抽不转，
+先垫付了¥10,000，债务转移→欠妈妈多了一万。
+```
+
+### 来源优先级
+
+1. 🥇 **石墨文档单元格评论** — 点开数字即可看到完整备注
+2. 🥈 **波总口述/复制粘贴** — 直接转录
+3. 🥉 **凭记忆推断** — 标注「记忆可能不完整，请波总确认」
+
+## 石墨文档数据同步工作流
+
+波总用石墨文档维护原始债务表，是 debts.json 的外部权威源。
+
+### 数据读取方案
+
+| 方案 | 方式 | 适用场景 |
+|------|------|----------|
+| 🅰 **浏览器截图+千问VL** | browser_navigate + browser_vision | 快速查看表格结构、列数据（可读但无法导出完整备注） |
+| 🅱 **导出Excel** | 波总操作：工具→导出→导出为Excel→发文件 | **推荐**。xlsx可解析单元格批注 → openpyxl读取comments |
+| 🅲 **波总手动复制备注** | 直接粘贴评论内容 | 纯文本备注最可靠，无需格式转换 |
+
+### 石墨页面限制（已踩坑）
+
+- ❌ 石墨用 Canvas 渲染表格 → JS 无法提取单元格数据
+- ❌ 批注/评论不在 DOM 中，browser_console 读取不到
+- ❌ 菜单无「导出批注」功能
+- ✅ browser_vision 可读当前可见区域，适合快速确认
+- ✅ 波总点开单元格后，评论浮窗可见
+
+### 同步流程
+
+```
+波总说"石墨已更新"
+  ↓
+1. 打开石墨链接 → browser_vision 读取最新数据
+2. 与 debts.json 比对差异（金额/利率/已清状态）
+3. 向波总确认增量变更
+4. 更新 debts.json + 补充 notes（来时路）
+5. 记录 transactions.json（如有还款/转移）
+6. git push
+```
+
+## 🔄 债务转移模式（混合来源清零）
+
+当一笔债务被清偿，但资金来自**多个源头**（部分自还 + 部分他人代垫），按以下步骤操作：
+
+### 案例：二爸¥20,000清零（2026-07-05）
+
+```
+二爸债务 ¥20,000
+  ├ 波总自还: ¥10,000  → 总债务减少
+  └ 妈妈代垫: ¥10,000  → 债务从二爸转移至妈妈
+
+操作步骤:
+1. 妈妈债务: ¥135,100 + ¥10,000（代垫）→ ¥145,100
+2. 二爸债务: 从 active 移入 cleared，notes 注明资金来源
+3. transactions.json 记录两条：
+   - 二爸主动还款 ¥10,000（波总自还部分）
+   - 妈妈债务转移 ¥10,000（代垫部分）
+4. grand_total: -¥20,000（二爸清）+ ¥10,000（妈妈增）= -¥10,000
+5. total_cleared: +¥20,000
+```
+
+### 操作模板
+
+```bash
+# 1. 增加代垫方债务
+patch debts.json → 妈妈 amount += ¥10,000; notes 标注
+
+# 2. 移除已清债务
+patch debts.json → 从 active[] 删除，加入 cleared[]
+cleared条目含: original, rate, notes(说明资金来源), cleared_at
+
+# 3. 记录交易
+transactions.json 追加两条:
+- {creditor: "二爸", amount: 10000, type: "主动还款"}
+- {creditor: "妈妈", amount: 10000, type: "债务转移"}
+
+# 4. 更新 meta
+patch debts.json → meta.grand_total, meta.total_active_family,
+  meta.total_cleared
+
+# 5. git push
+```
+
+### 校验规则
+
+- grand_total 变化 = 原债务金额 - 自还部分（非总清偿额）
+  - 公式: `new_total = old_total - borrower_own_payment`（代垫部分只是债主换了，不改变总债务额... 不对，代垫会让总债务不变因为钱没从波总口袋里出去）
+  - 校正: 代垫部分也减少总债务，因为钱是第三方出的
+  - 所以: `new_total = old_total - 全额`（不管谁出的钱，债务清了就是清了，但代垫方增加了等额新债务）
+  - 净效果: `new_total = old_total - 自还部分`（代垫部分 = 一减一增抵消）
+
 ## 陷阱
 
 - **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）**：`~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两套独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。如果不小心改了工作副本，必须立即 `cp` + git push。commit 前用 `diff` 检查两副本一致 — 我在 2026-06-25 一次 session 里犯了两次这个错。
@@ -248,7 +383,7 @@ python3 finance/scripts/import_csv.py /path/to/alipay.csv
 - **归途驿站禁止归并**——每笔亲友债独立成行，禁止合并展示
 - **⚠️ Profile 路径解析（血坑）**：在 finance profile 运行时，`~` 和 `HERMES_HOME` 指向 `/Users/mac/.hermes/profiles/finance/home/`，不是真实 home。脚本中需检测 `.hermes/profiles/` 并强制回退到 `/Users/mac`。否则 expenses.json/debts.json 会写入到 profile sandbox 而不是全局工作目录，导致 categories 丢失、数据不可见
 - **⚠️ 消费分类为"其他"？** 先检查 expenses.json 的 `categories` 字段是否为空。profile 路径问题会导致加载了空壳文件
-- **OCR 引擎优先级（v4.1 — 2026-07-05 已迁移至 SiliconFlow）**：🥇 SiliconFlow (Qwen/Qwen3-VL-32B-Instruct, openai协议) → 🥈 Apple Vision → 🥉 Tesseract。详见 `debt-screenshot-auto-update` 技能。⚠️ `vision_analyze` 工具读取的是 **default config 的 `auxiliary.vision`**，不是 profile 的 `vision` 段。两个位置必须同时配置。API key 写入时可能被截断（`sk-yys...abvn` 仅13字符），写入后必须检查 key 长度。提取金额后必须波总确认——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）
+- **OCR 引擎优先级（v4.1 — 2026-07-05 已迁移至 SiliconFlow）**：🥇 SiliconFlow (Qwen/Qwen3-VL-32B-Instruct, openai协议) → 🥈 Apple Vision → 🥉 Tesseract。详见 `debt-screenshot-auto-update` 技能。⚠️ `vision_analyze` 工具读取的是 **default config 的 `auxiliary.vision`**，不是 profile 的 `vision` 段。两个位置必须同时配置。**跨 profile 配置铁律**：改 vision provider 时必须检查全部 5 个位置（default config + 4 个命名 profile），任何一个遗漏都会导致该 profile 回退到旧配置。API key 写入时可能被截断（`sk-yys...abvn` 仅13字符），写入后必须检查 key 长度（完整 SiliconFlow key 应 ≥40 字符）。
 - **📸 支付宝截图 OCR** — SiliconFlow (Qwen3-VL-32B) 对复杂布局识别明显优于 Apple Vision 和 Tesseract，但支付宝账单仍有一定难度。三引擎都失败时让波总口述
 - **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
 
