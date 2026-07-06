@@ -372,6 +372,50 @@ patch debts.json → meta.grand_total, meta.total_active_family,
   - 所以: `new_total = old_total - 全额`（不管谁出的钱，债务清了就是清了，但代垫方增加了等额新债务）
   - 净效果: `new_total = old_total - 自还部分`（代垫部分 = 一减一增抵消）
 
+## 系统文档
+
+本系统完整的 PM + 架构师双视角文档见 `~/.hermes/adjutant/repo/hermes-adjutant/finance/ARCHITECTURE.md`。任何新 AI 接盘后，第一件事：`git pull && cat finance/ARCHITECTURE.md`。
+
+## 数据编辑 — 强制验证链（🛑 2026-07-06 翻车后新增）
+
+每次修改 debts.json 后，**必须执行完整验证链，否则数据可能仍然是错的**：
+
+```bash
+# 1. 同步到 repo 路径
+cp ~/.hermes/adjutant/finance/debts.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/debts.json
+
+# 2. 双路径 diff 确认一致
+diff ~/.hermes/adjutant/finance/debts.json ~/.hermes/adjutant/repo/hermes-adjutant/finance/debts.json
+
+# 3. 重生成 HTML
+cd ~/.hermes/adjutant/repo/hermes-adjutant
+python3 finance/scripts/generate_starfire.py
+
+# 4. ⚠️ 人眼验证：把 HTML 发给波总，等他确认数据正确再 git push
+#    千万不要自己说"已修复"——让波总亲眼确认数字对不对
+#    如果波总说数据还是不对：立即重新审计，不要硬推
+```
+
+**翻车教训（2026-07-06）：** 波总两次指出数据错误（二爸未清 → 妈妈金额不对），我两次都说"修好了"但 HTML 还是错的。根因是：
+1. 修改后没有 regenerat HTML 验证
+2. 没有让波总确认数字
+3. 自己闷头改，多次迭代都自认为"修好了"但实际没修对
+
+**铁律：改数据 → 生成HTML → 波总确认 → git push。跳过任何一步等于掩耳盗铃。**
+
+## Cursor 介入模式 — 数据编辑的默认后端
+
+当以下场景出现时，**必须委托给 Cursor CLI 执行**，不要自己手动 patch JSON：
+
+| 场景 | 原因 | 委托指令 |
+|------|------|---------|
+| 批量数据修复（≥3处修改） | 手动 patch 容易漏或改错 | `delegate_task(goal="修复 debts.json 中...", acp_command="cursor-agent", acp_args=["--acp", "--stdio"])` |
+| 金额逻辑复杂（如债务转移） | 需要强推理力验证因果关系 | 同上 |
+| 多次修改后波总仍说数据不对 | 换模型视角重新审计 | `delegate_task(goal="全面审计债务数据，找出所有与实际不一致的地方", context="...", acp_command="cursor-agent")` |
+| 需要深度分析+修复的问题 | Cursor (Claude Opus) 推理强于 DeepSeek | 同上 |
+
+**注意：** 委托 Cursor 时提供完整的 context（包含波总的口述校正），否则 Cursor 会基于错误的前提做审计（2026-07-06 翻车的根本原因——我给 Cursor 的错误 context 说妈妈减少了，实际妈妈是增加了）。
+
 ## 陷阱
 
 - **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）**：`~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两套独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。如果不小心改了工作副本，必须立即 `cp` + git push。commit 前用 `diff` 检查两副本一致 — 我在 2026-06-25 一次 session 里犯了两次这个错。
@@ -386,6 +430,9 @@ patch debts.json → meta.grand_total, meta.total_active_family,
 - **OCR 引擎优先级（v4.1 — 2026-07-05 已迁移至 SiliconFlow）**：🥇 SiliconFlow (Qwen/Qwen3-VL-32B-Instruct, openai协议) → 🥈 Apple Vision → 🥉 Tesseract。详见 `debt-screenshot-auto-update` 技能。⚠️ `vision_analyze` 工具读取的是 **default config 的 `auxiliary.vision`**，不是 profile 的 `vision` 段。两个位置必须同时配置。**跨 profile 配置铁律**：改 vision provider 时必须检查全部 5 个位置（default config + 4 个命名 profile），任何一个遗漏都会导致该 profile 回退到旧配置。API key 写入时可能被截断（`sk-yys...abvn` 仅13字符），写入后必须检查 key 长度（完整 SiliconFlow key 应 ≥40 字符）。
 - **📸 支付宝截图 OCR** — SiliconFlow (Qwen3-VL-32B) 对复杂布局识别明显优于 Apple Vision 和 Tesseract，但支付宝账单仍有一定难度。三引擎都失败时让波总口述
 - **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
+- **⚠️ 垫付逻辑方向（🛑 2026-07-06 翻车）** — 债主A帮波总垫付给债主B时：**A的债权增加**（amount += 垫付额），不是减少。因为A多掏了钱。正确公式：妈妈原¥135,100 + 垫付二爸¥10K = ¥145,100。不要写成¥135,100 - ¥10K = ¥125,100 ❌
+- **⚠️ 原始合同金额 vs 当前余额** — 平台债可能有合同总额和当前余额两个概念。用 `original_amount` 字段记录合同总额（如工行贷¥96,000），`amount` 记录当前余额（如¥68,000）。进度计算基于 `amount` vs baseline，与 `original_amount` 无关。
+- **⚠️ 数据编辑后必须让波总确认数字 — 生成HTML后发给他看** — 改完数据就 push 是掩耳盗铃。必须：改数据 → cp 同步 → diff 确认 → 生成 HTML → **发给波总确认** → 他确认后再 git push。如果他说不对立即重新审计，不要说"修好了"。
 
 ## 🚨 网关健康检查与复活
 
