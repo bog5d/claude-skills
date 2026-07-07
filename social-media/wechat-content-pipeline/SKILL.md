@@ -244,7 +244,14 @@ python3 publish_article.py \
 
 ---
 
-## 快捷模式
+## Pitfalls
+
+1. **Phase 7 排版脚本路径**：`quality_layout.py` 和 `image_replace.py` 在 `wechat-publish-direct/references/` 下，**不在** `wechat-quality-layout/references/`。那个目录不存在。
+2. **`--images` 不是 `--image-keywords`**：参数名是 `--images`，传入 JSON 覆盖配图关键词。
+3. **Phase 8 输入格式**：如果传 HTML 给 `publish_article.py`，它自动检测并走直通模式（跳过 Markdown 渲染）。但如果是 Markdown → 走专属渲染——不会发生 HTML 转义。
+4. **配图 caption 验证**：生成后在 HTML 中搜索「院坝」「碎西瓜」「灶台」——如果出现 → `--images` JSON 没生效。
+5. **预检走代理**：微信 API 连通性检查必须走 Clash 代理（`https_proxy=http://127.0.0.1:7897`），直连 IP 不在白名单。
+6. **旧草稿清理**：同名草稿会触发 `draft/update`（可能失败），建议每次改 cover-seed 确保创建新草稿。
 
 | 你说 | 行为 |
 |------|------|
