@@ -9,6 +9,8 @@ description: 微信公众号高质量排版引擎 — 中国风主题 CSS + 智�
 
 为微信公众号文章提供**中国风主题排版 + 智能配图**的完整管线。替代原有粗糙的 HTML 生成方式。
 
+> ⚠️ **路径说明**：排版脚本（`quality_layout.py`、`image_replace.py`、`themes/`）实际位于 `~/.hermes/skills/social-media/wechat-publish-direct/references/`。本 SKILL.md 中的 `references/` 指该目录。
+
 ## 核心组件
 
 ### 1. 排版引擎 (`references/quality_layout.py`)
@@ -51,11 +53,13 @@ python3 references/image_replace.py <input_html> --output <output_html>
 ## 使用流程
 
 ```bash
+cd ~/.hermes/skills/social-media/wechat-publish-direct/references
+
 # 1. Markdown 排版
-python3 references/quality_layout.py article.md --theme chinese --output article_layout.html
+python3 quality_layout.py article.md --theme chinese --output article_layout.html
 
 # 2. 配图替换
-python3 references/image_replace.py article_layout.html --output article_final.html
+python3 image_replace.py article_layout.html --output article_final.html
 
 # 3. 上传封面图到微信素材库（获取 thumb_media_id）
 # 4. 上传正文配图到微信素材库
@@ -66,7 +70,7 @@ python3 references/image_replace.py article_layout.html --output article_final.h
 
 - picsum.photos 生成的图是随机风景照，不是 AI 生成的主题图
 - 如需 AI 配图，可对接豆包 Seedream 或 DALL-E（需在 image_replace.py 中扩展）
-- 微信 IP 白名单必须提前配置（222.247.153.167）
+- 微信 API 必须走 Clash 代理（`https_proxy=http://127.0.0.1:7897`），本地 IP 不在白名单
 - access_token 有效期 2 小时，每次操作前需重新获取
 
 ## 支持文件

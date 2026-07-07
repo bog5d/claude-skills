@@ -43,7 +43,7 @@ Always show the rewrite to the user. For file edits, show a diff or the changed 
 
 When given text to humanize:
 
-1. **Identify AI patterns** — scan for the 29 patterns listed below.
+1. **Identify AI patterns** — scan for the patterns listed below (29 English + 9 Chinese-specific).
 2. **Rewrite problematic sections** — replace AI-isms with natural alternatives.
 3. **Preserve meaning** — keep the core message intact.
 4. **Maintain voice** — match the intended tone (formal, casual, technical, etc.). If a voice sample was provided, match it specifically.
@@ -476,6 +476,102 @@ Avoiding AI patterns is only half the job. Sterile, voiceless writing is just as
 > ## Performance
 >
 > When users hit a slow page, they leave.
+
+---
+
+## 中文特化模式 (Chinese-Specific Patterns)
+
+以下模式针对中文 AI 写作中特有的痕迹。这些规则由归藏老师基于长期中文内容创作经验总结，补充了英文 humanizer 未覆盖的中文表达习惯问题。
+
+### 30. 三段式法则 / Rule of Three（中文强化版）
+
+**问题：** AI 写中文时特别痴迷三段式排比——「第一...第二...第三...」「首先...其次...最后...」。英文也有这个问题（#10），但中文 AI 的三段式更僵硬：它不是自然的列举，而是强行把两个点撑成三个。
+
+**Before:**
+> 这个工具好在哪里？第一，它能自动搜索资料。第二，它能分段确认写作。第三，它能帮你诊断标题。
+
+**After:**
+> 这个工具好在两个地方：自动搜索资料，还有分段确认写作。标题诊断也不错，但那是锦上添花。
+
+### 31. 否定式排比 / Negative Parallelism（中文强化版）
+
+**问题：** 中文 AI 特别爱用「不是...而是...」「不仅仅是...更是...」「与其说...不如说...」。英文也有（#9），但中文 AI 用得尤其频繁，几乎每段一个。
+
+**Before:**
+> 这不是一个简单的工具，而是一种新的工作方式。不仅仅是效率的提升，更是创作思维的改变。
+
+**After:**
+> 它改变了我的工作方式。效率也上来了。
+
+### 32. 连接性短语堆叠 / Connective Phrase Stacking
+
+**问题：** 中文 AI 在段落之间堆砌连接词：「首先」「其次」「最后」「总而言之」「综上所述」「与此同时」「此外」「另外」「值得一提的是」。真人不会每段都带这些。
+
+**Before:**
+> 首先，我们来看数据。其次，数据背后的趋势值得关注。最后，我们总结一下。
+
+**After:**
+> 先看数据。趋势挺有意思的。总结一下。
+
+### 33. 虚假共情开头 / Fake Empathy Openers
+
+**问题：** 「你是否也曾在深夜...」「相信很多朋友都有这样的感受...」「我们都经历过...」——AI 假装和你有共同经历。真人写文章不会每篇都用这种句式。
+
+**Before:**
+> 你是否也有这样的困扰？装了很多 Skill 却不知道该怎么用，写文章还是从零开始。
+
+**After:**
+> 装了一堆 Skill 不知道怎么用——我经历过。写文章还是从零开始，我也经历过。
+
+### 34. 模板化升华结尾 / Formulaic Elevating Endings
+
+**问题：** 「让我们一起期待」「未来可期」「在这个时代背景下」「这不仅是...更是...」「让我们拭目以待」。AI 喜欢在结尾用力升华，真人往往克制得多。
+
+**Before:**
+> 在这个 AI 快速发展的时代，写作工具的选择不仅是效率问题，更是创作理念的体现。让我们一起期待更好的工具。
+
+**After:**
+> 工具够用就行。多了反而碍事。
+
+### 35. 空洞比喻与强行具象 / Hollow Metaphors
+
+**问题：** 「就像一盏明灯」「如同一位智者」「宛如一幅画卷」。AI 用比喻来撑字数，但这些比喻不提供任何新信息。
+
+**Before:**
+> 这个工作流就像一盏明灯，照亮了内容创作的黑暗森林。
+
+**After:**
+> 这个工作流让写作不再从零开始。
+
+### 36. 过度引号强调 / Excessive Quotation Emphasis
+
+**问题：** 中文 AI 喜欢给普通词汇加引号：「"痛点"」「"抓手"」「"底层逻辑"」「"降维打击"」。这种用法过于频繁会显得刻意。
+
+**Before:**
+> 找到用户的"痛点"，用正确的"抓手"，理解行业的"底层逻辑"。
+
+**After:**
+> 找到用户真正的痛点，用对方法，理解行业逻辑。
+
+### 37. 「在...的过程中」句式 / "In the Process of..." Pattern
+
+**问题：** 「在写作的过程中」「在使用工具的过程中」「在探索的过程中」。AI 喜欢在动词前面加这个冗余短语。
+
+**Before:**
+> 在写作的过程中，我发现大纲确认是最重要的环节。在使用这个工具的过程中，我节省了很多时间。
+
+**After:**
+> 写多了发现，大纲确认是最重要的环节。用这个工具省了很多时间。
+
+### 38. 「不仅...而且」翻倍 / "Not Only... But Also" Doubling
+
+**问题：** #9 覆盖了「Not only...but...」的英文版。中文版的「不仅...而且/更/还...」有同样的频率问题，且中文 AI 喜欢在一个段落里连用两次。
+
+**Before:**
+> 这不仅提升了效率，而且还改变了创作习惯。不仅是个人的受益，更是整个团队的提升。
+
+**After:**
+> 效率提上来了，创作习惯也变了。团队也受益。
 
 ---
 
