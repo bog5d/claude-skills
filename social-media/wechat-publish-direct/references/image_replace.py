@@ -14,23 +14,16 @@ from pathlib import Path
 
 
 # picsum.photos 随机图生成器
-# 用 seed 参数保证每次同一位置得到同一张图
 SEED_MAP = {
-    "chapter1": "rural-night-1",
-    "chapter2": "village-school-2",
-    "chapter3": "watermelon-road-3",
-    "chapter4": "friendship-night-4",
-    "ending": "lantern-window-5",
+    "chapter1": "technology-abstract-1",
+    "chapter2": "workflow-pipeline-2",
+    "chapter3": "checklist-progress-3",
+    "chapter4": "speed-control-4",
+    "ending": "open-source-community-5",
 }
 
-# 配图描述文案
-CAPTION_MAP = {
-    "chapter1": "院坝里的夏夜",
-    "chapter2": "刘小兵家的灶台",
-    "chapter3": "路旁的碎西瓜",
-    "chapter4": "夜路上的告别",
-    "ending": "那盏灯",
-}
+# 配图描述（已废弃：caption 现在由 quality_layout 的 IMAGE_CAPTIONS 控制）
+# 保留 SEED_MAP 仅用于 picsum 图片生成
 
 
 def generate_picsum_url(seed: str, width: int = 800, height: int = 450) -> str:
@@ -48,21 +41,13 @@ def replace_placeholders(html_content: str, theme: str = "chinese") -> str:
     def replacer(match):
         key = match.group(1)
         url = generate_picsum_url(SEED_MAP.get(key, key))
-        caption = CAPTION_MAP.get(key, key)
-        return f'{url}" alt="{caption}"'
+        return url  # 只返回 URL，不加 alt（caption 由 quality_layout 模板处理）
     
     html_content = re.sub(
         r'__PLACEHOLDER_IMAGE_(\w+)__',
         replacer,
         html_content
     )
-    
-    # 替换 caption 文案
-    for key, caption in CAPTION_MAP.items():
-        html_content = html_content.replace(
-            f'配图 · {key}',
-            caption
-        )
     
     return html_content
 

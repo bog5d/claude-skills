@@ -30,13 +30,22 @@ THEME_CSS = {
     "magazine": "magazine.css", # 杂志风（预留）
 }
 
-# 配图关键词映射（段落类型 → 搜索关键词）
+# 配图关键词映射（默认值，可被 --image-keywords JSON 覆盖）
 IMAGE_KEYWORDS = {
-    "chapter1": ["countryside night", "bamboo mat summer", "rural house courtyard"],
-    "chapter2": ["village school children", "chinese countryside evening", "rural family dinner"],
-    "chapter3": ["melon seller street", "children eating watermelon", "rural path dusk"],
-    "chapter4": ["friendship parting road", "night walk countryside", "lantern village night"],
-    "ending": ["warm light window night", "village sunset", "chinese countryside memory"],
+    "chapter1": ["technology abstract", "code screen", "digital network"],
+    "chapter2": ["workflow diagram", "connected nodes", "pipeline automation"],
+    "chapter3": ["progress checklist", "milestone markers", "step by step"],
+    "chapter4": ["speed selection", "route options", "control panel"],
+    "ending": ["open source community", "team collaboration", "sharing knowledge"],
+}
+
+# 配图 Caption 映射（章节 → 中文描述）
+IMAGE_CAPTIONS = {
+    "chapter1": "自动化工作流示意",
+    "chapter2": "Skill 串联管线",
+    "chapter3": "8 个阶段一览",
+    "chapter4": "三种速度模式",
+    "ending": "开源，拿走直接用",
 }
 
 
@@ -96,6 +105,22 @@ def parse_markdown(md_text: str) -> list:
                 quote_lines.append(lines[i].strip()[2:])
                 i += 1
             blocks.append({"type": "quote", "content": " ".join(quote_lines)})
+            continue
+        
+        # Markdown 表格 (| col | col |)
+        if line.startswith("|") and line.endswith("|"):
+            if current_para:
+                blocks.append({"type": "paragraph", "content": " ".join(current_para)})
+                current_para = []
+            table_rows = []
+            while i < len(lines) and lines[i].strip().startswith("|") and lines[i].strip().endswith("|"):
+                row = lines[i].strip()
+                # 跳过分隔行 (|---|---|)
+                if not re.match(r'^\|[\s\-:|]+\|$', row):
+                    cells = [c.strip() for c in row[1:-1].split("|")]
+                    table_rows.append(cells)
+                i += 1
+            blocks.append({"type": "table", "rows": table_rows})
             continue
         
         # 普通段落
@@ -176,11 +201,11 @@ def render_blocks(blocks: list, image_slots: list) -> str:
         # 检查是否需要在此处插入配图
         if idx in slot_set:
             _, chapter_key, keywords = slot_map[idx]
-            # 配图占位符 — 实际图片 URL 会在后面替换
+            caption = IMAGE_CAPTIONS.get(chapter_key, f"配图")
             html_parts.append(f'''
 <div class="wechat-image-block">
   <img src="__PLACEHOLDER_IMAGE_{chapter_key}__" alt="{chapter_key} illustration">
-  <div class="wechat-image-caption">配图 · {chapter_key}</div>
+  <div class="wechat-image-caption">{caption}</div>
 </div>''')
         
         if btype == "title":
@@ -191,6 +216,12 @@ def render_blocks(blocks: list, image_slots: list) -> str:
             html_parts.append(f'<p class="wechat-paragraph">{render_paragraph(block["content"])}</p>')
         elif btype == "quote":
             html_parts.append(f'<blockquote class="wechat-quote">{render_paragraph(block["content"])}</blockquote>')
+        elif btype == "table":
+            rows_html = []
+            for row in block["rows"]:
+                cells = "".join(f"<td>{cell}</td>" for cell in row)
+                rows_html.append(f"<tr>{cells}</tr>")
+            html_parts.append(f'<table class="wechat-table">{"".join(rows_html)}</table>')
     
     return "\n".join(html_parts)
 
@@ -225,6 +256,14 @@ def main():
     # 读取 Markdown
     with open(args.input, encoding="utf-8") as f:
         md_text = f.read()
+    
+    # 加载外置配图关键词 JSON（覆盖默认）
+    if args.images:
+        with open(args.images, encoding="utf-8") as f:
+            custom_kw = json.load(f)
+        IMAGE_KEYWORDS.update(custom_kw.get("keywords", {}))
+        IMAGE_CAPTIONS.update(custom_kw.get("captions", {}))
+        print(f"📋 加载自定义配图关键词: {args.images}")
     
     # 解析
     blocks = parse_markdown(md_text)

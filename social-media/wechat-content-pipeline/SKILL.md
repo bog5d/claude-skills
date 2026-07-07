@@ -77,32 +77,61 @@ metadata:
 
 ---
 
-## Phase 7: 排版（wechat-quality-layout）
+## Phase 7: 排版 + 配图关键词（quality_layout.py）
 
 **🟢 自动执行，不中断。**
 
 步骤：
-1. 将 Phase 6 后的定稿保存为 `/tmp/article_final.md`
-2. 调用排版引擎：
+
+### 7.1 生成配图关键词 JSON
+
+**每篇文章创建一个 `/tmp/article_images.json`**，定义自己的配图关键词和中文 caption：
+
+```json
+{
+  "keywords": {
+    "chapter1": ["ai agent automation", "robot writing desk"],
+    "chapter2": ["linked chain connection", "workflow gears"],
+    "chapter3": ["checklist progress", "milestone markers"],
+    "chapter4": ["speed dial control", "three paths fork"],
+    "ending": ["open source sharing", "collaboration teamwork"]
+  },
+  "captions": {
+    "chapter1": "工作台示意",
+    "chapter2": "Skill 串联管线",
+    "chapter3": "从搜到发全流程",
+    "chapter4": "三种速度模式",
+    "ending": "开源，拿走直接用"
+  }
+}
+```
+
+关键词取 picsum 英文种子词，caption 取中文描述。**必须和文章内容匹配**——不要用默认的农村/风景关键词。
+
+### 7.2 调用排版引擎
 
 ```bash
-# 注意：quality_layout.py 实际在 wechat-publish-direct/references/ 下
+# 注意：quality_layout.py 在 wechat-publish-direct/references/ 下
 cd ~/.hermes/skills/social-media/wechat-publish-direct/references
 
 python3 quality_layout.py /tmp/article_final.md \
   --theme chinese \
+  --images /tmp/article_images.json \
   --output /tmp/article_layout.html
 ```
 
-3. 替换配图占位符为真实图片：
+**关键参数**：`--images`（不是 `--image-keywords`），传入 JSON 覆盖默认配图关键词和 caption。
+
+### 7.3 替换配图占位符
 
 ```bash
-cd ~/.hermes/skills/social-media/wechat-publish-direct/references
 python3 image_replace.py /tmp/article_layout.html \
   --output /tmp/article_styled.html
 ```
 
-4. 展示排版后的 HTML（或告知路径），不中断流程。
+### 7.4 验证配图
+
+检查生成的 HTML 中的 caption 是否与内容匹配。如果出现「院坝里的夏夜」「路旁的碎西瓜」等不相关 caption → `--images` JSON 未生效，回去检查。
 
 ---
 
@@ -234,11 +263,13 @@ python3 publish_article.py \
 | 预检 | IP 不在白名单 | 检查 Clash 节点 IP → 加到微信后台 |
 | 预检 | 凭证缺失 | 检查 .env 文件 |
 | 干跑 | 输出空 | 检查 article 路径 |
-| 创建 | 40164 | IP 白名单问题 |
-| 创建 | 45003 | 标题超 64 字节 |
-| 创建 | 45004 | 摘要超 120 字节 |
+| 创建 | 40164 | IP 白名单问题 — 检查 Clash 规则 + `https_proxy` |
+| 创建 | 45003 | 标题超 64 字节 — 截断到 55 字节 |
+| 创建 | 45004 | 摘要超 120 字节 — 截断到 115 字节 |
 | 创建 | 40005/40009 | 图片格式/大小问题 |
 | 创建 | 40007 | 封面图上传失败 |
+| 创建 | 47001 | draft/update 格式错误 → 自动 fallback 到 draft/add 创建新草稿 |
+| 创建 | HTML 渲染为代码 | `publish_article.py` 已加 HTML 直通检测：输入是 HTML 自动跳过 Markdown 渲染 |
 
 ---
 
@@ -275,3 +306,10 @@ python3 publish_article.py \
 | `humanizer` | Phase 5 去AI味 |
 | `wechat-quality-layout` | Phase 7 排版 |
 | `wechat-publish-direct` | Phase 8 发布 |
+
+## 支持文件
+
+| 文件 | 用途 |
+|------|------|
+| `templates/image_keywords.json` | 配图关键词 JSON 模板，复制后按文章修改 |
+| `references/robustness-fixes-2026-07-07.md` | 2026-07-07 全流程测试发现的 4 个 Bug 及修复记录 |

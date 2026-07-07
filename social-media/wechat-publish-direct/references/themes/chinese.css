@@ -129,3 +129,22 @@
   text-indent: 0 !important;
   margin: 12px 0;
 }
+
+/* === 表格 === */
+.wechat-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+  font-family: "PingFang SC", sans-serif;
+}
+.wechat-table td {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+.wechat-table tr:first-child td {
+  background: rgba(196, 168, 130, 0.12);
+  font-weight: 600;
+  color: #5a4a3a;
+}

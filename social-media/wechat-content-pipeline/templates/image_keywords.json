@@ -1,0 +1,16 @@
+{
+  "keywords": {
+    "chapter1": ["technology abstract", "code screen", "digital network"],
+    "chapter2": ["workflow diagram", "connected nodes", "pipeline automation"],
+    "chapter3": ["progress checklist", "milestone markers", "step by step"],
+    "chapter4": ["speed selection", "route options", "control panel"],
+    "ending": ["open source community", "team collaboration", "sharing knowledge"]
+  },
+  "captions": {
+    "chapter1": "配图描述（替换为文章相关内容）",
+    "chapter2": "配图描述",
+    "chapter3": "配图描述",
+    "chapter4": "配图描述",
+    "ending": "配图描述"
+  }
+}

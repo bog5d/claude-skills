@@ -248,6 +248,11 @@ python3 publish_article.py \
 | #3 HTML 不写盘 | `--output` 空实现 | 之前修复 |
 | #4 DeepSeek JSON 崩溃 | raw socket 不支持 chunked encoding | 2026-06-26 |
 | #5 图片 41005 | picsum 302 重定向没跟 | 2026-06-26 |
+| #6 配图 caption 跑偏 | quality_layout.py 硬编码农村关键词；默认改为 tech 主题 + 支持 --images 外置 JSON | 2026-07-07 |
+| #7 表格渲染失败 | 缺少 Markdown 表格解析 | 2026-07-07 |
+| #8 draft/update 47001 | API 格式错误阻塞；更新失败自动 fallback 到创建新草稿 | 2026-07-07 |
+| #9 异常 Unicode 漏入草稿 | 无清洗步骤；新增 sanitize_html() 在发微信前 strip U+FFFC/U+FFFD/零宽字符 | 2026-07-07 |
+| #10 排版 HTML 被当 Markdown 渲染 | 输入 HTML 被 `markdown_to_wechat_html()` 当 MD 重渲染；新增直通模式：检测 `<!DOCTYPE`/`<html` → 提取 body → 跳过渲染直接创建草稿 | 2026-07-07 |
 
 ## 📌 文章来源处理
 
