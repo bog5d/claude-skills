@@ -9,13 +9,20 @@ trigger: "当波总说'生成word'、'外发稿'、'正式文档'、'排版好�
 
 生成排版精良的正式中文 .docx + .pdf，适用于投资方案、合作协议、商务提案等场景。
 
-## Phase 1: 确认内容
+## Phase 1: 确认内容与清洗
 
 用户通常提供完整文字内容（或通过对话确认）。关键要素：
 - 标题（方案名称、讨论稿/正式稿标注）
 - 章节结构（共识前提 → 方案A/B → 通用条款）
 - 关键数字（估值、出资额、比例 → 必须加粗）
 - 页脚声明（可选）
+
+### 1.1 内容清洗（用户要求"滤掉AI废话"时）
+
+用户提供的文字如果带有微信/口语化包装（如"以下发给你注意内容""下面这版就是XX用的微信文字版""请注意哦"等），在生成文档前必须清洗：
+- 删除所有会话式引导语和元说明（"可以，下面这版就是..."）
+- 删除口语化后缀（"请注意哦""类似这样的词语要滤掉"）
+- 保留正文结构的完整性（章节标题、列表、表格数据）
 
 ## Phase 2: 生成 DOCX（python-docx）
 
@@ -107,7 +114,7 @@ r.font.color.rgb = RGBColor(180, 180, 180)
 
 ## Phase 3: 生成 PDF
 
-两条路径，按场景选择：
+三条路径，按环境可用性和场景选择：
 
 ### 路径 A：Markdown → weasyprint（纯文本场景）
 
@@ -163,16 +170,71 @@ print('✅ PDF generated')
 "
 ```
 
+### 路径 C：Python fpdf2 直接生成（weasyprint 不可用时）
+
+适用：weasyprint 因系统依赖缺失（`libgobject-2.0-0`）无法使用时。纯 Python 实现，零外部依赖。
+
+```python
+from fpdf import FPDF
+
+FONT_PATH = "/System/Library/Fonts/STHeiti Medium.ttc"  # macOS 中文字体
+
+pdf = FPDF('P', 'mm', 'A4')
+pdf.add_font("zh", "", FONT_PATH)  # 常规
+pdf.add_font("zh", "B", FONT_PATH)  # 粗体（使用同一字体文件）
+pdf.set_auto_page_break(True, 20)
+
+# 页面设置
+pdf.add_page()
+pdf.set_font("zh", "B", 22)
+pdf.set_text_color(43, 87, 154)
+pdf.multi_cell(0, 14, "文档标题", align='C')
+
+# 正文
+pdf.set_font("zh", "", 10.5)
+pdf.set_text_color(40, 40, 40)
+pdf.multi_cell(0, 6.5, "正文内容...")
+
+# 项目符号列表 —— CRITICAL: 必须加 new_x="LMARGIN"
+pdf.cell(6, 6, "•")
+pdf.multi_cell(0, 6, "列表项文本", new_x="LMARGIN", new_y="NEXT")
+
+# 有序列表
+pdf.cell(8, 6, "1.")
+pdf.multi_cell(0, 6, "有序项", new_x="LMARGIN", new_y="NEXT")
+
+# 表格
+pdf.set_fill_color(43, 87, 154)   # 表头背景色
+pdf.set_text_color(255, 255, 255)  # 表头文字色
+pdf.set_font("zh", "B", 9.5)
+for cell in header_row:
+    pdf.cell(col_width, 8, cell, border=1, fill=True, align='C')
+pdf.ln()
+
+# 数据行 — 交替行背景色
+pdf.set_font("zh", "", 9.5)
+for i, row in enumerate(data_rows):
+    pdf.set_fill_color(240, 245, 252) if i % 2 else pdf.set_fill_color(255, 255, 255)
+    pdf.set_text_color(40, 40, 40)
+    for cell in row:
+        pdf.cell(col_width, 8, str(cell), border=1, fill=True)
+
+pdf.output("output.pdf")
+```
+
 ### 字体选择
 
 | 平台 | 中文字体 | 英文/数字字体 |
 |------|----------|---------------|
 | macOS | STHeiti（黑体）、PingFang SC | Helvetica Neue |
+| macOS (现代) | PingFang SC（正文+标题，苹果系统默认） | SF Pro |
 | Windows | SimHei（黑体）、SimSun（宋体） | Calibri |
 
 **关键**: weasyprint 使用系统字体，不需要预先声明 @font-face。只需在 CSS 中指定 font-family 即可，weasyprint 自动查找系统安装的字体并嵌入 PDF。1.6MB 左右的 PDF 说明 CJK 字体已正确嵌入。
 
 weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略即可**，不影响 PDF 输出。
+
+完整可运行的 fpdf2 结构化文档参考实现见 `references/fpdf2-structured-doc-pattern.py`。
 
 ## Phase 4: 输出
 
@@ -181,6 +243,9 @@ weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略
 输出到 `/Users/mac/Downloads/`，用 MEDIA 发送两个文件。
 
 ## Pitfalls
+
+- **fpdf2 multi_cell 陷阱**：`multi_cell(0, h, text)` 执行后 x 位置会移到右边界（`w - rm`），导致下一次 `cell()` 从右边界开始，进而触发 `FPDFException: Not enough horizontal space to render a single character`。**必须在每次 `multi_cell` 后显式复位 x**：使用 `multi_cell(..., new_x="LMARGIN", new_y="NEXT")`。此规则同时适用于 `write_ul` / `write_ol` 等列表渲染方法。
+- **fpdf2 中文字体**：用 `add_font("zh", "", ttc_path)` 注册后，`"B"` 粗体变体也指向同一 TTC 文件即可（fpdf2 不支持 TTC 内部选择具体 face，但使用同一文件能正常渲染）。废弃参数 `uni=True` 在 v2.5.1+ 可安全移除。
 
 - **SyntaxError on Chinese quotes**: `\u201c明股实债\u201d` inside Python single-quoted strings WILL cause `SyntaxError: invalid syntax`. Use Unicode escapes `\u201c\u201d` or double-quote the outer string, or use the parts-list pattern.
 - **DO NOT use docx built-in heading styles** — they override font settings. Build headings manually with `add_paragraph()` + custom runs.
