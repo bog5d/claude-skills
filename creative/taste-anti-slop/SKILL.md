@@ -206,7 +206,19 @@ python3 scripts/design-lint.py --all <output.html>              # 全部规则
 - `minimal` → `minimalist-ui`
 - `industrial` → `industrial-brutalist-ui`
 
-**A/B 对比工作流入门：** 先建一个满载 AI slop 的对照组页面，跑 lint → 再用新能力生成新版，跑 lint 对比 → 量化违规差异。
+### 6.2 多预设并行生成流水线（已验证）
+
+大规模风格对比测试的标准流程：
+
+**Phase 1 — 数据采集**：用 firecrawl/web_extract 抓取真实数据，汇编为结构化 JSON（单文件，所有预设共用一个数据源）。
+
+**Phase 2 — 并行生成**：用 `delegate_task` 并行跑 N 个预设（注意 max_concurrent_children 限制，超限时分批提交）。每个子任务读同一份数据 JSON，按各自预设的 SKILL.md 规范生成自包含 HTML。数据相同、风格不同——这是对比有效性的前提。
+
+**Phase 3 — 质检矩阵**：对每个 HTML 跑 `design-lint.py`，汇总违规矩阵。关键步骤：逐条人工判定误报 vs 真实违规，而非盲信脚本输出。本次压测中 10/10 违规均为误报。
+
+**Phase 4 — 汇总报告**：输出量化对比表（文件大小、动画类型、违规数、误报率） + 设计评级（风格多样性 / 反AI味 / 动画实现 / 误报识别 / 代币效率）。
+
+已验证的预设组合：minimalist-ui + high-end-visual-design + industrial-brutalist-ui + popular-web-designs(Linear)。四份 HTML 应视觉上完全不可互认。
 
 ### 6.1 已知误报（pitfalls）
 
@@ -215,6 +227,9 @@ python3 scripts/design-lint.py --all <output.html>              # 全部规则
 - **Google Fonts `<link>` URL 含 "Inter" 字符串**：URL `?family=Inter:...` 会被 `no-banned-fonts` 误判，即使页面实际不用 Inter 字体。
 - **径向渐变氛围光**：`radial-gradient` 用于非装饰性氛围背景时会被 `no-gradient` 误标。高端预设中的细节点缀渐变是允许的，大面积装饰渐变才违规。
 - **CSS 类名含颜色关键字**：如 Tailwind 的 `text-purple-500` 类名可能触发颜色规则。
+
+- **em-dash 来自外部数据源**：Wikipedia / API / 数据库抓取的内容中合法包含 em-dash `—`（如地名、标题），会被 `no-em-dash` 误标。数据源内容中的 em-dash 不应视为设计违规——只检查你手写的标题/注释/UI 文案。
+- **box-shadow 为特定设计语言必需**：Linear.app / Stripe 等主流设计系统中卡片阴影是风格核心元素。`no-card-shadow` 规则在 Linear-style、Stripe-style 预设下应降低权重，仅在高 VARIANCE 预设下严格。
 
 遇到误报时，人工确认后忽略，不要为过 lint 而牺牲设计质量。
 
