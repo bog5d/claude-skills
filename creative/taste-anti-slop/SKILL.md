@@ -185,8 +185,38 @@ related_skills:
 - [ ] [视频专属] 字体大小满足移动端可读？
 - [ ] [视频专属] 帧与帧之间有视觉节奏变化？
 - [ ] [视频专属] 首帧和尾帧专门设计？
+- [ ] 已运行 `design-lint.py --preset <preset> <output.html>` 且无真实违规（误报已人工排除）？
 
 **如果任一项不能诚实打勾，输出未完成。修好再交付。**
+
+---
+
+## 6. 自动化验证：design-lint.py
+
+本 skill 自带一个 Python 自动化检查脚本。在任何 HTML 生成完成后，跑它来验证禁令是否被遵守：
+
+```bash
+python3 scripts/design-lint.py <output.html>                    # 自动推断预设
+python3 scripts/design-lint.py --preset high-end <output.html>  # 强制高端预设
+python3 scripts/design-lint.py --all <output.html>              # 全部规则
+```
+
+三种预设与风格子 skill 一一对应：
+- `high-end` → `high-end-visual-design`
+- `minimal` → `minimalist-ui`
+- `industrial` → `industrial-brutalist-ui`
+
+**A/B 对比工作流入门：** 先建一个满载 AI slop 的对照组页面，跑 lint → 再用新能力生成新版，跑 lint 对比 → 量化违规差异。
+
+### 6.1 已知误报（pitfalls）
+
+脚本是正则引擎，不是语义分析器。以下情况会触发误报，需人工判断：
+
+- **Google Fonts `<link>` URL 含 "Inter" 字符串**：URL `?family=Inter:...` 会被 `no-banned-fonts` 误判，即使页面实际不用 Inter 字体。
+- **径向渐变氛围光**：`radial-gradient` 用于非装饰性氛围背景时会被 `no-gradient` 误标。高端预设中的细节点缀渐变是允许的，大面积装饰渐变才违规。
+- **CSS 类名含颜色关键字**：如 Tailwind 的 `text-purple-500` 类名可能触发颜色规则。
+
+遇到误报时，人工确认后忽略，不要为过 lint 而牺牲设计质量。
 
 ---
 
@@ -198,5 +228,6 @@ related_skills:
 | 品牌 Landing Page | `taste-anti-slop` → `claude-design` + `popular-web-designs` |
 | 产品演示文稿 | `taste-anti-slop` → `reveal-ppt-skill` 或 `guizang-ppt-skill` |
 | 文章配图/插图 | `taste-anti-slop` → `baoyu-article-illustrator` |
+| A/B 设计质量对比 | `taste-anti-slop` → `design-lint.py`（对照组 + 新版） |
 
 **规则：taste-anti-slop 总是在其他设计 skill 之前加载。** 它是过滤器，不是替代品。
