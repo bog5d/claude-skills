@@ -69,13 +69,13 @@
     "created_at": "2026-06-15T08:54:15.578373+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-15T10:09:26.683636+00:00",
-    "last_viewed_at": "2026-06-15T10:09:26.682139+00:00",
+    "last_used_at": "2026-07-09T08:18:14.702679+00:00",
+    "last_viewed_at": "2026-07-09T08:18:14.700561+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 3,
+    "view_count": 3
   },
   "adjutant-memory-sync": {
     "archived_at": null,
