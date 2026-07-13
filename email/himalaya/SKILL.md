@@ -88,16 +88,33 @@ folder.aliases.drafts = "Drafts"
 folder.aliases.trash = "Trash"
 ```
 
+> **⚠️ CRITICAL: IMAP save failure ≠ SMTP send failure.** On Gmail,
+> SMTP delivery happens *before* the IMAP save-to-Sent step. If
+> himalaya exits non-zero with `cannot add IMAP message: … Folder
+> doesn't exist`, the email has almost certainly been delivered —
+> only the local Sent-folder copy failed. **Do NOT retry the send.**
+> Retrying produces a duplicate email to every recipient. Instead,
+> verify delivery by listing the sent folder with the correct alias:
+> `himalaya envelope list --folder "[Gmail]/已发邮件" --page-size 1`.
+>
 > **Heads up on the alias syntax.** Pre-v1.2.0 docs used a
 > `[accounts.NAME.folder.alias]` sub-section (singular `alias`).
 > v1.2.0 silently ignores that form — TOML parses fine, but the
 > alias resolver never reads it, so every lookup falls through to
 > the canonical name. On Gmail this means save-to-Sent fails *after*
-> SMTP delivery succeeds, and `himalaya message send` exits non-zero.
+> SMTP delivery succeeds, and `himalaya template send` exits non-zero.
 > Any caller (agent, script, user) that retries on that exit code
-> will re-run the entire send — including SMTP — producing duplicate
-> emails to recipients. Always use `folder.aliases.X` (plural, dotted
-> keys, directly under `[accounts.NAME]`).
+> will re-run the entire send — producing duplicate emails. Always
+> use `folder.aliases.X` (plural, dotted keys, directly under
+> `[accounts.NAME]`).
+>
+> **Gmail folder names depend on UI language.** If the Gmail account
+> uses Chinese UI, the sent folder is `[Gmail]/已发邮件`, NOT
+> `[Gmail]/Sent Mail`. Set the alias accordingly:
+> `folder.aliases.sent = "[Gmail]/已发邮件"`. Always verify the
+> actual server-side names with `himalaya folder list` before setting
+> aliases — different language settings produce different folder names
+> (e.g. German: `[Gmail]/Gesendet`, French: `[Gmail]/Messages envoyés`).
 
 ## Hermes Integration Notes
 
