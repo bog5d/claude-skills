@@ -31,57 +31,59 @@ trigger: user sends screenshot, vision_analyze fails, model doesn't support visi
 
 ### 配置方法
 
-在 profile `config.yaml` 的 `auxiliary.vision` 中设置：
+波总实际使用硅基流动（SiliconFlow）调用千问视觉模型。有两种配置路径：
+
+#### 路径 A：硅基流动 OpenAI 兼容接口（波总实际使用）
+
+```yaml
+auxiliary:
+  vision:
+    provider: openai
+    model: Qwen/Qwen3-VL-32B-Instruct
+    base_url: https://api.siliconflow.cn/v1
+    api_key: <SiliconFlow API Key，sk- 开头>
+```
+
+API Key 获取：https://siliconflow.cn → 注册/登录 → API 密钥管理。
+
+#### 路径 B：阿里云百炼原生接口（备选）
 
 ```yaml
 auxiliary:
   vision:
     provider: dashscope
     model: qwen-vl-max
-    api_key: <阿里云百炼 API Key，完整 35+ 字符>
+    api_key: <阿里云百炼 API Key>
 ```
 
 API Key 获取：https://dashscope.aliyun.com → 开通 Qwen-VL-Max 模型。
 
-### ⚠️ 已知陷阱（2026-06-10 教训）
+### ⚠️ 已知陷阱
 
-1. **API Key 被 Hermes scanner 截断写入**：credential scanner 在显示和写入时会将 key 截断。若通过工具写入 config，可能写入截断版（~13 chars）而非完整 key（~35 chars）。验证：`python3 -c "import yaml; k=yaml.safe_load(open('/Users/mac/.hermes/config.yaml'))['auxiliary']['vision']['api_key']; print(len(k))"`。正确应为 ~35。绕过：用 venv python 直接 yaml.dump 写入。
-
-2. **Gateway 重启**：配置写入后需重启对应 gateway 才能生效。
-
-3. **直调降级**：当 gateway 未重启但急需用千问时，直接用 Python requests 调 DashScope API。性能：2.6秒出结果，比本地 OCR 快 10 倍。验证方法：
-   ```bash
-   python3 -c "import yaml; k=yaml.safe_load(open('/Users/mac/.hermes/config.yaml'))['auxiliary']['vision']['api_key']; print(f'len={len(k)}')"
-   # 正确应为 ~35，错误为 ~13
-   ```
+1. **调用前先确认实际配置**：用户说"我用硅基流动"，不等于 config 里确实配了硅基流动。收到图片后第一步应检查 `auxiliary.vision` 的实际 provider：`hermes config show` 或读取 config.yaml 相关段。**不要假设配置与用户说法一致然后盲目调用**（2026-07-14 教训：用户说硅基流动，实际 config 是 `provider: alibaba, api_key: ''`）。
 
 2. **Gateway 重启**：配置写入后需重启对应 gateway 才能生效。`vision_analyze` 工具在 gateway 重启前仍走旧配置。不能重启当前对话所在的 gateway（会断连）。
 
-3. **直调绕过**：当 gateway 未重启但急需用千问时，可直接用 Python requests 调 DashScope API：
-   ```python
-   import yaml, base64, requests
-   with open('/Users/mac/.hermes/config.yaml') as f:
-       key = yaml.safe_load(f)['auxiliary']['vision']['api_key']
-   with open('image.jpg', 'rb') as f:
-       img_b64 = base64.b64encode(f.read()).decode()
-   resp = requests.post('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-       headers={'Authorization': f'Bearer {key}'},
-       json={'model': 'qwen-vl-max', 'messages': [{'role': 'user', 'content': [
-           {'type': 'text', 'text': '提取所有文字'},
-           {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}}
-       ]}]})
-   print(resp.json()['choices'][0]['message']['content'])
-   ```
+3. **直调绕过**：当 gateway 未重启但急需用时，可直接用 Python requests 调 SiliconFlow / DashScope API：
+   - SiliconFlow: POST `https://api.siliconflow.cn/v1/chat/completions`，Bearer token，model=`Qwen/Qwen3-VL-32B-Instruct`
+   - DashScope: POST `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions`，Bearer token，model=`qwen-vl-max`
+   传 base64 图片即可。
 
 ### 同步到所有 profile（一次性）
 
 ```bash
 /Users/mac/.hermes/hermes-agent/venv/bin/python3 -c "
-import yaml; key='<完整key>'
+import yaml
+PROVIDER = 'openai'        # SiliconFlow: 'openai' | DashScope: 'dashscope'
+MODEL = 'Qwen/Qwen3-VL-32B-Instruct'  # SiliconFlow | DashScope: 'qwen-vl-max'
+BASE_URL = 'https://api.siliconflow.cn/v1'  # SiliconFlow 需设 | DashScope 设 None
+API_KEY = '<完整key>'
 for prof in ['her-m2','default','english-tutor','finance']:
     p=f'/Users/mac/.hermes/profiles/{prof}/config.yaml' if prof!='default' else '/Users/mac/.hermes/config.yaml'
     with open(p) as f: cfg=yaml.safe_load(f)
-    cfg['auxiliary']['vision']={'provider':'dashscope','model':'qwen-vl-max','api_key':key}
+    vision_cfg = {'provider': PROVIDER, 'model': MODEL, 'api_key': API_KEY}
+    if BASE_URL: vision_cfg['base_url'] = BASE_URL
+    cfg['auxiliary']['vision'] = vision_cfg
     with open(p,'w') as f: yaml.dump(cfg,f,default_flow_style=False,allow_unicode=True,sort_keys=False)
 "
 ```
