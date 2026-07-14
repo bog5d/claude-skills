@@ -513,7 +513,7 @@ income.py net -y 2026 -m 6
 
 | 通道 | 触发方式 | 处理引擎 | 配置方法 |
 |------|---------|---------|---------|
-| 📸 截图 | 波总发微信/支付宝/平台账单截图 | 🥇 SiliconFlow (Qwen3-VL-32B) → 🥈 Apple Vision → 🥉 Tesseract | `hermes config set auxiliary.vision.*` (不能用 patch 直接改 config.yaml) |
+| 📸 截图 | 波总发微信/支付宝/平台账单截图 | Qwen/DashScope (`alibaba`, `qwen-vl-max-latest`) 唯一默认；失败就报告配置/余额/API 问题，不自动降级 | `hermes config set auxiliary.vision.*` |
 | 📎 CSV/xlsx | 波总发导出文件（支付宝CSV是GBK，微信是xlsx） | import_csv.py 自动解析 + 编码检测 + 格式检测 | — |
 
 - **支付宝** → `.zip` 内含 GBK CSV → `import_csv.py` 自动解压 → 解码 → 跳过元数据 → 解析
@@ -924,7 +924,7 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
 18. **⚠️ Cron 脚本路径陷阱（no_agent 模式）** — `no_agent=true` 的 cron job 使用相对路径 `script` 时，解析到 profile 的 `scripts/` 目录（如 `~/.hermes/profiles/finance/scripts/`），不是 adjutant 的 `finance/scripts/`。必须把脚本复制到 profile scripts 目录才能被 cron 找到：`cp ~/.hermes/adjutant/finance/scripts/nag_screenshots.py ~/.hermes/profiles/finance/scripts/`。这和 pitfall #10 的 `expanduser` 陷阱是不同的路径解析问题。
 19. **平台债类型发现** — 系统当前追踪的平台债类型包括：花呗、拿去花、度小满、工行贷款、借呗、微信分付。截图或银行记录中可能暴露未追踪的新平台债。**特别是：银行记录中的「支付宝信贷业务待还款账户」扣款可能是花呗或借呗。借呗是「先息后本」（月付利息≈¥80，到期一次性还本金），花呗是循环额度。两者都走支付宝通道，不主动区分就会被遗漏。**遇到此类记录必须向波总确认具体是哪一种、余额多少、还款日。
 20. **分付特殊处理** — 微信分付是 ¥4,000 额度、18-20% 利率的临时周转工具。波总用完即填（6/6 还款 ¥479.22 已清零）。**不加入 debts.json**（非固定债），但作为高风险工具备忘。铁律：绝不让分付滚到下个账单周期。其他类似 revolving credit 同理。
-21. **截图 OCR 管线（v4.1，2026-07-05 更新）** — 引擎优先级：🥇 SiliconFlow (Qwen3-VL-32B-Instruct, openai协议) → 🥈 Apple Vision (Swift) → 🥉 Tesseract (`chi_sim`)。配置方式：`hermes config set auxiliary.vision.*`（patch 工具拒绝直接改 config.yaml）。⚠️ **跨 profile 配置铁律**：`vision_analyze` 工具读的是 default config 的 `auxiliary.vision`，但各 profile 有自己的 `vision` 段。改 vision 时必须检查全部 5 个位置（default config + 4 个命名 profile），任一遗漏都会导致回退。API key 写入后必须用 `len(key)` 验证长度（完整 SiliconFlow key ≥40 字符，显示为 `sk-yys...abvn` 13字符说明被截断）。详见 `references/siliconflow-vision-setup.md`。提取金额后必须波总确认——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）。
+21. **截图 OCR 管线（v4.2，2026-07-14 更新）** — 图片识别默认且只默认走 Qwen/DashScope：`auxiliary.vision.provider=alibaba`、`model=qwen-vl-max-latest`，凭证来自 `DASHSCOPE_API_KEY`。千问不可用、余额不足、未配置 key、API 报错时，直接告诉波总需要配置/充值，不要自动降级到 Apple Vision/Tesseract。⚠️ **跨 profile 配置铁律**：改 vision 时必须检查 default config + 所有命名 profile，任一遗漏都会导致旧配置覆盖。提取金额后必须波总确认——人眼比 OCR 可靠（度小满 19432→9432，拿去花 5303→9303）。
 22. **数据文件双重同步（🛑 血坑 — 2026-06-25 再次翻车）** — `~/.hermes/adjutant/finance/`（工作副本）和 `~/.hermes/adjutant/repo/hermes-adjutant/finance/`（Git 仓库）是两个独立目录。**铁律：所有 patch/write 操作直接指向 repo 路径**，不要碰工作副本。`finance.py`/`expenses.py` 写入前者，git 仓库是后者。如果不小心改了工作副本，必须立即 cp + git push。commit 前用 `diff` 检查两副本一致。<br>
     - **脚本模式**：`finance.py repay / expenses.py add` → 自动写入工作副本 → `cp` 到 repo → git push<br>
     - **直接编辑模式（🛑 危险）**：必须写 repo 路径，不得碰工作副本
@@ -1040,22 +1040,22 @@ print(f'非消费 {len([e for e in d[\"expenses\"] if e[\"category\"] in bad])} 
     grep -A 6 "vision:" ~/.hermes/profiles/finance/config.yaml
 
     # 修改 provider
-    hermes config set auxiliary.vision.provider openai
+    hermes config set auxiliary.vision.provider alibaba
 
     # 修改模型
-    hermes config set auxiliary.vision.model "Qwen/Qwen3-VL-32B-Instruct"
+    hermes config set auxiliary.vision.model "qwen-vl-max-latest"
 
     # 修改 base_url
-    hermes config set auxiliary.vision.base_url "https://api.siliconflow.cn/v1"
+    hermes config set auxiliary.vision.base_url ""
 
-    # 修改 API key
-    hermes config set auxiliary.vision.api_key "sk-xxx..."
+    # API key 不写入 config；放在环境变量 DASHSCOPE_API_KEY
+    hermes config set auxiliary.vision.api_key ""
 
-    # 修改超时（SiliconFlow 需要 120s 而非默认 60s）
+    # 修改超时
     hermes config set auxiliary.vision.timeout 120
     ```
 
-57. **⚠️ SiliconFlow 模型名精确匹配问题** — `vision_analyze` 工具可能报 "Model does not exist (code 20012)" 即使直接 API 文本请求正常。原因可能是 Hermes 构造请求时模型名格式差异。先通过 `curl` 直接测试带图片的请求确认模型可用性，再尝试其他模型版本（如 8B 或 32B-Thinking）。
+57. **⚠️ Qwen/DashScope 失败处理** — `vision_analyze` 工具报未配置、余额不足、quota、payment required、model not found 时，直接告诉波总需要配置 `DASHSCOPE_API_KEY`、充值或修模型名。不要自动降级到 Apple Vision/Tesseract。
 
 55. **⚠️ `finance.py repay` 输出说成功但文件没有更新（🛑 2026-07-02 发现）** — `finance.py repay -c "花呗" -a 10000` 输出 `"ok": true, "paid": 10000, "new_remaining": 3729.51` 但实际 debts.json 文件中花呗金额**没有变化**。症状：执行后立即检查文件，花呗余额还是原值。疑似脚本内 `write_json()` 未正确执行或路径写到了错误位置。<br>
     - **解法**：执行 `finance.py repay` 之后，**必须手动验证** debts.json 文件中的金额是否确实更新了。如果没更新，使用以下脚本手动修复（在 repo 路径执行）：<br>

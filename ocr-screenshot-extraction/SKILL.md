@@ -7,17 +7,27 @@ trigger: user sends screenshot, vision_analyze fails, model doesn't support visi
 
 # OCR Screenshot Extraction
 
+## 🚨 执行顺序铁律（最高优先级）
+
+**收到中文文字图片的流程必须严格遵守以下顺序，一步不许跳：**
+
+```
+步骤1：直接调用 vision_analyze（走 auxiliary.vision → Qwen-VL）
+步骤2：如果 vision_analyze 返回 401/403/超时 → 确认 API key 状态
+步骤3：如果 API key 确实不可用 → 告知用户「千问 API key 已失效，请提供新 key」
+步骤4：仅在用户明确说「放弃千问，用本地 OCR」后才降级到 Tesseract/Apple Vision
+```
+
+**绝对禁止的操作路径（每次违反都被波总骂）：**
+- ❌ 「先用 Tesseract 试试看能不能读出来」——中文几乎必乱码，纯浪费时间
+- ❌ 跑 3+ 次不同参数的 Tesseract 再切千问——在第一步就该用千问
+- ❌ 在 skill 已经写明千问优先的情况下仍走老路径
+
+> **波总铁律（2026-06-09，多次重申至 2026-07-14）**：图片文字识别默认用千问 VL。不要先尝试 Tesseract/Apple Vision。千问直接理解图片内容，无需 OCR 中间层，中文识别精度远超本地方案。
+
 ## 🥇 首选路径：通义千问 Qwen-VL-Max（云端视觉，唯一推荐）
 
-**波总铁律（2026-06-09）：图片识别默认用千问 VL Max，不用 Tesseract/Apple Vision。**
-
 当主模型不支持 vision（如 DeepSeek）时，Hermes 自动 fallback 到 `auxiliary.vision` 配置的模型。**Qwen-VL-Max 是国内中文图片识别最强模型**——直接理解图片内容，无需 OCR 中间层。
-
-## 🥇 首选路径：通义千问 Qwen-VL-Max（云端视觉，默认）
-
-当主模型不支持 vision（如 DeepSeek）时，**必须优先用千问 VL Max**，不要用 Tesseract/Apple Vision。千问直接理解图片内容，无需 OCR 中间层，中文识别精度远超本地方案。
-
-> **波总铁律（2026-06-09）**：以后识别图片文字默认用千问 VL Max。Tesseract/Apple Vision 仅作千问不可用时的降级备选。
 
 ### 配置方法
 
