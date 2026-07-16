@@ -176,6 +176,10 @@ your conversation context.
 
 ## Failure modes
 
+- **Model doesn't support vision (e.g. DeepSeek)** — `computer_use(action="capture")`
+  returns an error because the model can't process image inputs. Fall back to
+  terminal-based `screencapture` — see `references/macos-screenshot-fallback.md`
+  for the three-tier pattern.
 - **"cua-driver not installed"** — Run `hermes tools` and enable Computer
   Use; the setup will install cua-driver via its upstream script. Requires
   macOS + Accessibility + Screen Recording permissions.

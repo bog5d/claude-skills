@@ -15,6 +15,9 @@ related_skills:
   - claude-design
   - popular-web-designs
   - article-to-video-production
+  - apple-design
+  - improve-animations
+  - gsap-animation
 ---
 
 # Taste Anti-Slop — 反模板设计层
@@ -240,12 +243,27 @@ python3 scripts/design-lint.py --all <output.html>              # 全部规则
 
 ## 与其他 Skill 的配合
 
+**设计技能栈（完整）:**
+
+```
+Layer 4: 动画执行层     → gsap-animation（GSAP 实现）
+Layer 3: 动画审计层     → improve-animations（质量审查 + 路线图）
+Layer 2: 动效物理层     → apple-design（弹簧参数、动量、可中断性、材质）
+Layer 1: 静态审美层     → taste-anti-slop（色彩、字体、布局、反AI味禁令）
+```
+
+详见 `apple-design/references/compatibility.md`。
+
 | 任务 | 加载顺序 |
 |---|---|
+| 交互式 HTML 页面 / 产品页 | `taste-anti-slop` → `apple-design` → `gsap-animation` |
+| 网页 PPT (Reveal.js/Guizang) | `taste-anti-slop` → `apple-design`（动效 + 排版） |
 | 公众号文章 → 视频 | `taste-anti-slop` → `html-to-video` |
 | 品牌 Landing Page | `taste-anti-slop` → `claude-design` + `popular-web-designs` |
 | 产品演示文稿 | `taste-anti-slop` → `reveal-ppt-skill` 或 `guizang-ppt-skill` |
 | 文章配图/插图 | `taste-anti-slop` → `baoyu-article-illustrator` |
 | A/B 设计质量对比 | `taste-anti-slop` → `design-lint.py`（对照组 + 新版） |
+| 动画质量审计 | `taste-anti-slop` → `improve-animations` |
+| 已有项目动效升级 | `improve-animations`（审计） → `apple-design`（规格） → `gsap-animation`（执行） |
 
 **规则：taste-anti-slop 总是在其他设计 skill 之前加载。** 它是过滤器，不是替代品。

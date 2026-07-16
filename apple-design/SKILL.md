@@ -10,6 +10,11 @@ description: >
   product pages, slide presentations (Reveal.js, Guizang PPT), interactive documents, and
   landing pages that need premium feel beyond static aesthetics. Not for static Word/PDF
   generation (typography rules only).
+tags: [design, animation, interaction, spring, gesture, apple, physics]
+related_skills:
+  - taste-anti-slop
+  - improve-animations
+  - gsap-animation
 ---
 
 # Apple Design — Fluid Interfaces for the Web

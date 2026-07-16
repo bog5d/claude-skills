@@ -5,6 +5,11 @@ description: >
   quality gaps, and generate actionable improvement plans. Never modifies source code.
   Phases: Recon → Parallel Audit → Vetting → Implementation Plans. Pairs with
   apple-design for physics validation and gsap-animation for implementation.
+tags: [design, animation, audit, quality, motion]
+related_skills:
+  - apple-design
+  - taste-anti-slop
+  - gsap-animation
 ---
 
 # Improve Animations — Audit & Plan Generator
