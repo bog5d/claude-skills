@@ -230,6 +230,9 @@ python3 scripts/design-lint.py --all <output.html>              # 全部规则
 
 - **em-dash 来自外部数据源**：Wikipedia / API / 数据库抓取的内容中合法包含 em-dash `—`（如地名、标题），会被 `no-em-dash` 误标。数据源内容中的 em-dash 不应视为设计违规——只检查你手写的标题/注释/UI 文案。
 - **box-shadow 为特定设计语言必需**：Linear.app / Stripe 等主流设计系统中卡片阴影是风格核心元素。`no-card-shadow` 规则在 Linear-style、Stripe-style 预设下应降低权重，仅在高 VARIANCE 预设下严格。
+- **拖拽深度反馈的 `box-shadow`**：交互式元素（可拖拽卡片、抽屉面板）的 `box-shadow` 用于传达 z-index 层级和物理深度，是交互设计的一部分，不是静态卡片阴影。`no-card-shadow` 对此类场景为误报。
+- **`backdrop-filter: blur()` 毛玻璃材质被 `no-gradient` 误标**：`backdrop-filter` 产生的模糊效果与 CSS gradient 无关，是材质设计（Apple HIG §Translucency）。`no-gradient` 规则的正则无法区分二者，需人工判定。
+- **`no-purple-gradient` 误判蓝色为紫色**：规则的正则匹配范围过宽，`#3b82f6`（Tailwind blue-500）等蓝色调被误判为紫色渐变。蓝色按钮/强调色的 `box-shadow` 或 `background` 触发此规则时，核对实际色值后忽略。
 
 遇到误报时，人工确认后忽略，不要为过 lint 而牺牲设计质量。
 
