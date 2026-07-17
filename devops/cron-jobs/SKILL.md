@@ -131,7 +131,58 @@ cronjob(
 ```
 关键：prompt 第一行必须硬指令"直接输出，不要调工具"，防止 DeepSeek 陷入工具调用死循环。
 
-## 支持文件
+## Absorbed Skills
+
+| Former Skill | Now In |
+|-------------|--------|
+| cron-audit | §Cron 审计 |
+| cron-env-contextvars | §环境变量隔离 |
+| cronjob-troubleshooting | §故障排查 |
+
+---
+
+## § Cron 审计（absorbed from cron-audit）
+
+审计 cron jobs 的活跃度、价值和使用频率，识别冗余/低价值任务并批量暂停或清理。
+
+### What to check
+- If a cron hasn't produced a non-empty output in >7 days → low-value, consider pausing
+- If two crons cover the same ground → merge, keep the one with better signal/noise
+- If a cron's `last_run` is `null` (never ran) → check scheduling or dependency
+- If a cron fires every minute and 99% of runs produce nothing → batch, reduce frequency, or switch to event-driven
+
+### Procedure
+1. List all jobs: `cronjob action='list'`
+2. For each job, check `last_run`, output history, prompt relevance
+3. Pause low-value: `cronjob action='update' job_id=X schedule='paused'`
+4. Remove duplicates: `cronjob action='remove' job_id=X`
+
+---
+
+## § 环境变量隔离（absorbed from cron-env-contextvars）
+
+Fix cron job environment variable pollution by migrating from `os.environ` to `contextvars.ContextVar`.
+
+**Problem**: `os.environ` mutations in one cron task leak into subsequent tasks in the same scheduler tick.
+
+**Solution**: Use `contextvars.ContextVar`:
+```python
+import contextvars
+current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar('current_task_id', default='')
+current_task_id.set('some-value')
+```
+
+**Key advantage**: Each cron tick gets its own `ContextVar` copy via `Context.run()`, so parallel or sequential tasks don't pollute each other.
+
+---
+
+## § 故障排查（absorbed from cronjob-troubleshooting）
+
+When a cron job fails:
+1. Check job status: `cronjob action='list'` — look at `last_run`, `last_status`, `error`
+2. Run manually: `cronjob action='run' job_id=X` — reproduces the exact execution environment
+3. Check output/logs from the manual run
+4. Common failures: missing env vars, script path changed, API key expired, profile mismatch
 - `references/cron-troubleshooting.md` — 详细故障排查步骤
 - `references/webhook-patterns.md` — Webhook 订阅模式库
 - `references/env-isolation.md` — ContextVar 环境变量隔离方案

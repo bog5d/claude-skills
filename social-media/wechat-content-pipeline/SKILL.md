@@ -314,6 +314,124 @@ python3 publish_article.py \
 | `wechat-quality-layout` | Phase 7 排版 |
 | `wechat-publish-direct` | Phase 8 发布 |
 
+## Absorbed Sibling Skills
+
+| Former Skill | Now In |
+|-------------|--------|
+| wechat-publish-direct | §直接发布（Clash 架构） |
+| wechat-publisher-relay | §阿里云中继运维 |
+| wechat-quality-layout | §排版引擎详情 |
+
+---
+
+## § 直接发布（Clash 架构）（absorbed from wechat-publish-direct）
+
+### 架构
+Mac Mini → Clash Verge（节点选择）→ 微信 API（不需 SOCKS5 隧道或阿里云中继）。
+
+### 预检清单（每次发布前执行）
+
+```bash
+# 1. Clash 规则
+grep 'api.weixin.qq.com' ~/Library/Application\\ Support/io.github.clash-verge-rev.clash-verge-rev/clash-verge.yaml
+
+# 2. 凭证
+grep -E 'WECHAT_SECRET|DEEPSEEK_API_KEY' /Users/mac/.hermes/profiles/her-m2/.env
+
+# 3. API 连通性（必须走 Clash 代理）
+https_proxy=http://127.0.0.1:7897 curl -s \\
+  "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=wx37940d296d26c91c&secret=\${WECHAT_SECRET}" \\
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
+```
+
+### 发布脚本
+`publish_article.py` 支持两种输入模式：
+- **Markdown 输入（默认）**：确定性 Markdown → HTML 渲染管线
+- **HTML 直通**：检测 `<!DOCTYPE`/`<html` 开头自动切换，跳过 Markdown 渲染
+
+```bash
+cd ~/.hermes/profiles/her-m2/skills/social-media/wechat-publish-direct/scripts
+python3 publish_article.py \\
+  --article /tmp/article.md \\
+  --cover-seed lantern \\
+  --body-seeds road,night,watermelon \\
+  --title "标题" --digest "摘要" \\
+  --dry-run --output /tmp/final.html
+```
+
+### 关键限制
+- 标题：55 字节 UTF-8（中文约 18 字）
+- 摘要：115 字节 UTF-8
+- 封面图：1MB 以下 jpg/png
+- 正文图片：每 400-600 字 1 张，picsum.photos 占位
+
+### 错误码速查
+| 码 | 含义 | 解决 |
+|----|------|------|
+| 45003 | 标题超长 | 截断到 55 字节 |
+| 45004 | 摘要超长 | 截断到 115 字节 |
+| 40164 | IP 白名单 | 检查 Clash 规则 |
+| 40007 | 封面图缺失 | 封面图上传失败 |
+| 47001 | draft/update 格式错 | 自动 fallback 到 draft/add |
+
+---
+
+## § 阿里云中继运维（absorbed from wechat-publisher-relay）
+
+### Server Info
+| Item | Value |
+|------|-------|
+| IP | 47.85.62.133 |
+| Hostname | iZ0xico4s35nx01ecj3anmZ |
+| SSH Key | `~/.ssh/id_ed25519_alicloud` |
+| Auth | Key only (password disabled) |
+| PM2 Service | `wx-publisher` on port 8787 |
+
+### SOCKS5 Tunnel（旧架构，当前已切换 Clash）
+```bash
+ssh -D 1080 -N -f -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133
+```
+
+### Quick Health Check
+```bash
+ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 \\
+  'echo "=== HEALTH ===" && curl -s localhost:8787/health'
+```
+
+### Security (ALWAYS do in order)
+1. Disable Instance Connect backdoor
+2. Upload SSH public key
+3. Change root password
+4. Disable password auth + root login
+5. Update FRP token
+6. Configure firewall
+
+**⚠️ iptables trap**: `iptables -I INPUT -s IP -j DROP` can lock ALL ports on Alibaba Cloud Linux. Use `firewall-cmd` or security group instead.
+
+---
+
+## § 排版引擎详情（absorbed from wechat-quality-layout）
+
+> **Path note**: All scripts (`quality_layout.py`, `image_replace.py`) live in `wechat-publish-direct/references/`, NOT in a separate wechat-quality-layout directory.
+
+### Usage
+```bash
+cd ~/.hermes/skills/social-media/wechat-publish-direct/references
+python3 quality_layout.py article.md --theme chinese --images article_images.json --output article_layout.html
+python3 image_replace.py article_layout.html --output article_final.html
+```
+
+### Design
+- 宣纸底色 `#faf9f6` + serif 字体族
+- 1.9 倍行距，16px 正文
+- 金色点缀 `#c4a882`
+- 智能配图：每 500-800 字 1 张
+
+### Custom Image Keywords
+Pass `--images` JSON with keywords and captions per section to override default tech theme.
+
+---
+
 ## 支持文件
 
 | 文件 | 用途 |

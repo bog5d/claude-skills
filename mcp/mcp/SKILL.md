@@ -114,6 +114,89 @@ delegate_task(
 - 替换 `macos-computer-use` 截图-点击模式
 - macOS 需要 Python ≥ 3.12（homebrew），PEP 668 需要 `--break-system-packages`
 
-## 支持文件
-- `references/mcp-troubleshooting.md` — 连接故障排查
-- `references/acp-comparison.md` — ACP 代理对比
+## Absorbed Sibling Skills
+
+| Former Skill | Now In |
+|-------------|--------|
+| mcporter | § Mcporter CLI |
+| mcp-zombie-cleanup | § Zombie Subprocess Cleanup |
+| hermes-mcp-server | § Hermes MCP Server |
+| native-mcp | § 原生 MCP 客户端（内联） |
+
+---
+
+## § Mcporter CLI（absorbed from mcporter）
+
+`mcporter` is a standalone CLI for ad-hoc MCP server calls without config.yaml entries.
+
+```bash
+npx mcporter list                    # List configured servers
+npx mcporter list <server> --schema # List tools with schemas
+npx mcporter call <server.tool> key=value  # Call a tool
+npx mcporter call https://api.example.com/mcp.fetch url=https://example.com  # Ad-hoc HTTP
+npx mcporter call --stdio "bun run ./server.ts" scrape url=https://example.com  # Ad-hoc stdio
+
+# Machine-readable output
+npx mcporter call <server.tool> key=value --output json
+```
+
+### Auth & Config
+```bash
+npx mcporter auth <server | url> [--reset]
+npx mcporter config list
+```
+
+### Code Generation
+```bash
+npx mcporter generate-cli --server <name>
+npx mcporter emit-ts <server> --mode types
+```
+
+---
+
+## § Zombie Subprocess Cleanup（absorbed from mcp-zombie-cleanup）
+
+**Problem**: MCP server child processes persist after parent exits → zombie processes accumulating.
+
+**Solution**: Force-kill in `_shutdown()` with `atexit` registration:
+
+```python
+import atexit, subprocess
+
+def _shutdown():
+    for name, pd in list(_processes.items()):
+        proc = pd.get("process")
+        if proc and proc.poll() is None:
+            proc.terminate()
+            try: proc.wait(timeout=3)
+            except subprocess.TimeoutExpired: proc.kill(); proc.wait(timeout=2)
+
+atexit.register(_shutdown)
+```
+
+**Pitfalls**: 
+- Use `list(_processes.items())` to avoid `dictionary changed size during iteration`
+- Always check `proc.poll() is None` before terminate
+- Set `wait(timeout=3)` to prevent atexit from hanging
+
+---
+
+## § Hermes MCP Server（absorbed from hermes-mcp-server）
+
+Expose Hermes tools to external MCP clients (Claude Desktop, Cursor, Copilot).
+
+### Registration Checklist
+1. Create `tools/mcp_server.py`
+2. Add `"tools.mcp_server"` to `_modules` list in `model_tools.py`
+3. Add `"mcp_server_start"` to `_HERMES_CORE_TOOLS` in `toolsets.py`
+4. Add `"mcp-server"` toolset definition in `TOOLSETS` dict
+
+### FastMCP API Quirks
+- ❌ No `version` parameter: `FastMCP(name="Hermes")` only
+- ❌ No `Tool` object as first arg: use `server.tool(name="...", description="...")(handler)`
+- ✅ Registry API: `registry.get_all_tool_names()` + `registry.get_schema(name)`
+
+### Verification
+```bash
+python3 -c "import model_tools; from tools.mcp_server import _create_hermes_mcp_server; import asyncio; print(asyncio.run(_create_hermes_mcp_server().list_tools()))"
+```

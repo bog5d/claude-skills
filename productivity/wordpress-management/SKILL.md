@@ -211,7 +211,94 @@ WP REST API 接受 HTML 或 Gutenberg block 格式。发布文章时 `content` �
 中文弯引号 `""` 在 shell 中会被解释为 ASCII 引号，导致语法错误。
 在 curl `-d` 中传递中文时，用单引号包裹整个 JSON，内部中文不用弯引号。
 
-## 参考文件
+## Absorbed Skills
+
+| Former Skill | Now In |
+|-------------|--------|
+| wordpress-remote-ops | §远程操作（无 SSH） |
+| wordpress-site-management | §站点管理与优化 |
+
+---
+
+## § 远程操作（无 SSH / 无应用密码）
+
+当无法 SSH 且应用密码不可用时，通过 Cookie + Nonce 操作。
+
+### 核心技巧：curl 登录 + Nonce
+
+```bash
+# 1. 登录获取 cookie
+COOKIE_JAR=$(mktemp)
+curl -s -c "$COOKIE_JAR" -X POST "https://SITE.com/wp-login.php" \
+  -d "log=ADMIN_USER&pwd=ADMIN_PASS&redirect_to=%2Fwp-admin%2F&testcookie=1"
+
+# 2. 获取 nonce
+NONCE=$(curl -s -b "$COOKIE_JAR" "https://SITE.com/wp-admin/admin-ajax.php?action=rest-nonce")
+
+# 3. 带 nonce 调用 API
+curl -s -X POST "https://SITE.com/wp-json/wp/v2/posts" \
+  -b "$COOKIE_JAR" -H "X-WP-Nonce: $NONCE" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Title","content":"<p>Content</p>","status":"publish"}'
+```
+
+### 启用应用密码（纯 API，无 SSH）
+
+```bash
+# 构造迷你插件 ZIP
+PLUGIN_ZIP="/tmp/enable_app_passwords.zip"
+python3 -c "
+import zipfile, io
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, 'w') as z:
+    z.writestr('enable-app-passwords/enable-app-passwords.php',
+        '<?php\n/* Plugin Name: Enable Application Passwords */\nadd_filter(\"wp_is_application_passwords_available\", \"__return_true\");\n')
+with open('$PLUGIN_ZIP', 'wb') as f: f.write(buf.getvalue())
+"
+# Upload via WP Admin
+curl -s -b "$COOKIE_JAR" -X POST "https://SITE.com/wp-admin/update.php?action=upload-plugin" \
+  -F "_wpnonce=$NONCE" -F "pluginzip=@$PLUGIN_ZIP" -F "install-plugin-submit=Install+Now"
+```
+
+### 生成应用密码
+```bash
+curl -s -X POST "https://SITE.com/wp-json/wp/v2/users/me/application-passwords" \
+  -u "ADMIN_USER:ADMIN_PASS" \
+  -d '{"name":"app-name","app_id":"00000000-0000-0000-0000-000000000000"}'
+```
+
+---
+
+## § 站点管理与优化（absorbed from wordpress-site-management）
+
+### 内容清理 SOP
+1. 列出全部文章 → 按标题分组 → 找出重复组
+2. `DELETE /posts/{id}?force=true` 删除重复
+3. 建新分类 → 移动文章 → 删空分类
+4. 批量创建标签 → 按主题分配
+
+### SEO 优化清单
+- 每篇文章有分类（不能留在「未分类」）
+- 每篇文章有 2-3 个标签
+- 有特色图片（1200×630，含品牌栏）
+- 有缓存插件（WP Super Cache）
+- HTTPS 可用（检查 Cloudflare SSL 设置）
+
+### 封面图生成（Pillow）
+```bash
+MEDIA_ID=$(curl -s -X POST -u "user:pass" -F "file=@/tmp/cover.jpg" \
+  "http://site.com/wp-json/wp/v2/media" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+curl -s -X POST -u "user:pass" -H "Content-Type: application/json" \
+  -d "{\"featured_media\":$MEDIA_ID}" "http://site.com/wp-json/wp/v2/posts/POST_ID"
+```
+
+### 站点诊断
+```bash
+curl -s -o /dev/null -w "HTTP %{http_code} | %{size_download}B | %{time_total}s" http://hellobog.com/
+```
+常见问题：HTTPS 521 → Cloudflare SSL 设为 Flexible；首页 >2s → 缓存未启用；API 403 → 应用密码过期。
+
+---
 
 - `references/app-password-plugin-upload.md` — 无 SSH 时通过插件上传启用应用密码
 - `references/relay-telegram-integration.md` — WordPress → 阿里云中继 → Telegram 推送全链路架构
