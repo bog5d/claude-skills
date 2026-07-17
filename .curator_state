@@ -1,9 +1,9 @@
 {
   "last_report_path": "/Users/mac/.hermes/logs/curator/20260710-164533",
-  "last_run_at": "2026-07-10T16:45:33.844531+00:00",
+  "last_run_at": "2026-07-17T17:04:12.235332+00:00",
   "last_run_duration_seconds": 1.369138,
-  "last_run_summary": "auto: 113 marked stale; llm: skipped (consolidation off)",
+  "last_run_summary": "auto: 46 marked stale, 1 reactivated",
   "last_run_summary_shown_at": null,
   "paused": false,
-  "run_count": 7
+  "run_count": 8
 }
