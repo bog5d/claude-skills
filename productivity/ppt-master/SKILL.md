@@ -28,9 +28,90 @@ AI 驱动的 PPT 生成系统。走 SVG → PowerPoint DrawingML 路线，不是
 
 完整流程见 `~/ppt-master/skills/ppt-master/SKILL.md`（权威工作流文档）。
 
-## 修改现有PPTX
+## 修改现有PPTX（不重新生成）
 
-按修改手册逐页执行（文本替换/删页/插页/重排版）的工作流见 `references/pptx_bulk_edit.md`。
+当已有完整 PPTX、只需定向修改部分页面时，走这条路径而非从零生成。
+
+### 为什么不用 SVG → DrawingML 路线
+
+从零生成走的是 `手写 SVG → finalize_svg.py → svg_to_pptx.py`。如果已有成品 PPTX，这条路线意味着要把原 PPTX 的所有设计（母版、品牌色、图片、版式）全部手工翻译成 SVG — 工作量巨大且必然丢失细节。
+
+**正确做法：python-pptx 直接读 → 改 → 存，保留 95%+ 原有元素不变。**
+
+### 核心工具
+
+| 工具 | 路径 | 用途 |
+|------|------|------|
+| python-pptx | venv 已装 (pptx 1.0.2) | 读/改/写 .pptx，保留母版和现有元素 |
+| pptx_to_svg.py | `~/ppt-master/skills/ppt-master/scripts/pptx_to_svg.py` | 逐页渲染为 SVG，用于视觉检查 |
+| cairosvg | venv 已装 (2.9.0) | SVG → PNG 转换，生成逐页预览 |
+| finalize_svg.py | 不需要 | 这是从零生成路线用的，改现有 PPTX 不用 |
+
+### 工作流：修改现有 PPTX
+
+```
+1. 渲染全景 → 逐页 SVG → cairosvg 转 PNG → 波总确认修改范围
+2. 对每页目标：
+   a. python-pptx 读取 slide → 定位要改的元素
+   b. 直接修改（文本、位置、颜色、删除/新增形状）
+   c. prs.save() 保存 → pptx_to_svg.py 重渲染该页 → 对比检查
+3. 交付：修改后 .pptx + 逐页 PNG 预览 + 修改日志
+```
+
+### 命令速查
+
+```bash
+PY=/Users/mac/.hermes/hermes-agent/venv/bin/python3
+
+# Step 1: 渲染全景（pptx → 逐页 SVG）
+$PY ~/ppt-master/skills/ppt-master/scripts/pptx_to_svg.py <input.pptx> -o svg_output/
+
+# Step 2: SVG → PNG 预览（可选，用于 Telegram 查看）
+for f in svg_output/*.svg; do
+  $PY -c "import cairosvg; cairosvg.svg2png(url='$f', write_to='${f%.svg}.png')"
+done
+
+# Step 3: 逐页修改（示例：替换第3页的文本）
+$PY -c "
+from pptx import Presentation
+prs = Presentation('input.pptx')
+slide = prs.slides[2]  # 第3页（0-indexed）
+for shape in slide.shapes:
+    if shape.has_text_frame and '旧文字' in shape.text:
+        shape.text = shape.text.replace('旧文字', '新文字')
+prs.save('output.pptx')
+"
+
+# Step 4: 重渲染修改后的页面验证
+$PY ~/ppt-master/skills/ppt-master/scripts/pptx_to_svg.py output.pptx -o svg_verify/
+```
+
+### 修改日志格式
+
+每项修改记录：
+```
+页号 | 元素类型 | 修改前 | 修改后 | 验证截图
+```
+
+### ⚠️ 修改现有 PPTX 的注意事项
+
+1. **母版和版式完全保留** — python-pptx 的 `prs.save()` 不丢母版，不丢 slide layouts
+2. **图片保留原样** — 除非显式替换 shape，否则图片元素不变
+3. **字体保留原始指定** — python-pptx 不改字体名称，渲染差异只在预览工具
+4. **图表数据可修改** — 如果是原生 PowerPoint 图表（非图片），可改底层数据
+5. **删除页用 `prs.slides.delete(prs.slides[i])`** — 不要用 XML 操作
+6. **插入页需要先有版式** — 用 `slide_layout = prs.slide_layouts[idx]` 选版式
+
+### 渲染验证：LibreOffice 缺失时的替代方案
+
+本机未安装 LibreOffice。`powerpoint` skill 的 `soffice → PDF → pdftoppm` 路线不可用。
+
+**替代路径已验证可用**：
+- `pptx_to_svg.py` — 直接读 OOXML，不依赖 LibreOffice
+- `cairosvg.svg2png()` — SVG 转 PNG
+- 质量：95% 还原度，颜色/位置准确，细微字体渲染差异不影响版面检查
+
+如需 PDF 最终交付，需先 `brew install --cask libreoffice`。
 
 ## 常用命令
 
@@ -197,6 +278,7 @@ $PY skills/ppt-master/scripts/image_search.py "关键词" \
 - 需要 AI 编辑器（Claude Code/Cursor/VS Code Copilot）驱动
 - 首次配置需要装依赖（已完成）
 - 策略师确认步骤（八项确认）在 Telegram 异步场景可用 `clarify` 工具替代
+- 本机已验证工具链状态见 `references/toolchain-verified.md`
 
 ## 安装记录
 

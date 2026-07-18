@@ -211,7 +211,9 @@ Report ALL issues found, including minor ones.
 
 ## Converting to Images
 
-Convert presentations to individual slide images for visual inspection:
+Convert presentations to individual slide images for visual inspection.
+
+### Method A: LibreOffice + Poppler (recommended when available)
 
 ```bash
 python scripts/office/soffice.py --headless --convert-to pdf output.pptx
@@ -225,6 +227,24 @@ To re-render specific slides after fixes:
 ```bash
 pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 ```
+
+### Method B: pptx_to_svg.py + cairosvg (no LibreOffice required)
+
+When LibreOffice is not installed, use the ppt-master toolkit's reverse-rendering pipeline:
+
+```bash
+PY=~/.hermes/hermes-agent/venv/bin/python3
+
+# pptx → 逐页 SVG
+$PY ~/ppt-master/skills/ppt-master/scripts/pptx_to_svg.py <input.pptx> -o svg_output/
+
+# SVG → PNG (batch)
+for f in svg_output/*.svg; do
+  $PY -c "import cairosvg; cairosvg.svg2png(url='$f', write_to='${f%.svg}.png')"
+done
+```
+
+Quality: ~95% fidelity. Colors and positions are accurate; minor font rendering differences from PowerPoint but sufficient for layout and overflow detection.
 
 ---
 

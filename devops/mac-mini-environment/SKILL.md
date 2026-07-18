@@ -44,6 +44,68 @@ description: Mac Mini M4 production environment profile — hardware, system, He
 4. Multiple Thunderbolt interfaces (en2, en3, en4) but no external storage connected
 5. **Clash fake-IP DNS interception**: Clash runs in fake-IP mode — DNS resolution via system resolver or `dig` returns `198.18.0.0/15` addresses instead of real IPs. TCP connectivity checks to fake IPs pass because Clash transparently proxies them, so contamination is invisible to naive health checks. **Workaround**: use DNS-over-HTTPS (Cloudflare/Google DoH) + fake-IP range filtering. See `references/clash-fake-ip-dns.md` for detection code and DoH implementation.
 
+## Tailscale & Remote Connectivity
+
+The Mac Mini is on the user's Tailscale network (tailnet). Use this to discover and connect:
+
+```bash
+tailscale status | grep macmini
+```
+
+**Known identifiers:**
+- Tailscale hostname: `macmac-mini` (may resolve as `macmac-mini.tailnet-xxx.ts.net`)
+- Tailscale IP: dynamically assigned (e.g. `100.93.154.87`), re-discover via `tailscale status`
+- Local LAN IP: `192.168.31.63` (only reachable from same subnet)
+
+**SSH access:**
+```bash
+ssh -o ConnectTimeout=5 mac@<tailscale-ip>
+```
+
+If SSH key auth fails ("Permission denied" or "Too many authentication failures"):
+1. Generate a diagnostic key pair: `ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "hermes-diagnostic"`
+2. The user must run on the Mac Mini: `echo '<public key>' >> ~/.ssh/authorized_keys`
+3. Then reconnect with: `ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 mac@<tailscale-ip>`
+
+**SSH key inventory (local machine):** Check `~/.ssh/` before generating — existing keys may already be authorized on the Mac Mini. Try each: `id_ed25519_tailscale`, `hermes_tailscale_47`, `id_ed25519_termius`, `id_ed25519_alicloud`.
+
+## Codex on Mac Mini — Troubleshooting Quick-Start
+
+When the user reports Codex is "反复重新链接" (repeatedly reconnecting/crashing on the Mac Mini):
+
+**Most likely root cause**: Bubblewrap sandbox failure in launchd context.
+Codex uses bubblewrap for `workspace-write` sandboxing; when invoked from a
+launchd service context (no full user session namespace), bubblewrap fails and
+Codex crashes → launchd restarts it → repeat.
+
+**Workaround** (see `codex` skill for details):
+```bash
+codex exec --sandbox danger-full-access "<task>"
+```
+
+**Diagnostic commands (run on Mac Mini):**
+```bash
+# Check Codex process status
+ps aux | grep -i codex
+
+# Check launchd for Codex service
+launchctl list | grep -i codex
+
+# Check Codex crash logs
+ls -lt ~/Library/Logs/DiagnosticReports/ | grep -i codex | head -5
+
+# Test bubblewrap availability
+bwrap --version 2>&1
+
+# Check if running in a proper user session context
+launchctl managername
+```
+
+**Other suspects (if bubblewrap isn't the issue):**
+- OAuth token expired: check `~/.codex/auth.json`
+- OOM kill: check `log show --predicate 'eventMessage CONTAINS "codex"' --last 1h`
+- FD exhaustion: `lsof -p $(pgrep codex) 2>/dev/null | wc -l`
+
 ## Health Check & Robustness Audit
 
 For a comprehensive system health audit — checking launchd KeepAlive, log rotation, cron persistence, disk space, network watchdog, backup status, and recovery checklist — see:
