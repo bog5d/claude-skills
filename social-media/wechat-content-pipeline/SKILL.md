@@ -1,167 +1,217 @@
 ---
 name: wechat-content-pipeline
-description: "微信公众号一键全流程：选题→搜资料→写作→去AI味→标题→排版→配图→创建草稿。一句话从零到公众号后台。"
-version: 1.0.0
+description: "一步流：口述/初稿 → 直接出完整文章 → 排版配图 → 创建公众号草稿。一个入口，一次对话，一次确认。"
+version: 2.0.0
 author: Hermes Agent
 platforms: [macos]
 metadata:
   hermes:
-    tags: [wechat, publishing, pipeline, content, writing, chinese]
+    tags: [wechat, publishing, pipeline, content, writing, chinese, one-step]
     category: social-media
     related_skills: [content-research-writer, humanizer, wechat-quality-layout, wechat-publish-direct]
 ---
 
-# 微信公众号一键全流程
+# 微信公众号一步流
 
-**一句话从零到公众号草稿。** 把「写 + 排 + 发」三个 Skill 串成一条自动流水线。
+**一个入口，一次对话，一次确认。** 波总口述/发初稿 → Hermes 全自动出完整文章 → 排版配图 → 创建草稿。中间不确认大纲、不确认分段、不确认标题——这些全是 AI 内部决策。
 
 ## 核心哲学
 
-波总偏好**一个入口、一次对话、最小确认**。默认运行在「快捷模式」——只在创建草稿前停一次。不要在写作过程中反复问"大纲行不行""这一段行不行"。如果用户对最终结果不满意，他会告诉你改哪里，不需要提前替用户确认。
+波总只需要做三件事：
+1. **输入**：口述一堆想法，或发初稿
+2. **看一眼**：收到完整文章后的确认（唯一停顿点）
+3. **点发布**：去公众号后台点群发
+
+**其余全是 AI 的活。** 不要在写作过程中反复问"大纲行不行""这一段行不行"。
 
 ## When to Use
 
-触发条件：
-- "帮我一键发公众号"
-- "写一篇公众号文章并发布"
-- "从写到发一条龙"
-- "把这篇文章排版发布到公众号"
-- **口述/发初稿 → 直接出草稿**（最常用模式）
+任何内容发布场景自动走一步流：
+- 口述/发零散想法 → 「帮我发公众号」
+- 发初稿 → 「排版发布」
+- 指定选题 → 「写一篇 XX 的文章发公众号」
+- 任何提到「公众号」「发布」「发文章」的消息
 
-## 全流程一览
+## 一步流全貌
 
 ```
-你发选题/文章/口述
+波总输入（口述 / 初稿 / 选题）
   │
-  ▼ default: 快捷模式（只在最后停一次）
-┌─────────────────────────────────┐
-│  Phase 1-6: content-research-writer │
-│  搜→大纲→写→验证→去AI味→标题      │
-│  🟢 全自动（除非你喊停）             │
-└─────────────────────────────────┘
-  │ 定稿 (MD)
-  ▼
-┌─────────────────────────────────┐
-│  Phase 7: wechat-quality-layout    │
-│  中国风排版 + 配图占位             │
-│  🟢 自动                          │
-└─────────────────────────────────┘
-  │ 排版 HTML
-  ▼
-┌─────────────────────────────────┐
-│  Phase 8: wechat-publish-direct    │
-│  预检→配图上传→封面→创建草稿       │
-│  🔴 确认门: 创建草稿前（唯一确认点）  │
-└─────────────────────────────────┘
-  │ media_id
+  ▼  🟢 全自动（AI 内部决策，不中断用户）
+┌─────────────────────────────────────────┐
+│  Step 1: 搜资料（如需要）                 │
+│  Step 2: 结构化 + 写完整初稿               │
+│  Step 3: 去 AI 味 (humanizer)            │
+│  Step 4: 生成 3 个标题备选 → 内部选定最佳    │
+│  Step 5: 生成配图关键词 JSON               │
+│  Step 6: 排版 (quality_layout.py)         │
+│  Step 7: 替换配图占位符 (image_replace.py)  │
+└─────────────────────────────────────────┘
+  │
+  ▼  🔴 唯一确认门
+┌─────────────────────────────────────────┐
+│  展示：完整文章预览 + 标题 + 摘要 + 封面种子  │
+│  提问：「确认发布？」                       │
+│    → 确认：创建草稿，返回 media_id         │
+│    → 修改：按波总指示改                     │
+│    → 取消：结束                            │
+└─────────────────────────────────────────┘
+  │
   ▼
 🔚 去公众号后台 → 预览 → 群发
 ```
 
----
+## 速度模式
 
-## 口述模式（最常用）
+| 模式 | 触发词 | 行为 |
+|------|--------|------|
+| **一步流**（默认） | 「发公众号」 | 口述→写→排→确认→发，只在最后停一次 |
+| **极速** | 「不要停直接发」「全程自动」 | 跳过最后确认门，直接返回 media_id |
+| **只写不发** | 「先写着看看」「快速写不发」 | 只出完整文章，不排版不发布 |
+| **只排版发布** | 「排版发布」「这篇文章发一下」 | 已有定稿，直接排版→确认→发布 |
 
-波总口述或发一堆零散想法 → Hermes 结构化 → 出初稿 → 一次性展示全文 → 波总说"发" → 直接创建草稿。
+## Step 1-7 内部执行细则
 
-**不要在口述后问"要不要出大纲"、"要不要搜资料"**——直接出完整初稿，一次性展示。波总会告诉你哪里要改。
+### 触发识别
 
-## 快捷指令速查
+收到波总消息后，首先判断是否触发一步流：
+- 包含「发」「公众号」「文章」「排版」「发布」等关键词 → 触发
+- 波总发长篇文字/链接/文件 → 默认视为「要发的内容」→ 触发
+- 明确说「先别发」「只是聊天」→ 不触发
 
-| 你说 | 行为 |
-|------|------|
-| 「一键发公众号：{选题}」 | 搜→写→排→发，只在创建草稿前停一次 |
-| 「口述……帮我整理成文章发」 | 结构化→写初稿→展示全文→创建草稿前停 |
-| 「快速写不发」 | 只走 Phase 1-6，停在第 6 阶段，不排版不发布 |
-| 「排版发布」 | 已有定稿，直接走 Phase 7-8 |
-| 「干跑看看」 | Phase 1-8.3，不创建草稿 |
-## Phase 1-6: 写作（content-research-writer）
+### Step 1: 搜资料（条件触发）
 
-**默认模式：快捷自动。** 搜资料→出大纲→分段写→验证→去AI味→出标题，一气呵成，不在中间停下确认。
+**何时搜**：选题类（波总说「写一篇关于 XX 的文章」）→ 搜 3-5 个信息源。
+**何时不搜**：口述个人经历/观点、已有完整初稿 → 跳过。
 
-| Phase | 内容 | 默认模式 |
-|-------|------|------|
-| 1 | 搜资料 | 🟢 自动 |
-| 2 | 出大纲 | 🟢 自动（不展示、不确认） |
-| 3 | 分段写作 | 🟢 自动（一气呵成，写完展示全文） |
-| 4 | 资料验证 | 🟢 自动（个人叙事类自然跳过） |
-| 5 | 去AI味（humanizer） | 🟢 自动 |
-| 6 | 标题诊断 | 🟢 自动（生成后随全文一起展示） |
+搜索后不展示结果，直接用于写作。
 
-**极速模式（用户明确要求时）**：如果用户说「全程不要停，直接发」→ 跳过所有确认门，包括最后的创建草稿确认，直接返回 media_id。
+### Step 2: 结构化 + 写完整初稿
 
-**写作风格默认设定：**
+口述内容 → AI 自动：
+- 去口语冗余（保留语气，去掉「那个」「就是说」等填充词）
+- 理出主干逻辑（提炼 3-5 个核心观点）
+- 扩写成完整文章（800-2000 字，视素材量而定）
+
+**写作铁律**：
 - 口语化，像在跟朋友聊天
-- 不要新闻联播腔
-- 不要「首先其次最后」
-- 可以有个人的犹豫和不确定
+- 不要新闻联播腔，不要「首先其次最后」
+- 可以保留个人的犹豫和不确定
 - 避免空洞升华和强行比喻
+- 不展示大纲，不确认结构——直接出完整文章
 
----
+### Step 3: 去 AI 味
 
-## Phase 7: 排版 + 配图关键词（quality_layout.py）
+走 `humanizer` Skill 处理：
+- 替换 AI 高频词（「在当今」「值得注意的是」「综上所述」）
+- 加口语转折（「说实话」「其实」「后来发现」）
+- 保持原意不变
 
-**🟢 自动执行，不中断。**
+### Step 4: 标题生成
 
-步骤：
+生成 3 个标题备选，内部按以下标准选定最佳：
+- 有信息量，不说废话
+- 制造悬念或反差
+- ≤ 55 字节 UTF-8（中文约 18 字）
+- 不用「重磅」「深度」「揭秘」等营销词
 
-### 7.1 生成配图关键词 JSON
+**不展示 3 个标题让波总选**——AI 直接选最佳，只展示最终标题。
 
-**每篇文章创建一个 `/tmp/article_images.json`**，定义自己的配图关键词和中文 caption：
+### Step 5: 配图关键词
+
+根据文章内容自动生成 `/tmp/article_images.json`：
 
 ```json
 {
   "keywords": {
-    "chapter1": ["ai agent automation", "robot writing desk"],
-    "chapter2": ["linked chain connection", "workflow gears"],
-    "chapter3": ["checklist progress", "milestone markers"],
-    "chapter4": ["speed dial control", "three paths fork"],
-    "ending": ["open source sharing", "collaboration teamwork"]
+    "opening": ["english seed words", "matching content"],
+    "chapter1": ["..."],
+    "chapter2": ["..."],
+    "ending": ["..."]
   },
   "captions": {
-    "chapter1": "工作台示意",
-    "chapter2": "Skill 串联管线",
-    "chapter3": "从搜到发全流程",
-    "chapter4": "三种速度模式",
-    "ending": "开源，拿走直接用"
+    "opening": "中文配图描述",
+    "chapter1": "...",
+    "chapter2": "...",
+    "ending": "..."
   }
 }
 ```
 
-关键词取 picsum 英文种子词，caption 取中文描述。**必须和文章内容匹配**——不要用默认的农村/风景关键词。
+关键词用 picsum 英文种子词，caption 用中文描述。**必须和文章内容匹配**。
 
-### 7.2 调用排版引擎
+### Step 6-7: 排版 + 配图替换
 
 ```bash
-# 注意：quality_layout.py 在 wechat-publish-direct/references/ 下
 cd ~/.hermes/skills/social-media/wechat-publish-direct/references
 
+# Step 6: 排版
 python3 quality_layout.py /tmp/article_final.md \
   --theme chinese \
   --images /tmp/article_images.json \
   --output /tmp/article_layout.html
-```
 
-**关键参数**：`--images`（不是 `--image-keywords`），传入 JSON 覆盖默认配图关键词和 caption。
-
-### 7.3 替换配图占位符
-
-```bash
+# Step 7: 配图替换
 python3 image_replace.py /tmp/article_layout.html \
   --output /tmp/article_styled.html
 ```
 
-### 7.4 验证配图
+**错误处理**：排版失败 → 检查 quality_layout.py 路径和 JSON 格式 → 重试一次 → 仍失败则用纯文本 + 基础 CSS 降级。
 
-检查生成的 HTML 中的 caption 是否与内容匹配。如果出现「院坝里的夏夜」「路旁的碎西瓜」等不相关 caption → `--images` JSON 未生效，回去检查。
+### 确认门：展示预览
+
+排版成功后，向波总展示：
+
+```
+## 📄 文章预览
+
+**标题**：{title}（{字节数}/55）
+
+**摘要**：{digest}
+
+{完整文章正文，格式化展示}
+
+---
+**封面种子**：{cover_seed}
+**配图种子**：{body_seeds}
+**作者**：中本笨-BG
+**预估字数**：{字数}
+```
+
+然后问：「**确认发布？**」
+
+### 创建草稿
+
+波总确认后执行：
+
+```bash
+cd ~/.hermes/skills/social-media/wechat-publish-direct/scripts
+
+python3 publish_article.py \
+  --article /tmp/article_styled.html \
+  --cover-seed {自动提取} \
+  --body-seeds {自动提取} \
+  --author "中本笨-BG" \
+  --title "{选定标题}" \
+  --digest "{自动生成摘要}" \
+  --output /tmp/final.html
+```
+
+### 交付
+
+```
+## ✅ 已创建草稿
+
+**标题**：{title}
+**草稿 ID**：{media_id}
+**下一步**：打开公众号后台 → 草稿箱 → 预览 → 群发
+```
 
 ---
 
-## Phase 8: 创建草稿（wechat-publish-direct）
+## 预检清单（创建草稿前自动执行）
 
-### 8.1 预检 【🟢 自动】
-
-按顺序检查三项，任一项失败 → 停止并报告原因：
+每项自动检查，失败则报告原因不继续：
 
 ```bash
 # 1. Clash 规则
@@ -170,135 +220,29 @@ grep 'api.weixin.qq.com' ~/Library/Application\ Support/io.github.clash-verge-re
 # 2. 凭证
 grep -E 'WECHAT_SECRET|DEEPSEEK_API_KEY' /Users/mac/.hermes/profiles/her-m2/.env | grep -v '^\*\*\*'
 
-# 3. API 连通性（⚠️ 必须走 Clash 代理，本地 IP 不在微信白名单）
+# 3. API 连通性（必须走 Clash 代理）
 SECRET=$(grep WECHAT_SECRET /Users/mac/.hermes/profiles/her-m2/.env | head -1 | cut -d= -f2)
 https_proxy=http://127.0.0.1:7897 curl -s \
   "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=wx37940d296d26c91c&secret=${SECRET}" \
   --connect-timeout 5 | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
 ```
 
-预检通过 → 展示三盏绿灯，进入下一步。
-预检失败 → 报告具体是哪一项，不继续。
-
-### 8.2 收集发布参数
-
-从定稿中提取（或向用户确认）：
-
-| 参数 | 说明 | 限制 |
-|------|------|------|
-| `--title` | 文章标题（Phase 6 已选定） | ≤55 字节 UTF-8 |
-| `--digest` | 摘要（提炼金句，禁用第一句话凑数） | ≤115 字节 UTF-8 |
-| `--author` | 作者名 | 默认"王波" |
-| `--cover-seed` | 封面图种子词（描述整体氛围） | 英文关键词 |
-| `--body-seeds` | 正文配图种子词（逗号分隔，3-5 个） | 英文关键词 |
-
-**封面图和配图种子词由 AI 自动从文章内容提取**，展示给用户但不中断。
-
-### 8.3 干跑验证 【🟢 自动】
-
-```bash
-cd ~/.hermes/profiles/her-m2/skills/social-media/wechat-publish-direct/scripts
-
-python3 publish_article.py \
-  --article /tmp/article_styled.html \
-  --cover-seed {自动提取} \
-  --body-seeds {自动提取} \
-  --author "王波" \
-  --title "{Phase 6 选定的标题}" \
-  --digest "{自动生成摘要}" \
-  --dry-run \
-  --output /tmp/final.html
-```
-
-干跑成功 → 展示「排版验证通过，准备创建草稿」。
-干跑失败 → 报告错误，不继续。
-
-### 8.4 创建草稿 🔴 【确认门】
-
-展示最终参数摘要：
-
-```
-## 📤 即将创建公众号草稿
-
-| 项目 | 内容 |
-|------|------|
-| 标题 | {title}（{字节数}/55） |
-| 摘要 | {digest} |
-| 作者 | 王波 |
-| 封面种子 | {cover_seed} |
-| 配图种子 | {body_seeds} |
-| 预检 | ✅ Clash ✅ 凭证 ✅ API |
-| 干跑 | ✅ 通过 |
-```
-
-**停下来问：「创建草稿？」**
-
-用户确认后执行：
-
-```bash
-python3 publish_article.py \
-  --article /tmp/article_styled.html \
-  --cover-seed {cover_seed} \
-  --body-seeds {body_seeds} \
-  --author "王波" \
-  --title "{title}" \
-  --digest "{digest}" \
-  --output /tmp/final.html
-```
-
-成功 → 返回 media_id。
-失败 → 根据错误码速查表定位问题。
-
 ---
 
-## 交付
-
-```
-## ✅ 全流程完成
-
-**标题**：{title}
-**字数**：{字数}
-**草稿 ID**：{media_id}
-**下一步**：打开公众号后台 → 草稿箱 → 预览 → 群发
-
-📄 排版文件：/tmp/final.html
-```
-
----
-
-## Pitfalls
-
-1. **Phase 7 排版脚本路径**：`quality_layout.py` 和 `image_replace.py` 在 `wechat-publish-direct/references/` 下，**不在** `wechat-quality-layout/references/`。那个目录不存在。
-2. **`--images` 不是 `--image-keywords`**：参数名是 `--images`，传入 JSON 覆盖配图关键词。
-3. **Phase 8 输入格式**：如果传 HTML 给 `publish_article.py`，它自动检测并走直通模式（跳过 Markdown 渲染）。但如果是 Markdown → 走专属渲染——不会发生 HTML 转义。
-4. **配图 caption 验证**：生成后在 HTML 中搜索「院坝」「碎西瓜」「灶台」——如果出现 → `--images` JSON 没生效。
-5. **预检走代理**：微信 API 连通性检查必须走 Clash 代理（`https_proxy=http://127.0.0.1:7897`），直连 IP 不在白名单。
-6. **旧草稿清理**：同名草稿会触发 `draft/update`（可能失败），建议每次改 cover-seed 确保创建新草稿。
-
-| 你说 | 行为 |
-|------|------|
-| 「一键发公众号：{选题}」 | 只在大纲和创建草稿前确认，其余全自动 |
-| 「全部自动发：{选题}」 | 跳过所有确认门，只在最后创建草稿前停一次 |
-| 「快速写不发」 | 只走 Phase 1-6，停在第 6 阶段，不排版不发布 |
-| 「排版发布」 | 已有定稿，直接走 Phase 7-8 |
-| 「干跑看看」 | Phase 1-8.3，不创建草稿 |
-
----
-
-## 错误处理
+## 错误处理速查
 
 | 阶段 | 常见错误 | 处理 |
 |------|---------|------|
+| 排版 | quality_layout.py 路径不对 | 确认脚本在 wechat-publish-direct/references/ |
+| 排版 | JSON 格式错误 | 检查 `/tmp/article_images.json` 语法 |
+| 排版 | 配图 caption 不匹配 | `--images` JSON 未生效 → 重新传入 |
 | 预检 | IP 不在白名单 | 检查 Clash 节点 IP → 加到微信后台 |
-| 预检 | 凭证缺失 | 检查 .env 文件 |
-| 干跑 | 输出空 | 检查 article 路径 |
-| 创建 | 40164 | IP 白名单问题 — 检查 Clash 规则 + `https_proxy` |
-| 创建 | 45003 | 标题超 64 字节 — 截断到 55 字节 |
-| 创建 | 45004 | 摘要超 120 字节 — 截断到 115 字节 |
-| 创建 | 40005/40009 | 图片格式/大小问题 |
-| 创建 | 40007 | 封面图上传失败 |
-| 创建 | 47001 | draft/update 格式错误 → 自动 fallback 到 draft/add 创建新草稿 |
-| 创建 | HTML 渲染为代码 | `publish_article.py` 已加 HTML 直通检测：输入是 HTML 自动跳过 Markdown 渲染 |
+| 预检 | 凭证缺失 | 检查 her-m2/.env |
+| 创建 | 40164 | IP 白名单 → 确认 Clash 代理生效 |
+| 创建 | 45003 | 标题超 55 字节 → 截断 |
+| 创建 | 45004 | 摘要超 115 字节 → 截断 |
+| 创建 | 40007 | 封面图上传失败 → 换 seed 重试 |
+| 创建 | 47001 | draft/update 格式错 → fallback draft/add |
 
 ---
 
@@ -307,156 +251,37 @@ python3 publish_article.py \
 | 限制 | 值 | 说明 |
 |------|-----|------|
 | 标题 | 55 字节 UTF-8 | 中文 1 字≈3 字节，约 18 字 |
-| 摘要 | 115 字节 UTF-8 | 提炼金句，不用第一句话 |
+| 摘要 | 115 字节 UTF-8 | 提炼金句，禁用第一句话凑数 |
 | 封面图 | 1MB 以下 jpg/png | picsum 占位图 |
 | 正文图 | 1MB 以下 jpg/png | 每 400-600 字 1 张 |
-| 配图源 | picsum.photos | 随机风景照，非 AI 生成 |
-
----
+| 作者 | 中本笨-BG | 固定值 |
 
 ---
 
 ## Pitfalls
 
-1. **curl 默认不走系统代理** —— Phase 8.1 API 连通性测试必须显式加 `https_proxy=http://127.0.0.1:7897`，否则走本地 IP 会被微信 40164 拒绝。Clash 节点 IP（89.208.247.51）才是白名单里的。
-2. **quality_layout.py 不在 wechat-quality-layout** —— 脚本实际位于 `wechat-publish-direct/references/`，路径依赖此目录。
-3. **标题字节数不是字符数** —— `len(title.encode('utf-8'))` ≤ 55，中文 1 字≈3 字节，约 18 字封顶。
-4. **API 预检失败不要跳过** —— 预检失败直接创建草稿会报 40164，且草稿可能残留。
+1. **curl 必须走代理**：微信 API 连通性检查必须显式加 `https_proxy=http://127.0.0.1:7897`，直连 IP 不在白名单。
+2. **quality_layout.py 路径**：在 `wechat-publish-direct/references/` 下，不在 `wechat-quality-layout/`。
+3. **`--images` 不是 `--image-keywords`**：参数名是 `--images`。
+4. **标题字节数**：`len(title.encode('utf-8'))` ≤ 55，不是字符数。
+5. **不要反复确认**：波总的偏好是「一次对话出结果」。不要在写作过程中停下来问。如果对最终结果不满意他会告诉你改哪里。
 
 ---
 
 ## 与其他 Skill 的关系
 
-本 Skill 是编排层，具体执行委托给：
-
 | Skill | 负责 |
 |-------|------|
-| `content-research-writer` | Phase 1-6 写作流程 |
-| `humanizer` | Phase 5 去AI味 |
-| `wechat-quality-layout` | Phase 7 排版 |
-| `wechat-publish-direct` | Phase 8 发布 |
-
-## Absorbed Sibling Skills
-
-| Former Skill | Now In |
-|-------------|--------|
-| wechat-publish-direct | §直接发布（Clash 架构） |
-| wechat-publisher-relay | §阿里云中继运维 |
-| wechat-quality-layout | §排版引擎详情 |
+| `content-research-writer` | Step 1-2 搜资料 + 写作 |
+| `humanizer` | Step 3 去 AI 味 |
+| `wechat-quality-layout` | Step 5-6 排版引擎 |
+| `wechat-publish-direct` | 最终发布 + 预检 |
 
 ---
 
-## § 直接发布（Clash 架构）（absorbed from wechat-publish-direct）
+## 版本历史
 
-### 架构
-Mac Mini → Clash Verge（节点选择）→ 微信 API（不需 SOCKS5 隧道或阿里云中继）。
-
-### 预检清单（每次发布前执行）
-
-```bash
-# 1. Clash 规则
-grep 'api.weixin.qq.com' ~/Library/Application\\ Support/io.github.clash-verge-rev.clash-verge-rev/clash-verge.yaml
-
-# 2. 凭证
-grep -E 'WECHAT_SECRET|DEEPSEEK_API_KEY' /Users/mac/.hermes/profiles/her-m2/.env
-
-# 3. API 连通性（必须走 Clash 代理）
-https_proxy=http://127.0.0.1:7897 curl -s \\
-  "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=wx37940d296d26c91c&secret=\${WECHAT_SECRET}" \\
-  | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
-```
-
-### 发布脚本
-`publish_article.py` 支持两种输入模式：
-- **Markdown 输入（默认）**：确定性 Markdown → HTML 渲染管线
-- **HTML 直通**：检测 `<!DOCTYPE`/`<html` 开头自动切换，跳过 Markdown 渲染
-
-```bash
-cd ~/.hermes/profiles/her-m2/skills/social-media/wechat-publish-direct/scripts
-python3 publish_article.py \\
-  --article /tmp/article.md \\
-  --cover-seed lantern \\
-  --body-seeds road,night,watermelon \\
-  --title "标题" --digest "摘要" \\
-  --dry-run --output /tmp/final.html
-```
-
-### 关键限制
-- 标题：55 字节 UTF-8（中文约 18 字）
-- 摘要：115 字节 UTF-8
-- 封面图：1MB 以下 jpg/png
-- 正文图片：每 400-600 字 1 张，picsum.photos 占位
-
-### 错误码速查
-| 码 | 含义 | 解决 |
-|----|------|------|
-| 45003 | 标题超长 | 截断到 55 字节 |
-| 45004 | 摘要超长 | 截断到 115 字节 |
-| 40164 | IP 白名单 | 检查 Clash 规则 |
-| 40007 | 封面图缺失 | 封面图上传失败 |
-| 47001 | draft/update 格式错 | 自动 fallback 到 draft/add |
-
----
-
-## § 阿里云中继运维（absorbed from wechat-publisher-relay）
-
-### Server Info
-| Item | Value |
-|------|-------|
-| IP | 47.85.62.133 |
-| Hostname | iZ0xico4s35nx01ecj3anmZ |
-| SSH Key | `~/.ssh/id_ed25519_alicloud` |
-| Auth | Key only (password disabled) |
-| PM2 Service | `wx-publisher` on port 8787 |
-
-### SOCKS5 Tunnel（旧架构，当前已切换 Clash）
-```bash
-ssh -D 1080 -N -f -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133
-```
-
-### Quick Health Check
-```bash
-ssh -i ~/.ssh/id_ed25519_alicloud root@47.85.62.133 \\
-  'echo "=== HEALTH ===" && curl -s localhost:8787/health'
-```
-
-### Security (ALWAYS do in order)
-1. Disable Instance Connect backdoor
-2. Upload SSH public key
-3. Change root password
-4. Disable password auth + root login
-5. Update FRP token
-6. Configure firewall
-
-**⚠️ iptables trap**: `iptables -I INPUT -s IP -j DROP` can lock ALL ports on Alibaba Cloud Linux. Use `firewall-cmd` or security group instead.
-
----
-
-## § 排版引擎详情（absorbed from wechat-quality-layout）
-
-> **Path note**: All scripts (`quality_layout.py`, `image_replace.py`) live in `wechat-publish-direct/references/`, NOT in a separate wechat-quality-layout directory.
-
-### Usage
-```bash
-cd ~/.hermes/skills/social-media/wechat-publish-direct/references
-python3 quality_layout.py article.md --theme chinese --images article_images.json --output article_layout.html
-python3 image_replace.py article_layout.html --output article_final.html
-```
-
-### Design
-- 宣纸底色 `#faf9f6` + serif 字体族
-- 1.9 倍行距，16px 正文
-- 金色点缀 `#c4a882`
-- 智能配图：每 500-800 字 1 张
-
-### Custom Image Keywords
-Pass `--images` JSON with keywords and captions per section to override default tech theme.
-
----
-
-## 支持文件
-
-| 文件 | 用途 |
-|------|------|
-| `templates/image_keywords.json` | 配图关键词 JSON 模板，复制后按文章修改 |
-| `references/robustness-fixes-2026-07-07.md` | 2026-07-07 全流程测试发现的 4 个 Bug 及修复记录 |
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| 2.0.0 | 2026-07-22 | **一步流重构**：取消所有中间确认，Phase 1-6 压成一步，只留末尾一次确认门 |
+| 1.0.0 | - | 初版：Phase 1-8 分段流程，每段可确认 |
