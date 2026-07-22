@@ -428,6 +428,7 @@ python3 finance/scripts/generate_starfire.py
 - **⚠️ Profile 路径解析（血坑）**：在 finance profile 运行时，`~` 和 `HERMES_HOME` 指向 `/Users/mac/.hermes/profiles/finance/home/`，不是真实 home。脚本中需检测 `.hermes/profiles/` 并强制回退到 `/Users/mac`。否则 expenses.json/debts.json 会写入到 profile sandbox 而不是全局工作目录，导致 categories 丢失、数据不可见
 - **⚠️ 消费分类为"其他"？** 先检查 expenses.json 的 `categories` 字段是否为空。profile 路径问题会导致加载了空壳文件
 - **OCR 引擎优先级（v4.1 — 2026-07-05 已迁移至 SiliconFlow）**：🥇 SiliconFlow (Qwen/Qwen3-VL-32B-Instruct, openai协议) → 🥈 Apple Vision → 🥉 Tesseract。详见 `debt-screenshot-auto-update` 技能。⚠️ `vision_analyze` 工具读取的是 **default config 的 `auxiliary.vision`**，不是 profile 的 `vision` 段。两个位置必须同时配置。**跨 profile 配置铁律**：改 vision provider 时必须检查全部 5 个位置（default config + 4 个命名 profile），任何一个遗漏都会导致该 profile 回退到旧配置。API key 写入时可能被截断（`sk-yys...abvn` 仅13字符），写入后必须检查 key 长度（完整 SiliconFlow key 应 ≥40 字符）。
+- **🔥 env 变量从 terminal() 穿不透（2026-07-22 翻车）**：`SILICONFLOW_API_KEY` 在 gateway 进程中有，但 `terminal()` 子进程上下文里拿不到。`echo $SILICONFLOW_API_KEY` 返回空，`os.environ.get()` 返回 None。解决方案优先级：① `source ~/.hermes/profiles/finance/.env` 后再调用 → ② `execute_code` 继承网关环境 → ③ 直接传 key 进命令字符串 → ④ 问波总要 key。详见 `debt-screenshot-auto-update` 技能的 `references/siliconflow-vision-call.md`。
 - **📸 支付宝截图 OCR** — SiliconFlow (Qwen3-VL-32B) 对复杂布局识别明显优于 Apple Vision 和 Tesseract，但支付宝账单仍有一定难度。三引擎都失败时让波总口述
 - **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
 - **⚠️ 垫付逻辑方向（🛑 2026-07-06 翻车）** — 债主A帮波总垫付给债主B时：**A的债权增加**（amount += 垫付额），不是减少。因为A多掏了钱。正确公式：妈妈原¥135,100 + 垫付二爸¥10K = ¥145,100。不要写成¥135,100 - ¥10K = ¥125,100 ❌

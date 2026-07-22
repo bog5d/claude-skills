@@ -34,7 +34,54 @@ category: user-patterns
 
 遇到以上任一 → 直接告诉波总需要配置/充值/修复 API，不要自动降级到 Apple Vision 或 Tesseract。
 
-### 🥇 Qwen/DashScope — 默认首选
+### 🥇 SiliconFlow / Qwen3-VL（实际工作引擎，已验证于 2026-07-22）
+
+⚠️ **系统存在配置漂移**：env 中 `AUXILIARY_VISION_PROVIDER=alibaba` 但实际工作的 API key 是 `SILICONFLOW_API_KEY`。两套 key 和 endpoint 都配过，但 SiliconFlow 是目前唯一经过截图实测验证的。DashScope key 可能已过期或配额不足。
+
+#### 🔴 关键陷阱：terminal() 不继承网关环境变量
+
+Gateway 的环境变量（`SILICONFLOW_API_KEY`、`DASHSCOPE_API_KEY` 等）在 `terminal()` 子进程上下文中**不可用**。以下皆会空/None：
+- `echo $SILICONFLOW_API_KEY` → 空
+- `python3 -c "import os; print(os.environ.get('SILICONFLOW_API_KEY'))"` → None
+
+**正确获取 API key 的优先级链：**
+
+| 方法 | 做法 | 可靠性 |
+|------|------|--------|
+| ① source .env | terminal中先 `source ~/.hermes/profiles/finance/.env` | 🟢 最高 |
+| ② execute_code | 继承网关环境，直接调 | 🟡 有时被拦截 |
+| ③ 直接传 key | `python3 -c "API_KEY='xxx'"` | 🟢 100%（明文在命令历史） |
+| ④ 问波总要 | 上面全不通 → 波总手给 | 🟢 波总记得 |
+
+#### 硅基流动 API 直调（2026-07-22 可用）
+
+```python
+import json, base64, urllib.request
+
+API_KEY = 'sk-...'  # SILICONFLOW_API_KEY
+img = base64.b64encode(open('截图.jpg','rb').read()).decode()
+
+payload = {
+    'model': 'Qwen/Qwen3-VL-32B-Instruct',
+    'messages': [{'role':'user','content':[
+        {'type':'image_url','image_url':{'url':f'data:image/jpeg;base64,{img}'}},
+        {'type':'text','text':'提取所有金额数字：剩余待还、累计账单、还款日'}
+    ]}]
+}
+req = urllib.request.Request(
+    'https://api.siliconflow.cn/v1/chat/completions', 
+    data=json.dumps(payload).encode(),
+    headers={'Authorization': f'Bearer {API_KEY}', 'Content-Type':'application/json'})
+resp = json.loads(urllib.request.urlopen(req, timeout=90).read())
+print(resp['choices'][0]['message']['content'])
+```
+
+**Endpoint**: `https://api.siliconflow.cn/v1/chat/completions`
+**Model**: `Qwen/Qwen3-VL-32B-Instruct`
+**Timeout**: ≥90 秒（大图解码）
+**中文 OCR**：拿去花/花呗/度小满截图均测试通过
+
+### Qwen/DashScope — 备选引擎（未验证）
 
 #### ⚠️ 架构铁律：vision_analyze 读的是 default config 的 auxiliary.vision
 
@@ -432,7 +479,8 @@ Authorization: Bearer <token>
 | 文件 | 用途 |
 |------|------|
 | `references/visualization-and-gamification-research.md` | 游戏化设计研究 |
-| `references/vision-config-architecture.md` | 🆕 vision_analyze 配置架构、API key 截断陷阱、双位置配置指南 |
+| `references/vision-config-architecture.md` | vision_analyze 配置架构、API key 截断陷阱、双位置配置指南 |
+| `references/siliconflow-vision-call.md` | (2026-07-22) 硅基流动 API 直调模板 + env var 穿透问题解决 + 拿去花 OCR 对照 |
 
 ### 金额更新命令
 ```bash
