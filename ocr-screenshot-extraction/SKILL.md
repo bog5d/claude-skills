@@ -14,16 +14,18 @@ trigger: user sends screenshot, vision_analyze fails, model doesn't support visi
 ```
 步骤1：直接调用 vision_analyze（走 auxiliary.vision → Qwen-VL）
 步骤2：如果 vision_analyze 返回 401/403/超时 → 确认 API key 状态
-步骤3：如果 API key 确实不可用 → 告知用户「千问 API key 已失效，请提供新 key」
-步骤4：仅在用户明确说「放弃千问，用本地 OCR」后才降级到 Tesseract/Apple Vision
+步骤3：如果 API key 确认不可用 → 尝试 Firecrawl parse（云端 OCR，中文精度高）
+步骤4：如果 Firecrawl MCP 未连接 → 告知用户「千问 key 失效 + Firecrawl 不可用」
+步骤5：仅在用户明确说「用本地 OCR」后降级到 Apple Vision / EasyOCR / Tesseract
 ```
 
 **绝对禁止的操作路径（每次违反都被波总骂）：**
 - ❌ 「先用 Tesseract 试试看能不能读出来」——中文几乎必乱码，纯浪费时间
 - ❌ 跑 3+ 次不同参数的 Tesseract 再切千问——在第一步就该用千问
+- ❌ 千问不可用时跳过 Firecrawl parse 直接降级到 Tesseract——Firecrawl 是波总专门注册的 OCR 工具
 - ❌ 在 skill 已经写明千问优先的情况下仍走老路径
 
-> **波总铁律（2026-06-09，多次重申至 2026-07-14）**：图片文字识别默认用千问 VL。不要先尝试 Tesseract/Apple Vision。千问直接理解图片内容，无需 OCR 中间层，中文识别精度远超本地方案。
+> **波总铁律（2026-06-09，多次重申至 2026-07-22）**：图片文字识别默认用千问 VL。千问不可用时优先 Firecrawl parse（云端 OCR）。不要先尝试 Tesseract/Apple Vision。千问/Firecrawl 直接理解图片内容，无需 OCR 中间层，中文识别精度远超本地方案。
 
 ## 🥇 首选路径：通义千问 Qwen-VL-Max（云端视觉，唯一推荐）
 
@@ -103,7 +105,39 @@ for prof in ['her-m2','default','english-tutor','finance']:
 
 ## 本地 OCR（Qwen-VL-Max 不可用时的降级方案）
 
-以下方案仅在通义千问不可用时使用。
+### 🥈 Firecrawl Parse（云端 OCR，优先于本地）
+
+Firecrawl 的 parse 端点支持图片/PDF 文件上传并做 LLM 驱动的 OCR 提取。**中文识别精度远高于 Tesseract**，是千问 VL 不可用时的首选降级。
+
+```json
+// Phase 1: 上传文件 → 获取 uploadRef
+{
+  "name": "firecrawl_parse",
+  "arguments": {
+    "filePath": "/absolute/path/to/image.jpg",
+    "contentType": "image/jpeg",
+    "formats": ["json"],
+    "jsonOptions": {
+      "prompt": "识别并提取图中所有中文和英文文字，保留原始排版。",
+      "schema": { "type": "object", "properties": { "text": { "type": "string" } } }
+    }
+  }
+}
+// Phase 1 返回 → 本地执行 curl 上传命令
+// Phase 2: 用 uploadRef 获取结果
+{
+  "name": "firecrawl_parse",
+  "arguments": {
+    "uploadRef": "<phase-1-upload-ref>",
+    "formats": ["json"],
+    "jsonOptions": { ... }
+  }
+}
+```
+
+⚠️ **前提条件**：Firecrawl MCP 必须已连接（`hermes mcp status` 检查）。未连接时跳过此步，直接降级到下方本地方案。
+
+### 🥉 本地 OCR 引擎
 
 ### 安装（一次性）
 
@@ -141,5 +175,35 @@ Vision Revision 3 + Lanczos 2× 缩放 + 自动增强 + 锐化。**无需任何 
 reader = easyocr.Reader(["ch_sim", "en"]); reader.readtext("/path/to/img.jpg")
 ```
 
-### ⚠️ Tesseract（仅紧急备选）
-数字 5→9 误读，开头 "1" 被吞。金额需波总确认。
+### 🥉 Tesseract（仅紧急备选 — 必须预处理）
+
+**裸跑 Tesseract 中文几乎必乱码**，必须走预处理管线才能获得可用结果。
+
+#### 预处理脚本（Python PIL，一行命令）
+
+```bash
+python3 -c "
+from PIL import Image, ImageEnhance, ImageFilter
+img = Image.open('/path/to/screenshot.jpg')
+img = img.resize((img.width*2, img.height*2), Image.LANCZOS)   # 2× 放大
+img = ImageEnhance.Contrast(img).enhance(2.0)                    # 对比度翻倍
+img = img.filter(ImageFilter.SHARPEN)                             # 锐化
+img.save(os.path.expanduser('~/ocr_preprocessed.png'))
+"
+```
+
+#### ⚠️ macOS sandbox 陷阱
+
+Tesseract 在 macOS 上**无法读取 /tmp 目录**（sandbox 限制），预处理后的图片必须存到 `~/` 下：
+```bash
+# ❌ 错误：存 /tmp，Tesseract 报 "image file not found"
+# ✅ 正确：存 ~/ 或项目目录
+tesseract ~/ocr_preprocessed.png stdout -l chi_sim+eng
+```
+
+#### Tesseract 固有缺陷（预处理后仍有）
+
+- 数字 5→9 误读，开头 "1" 被吞
+- 中文字符误读（如 "剩余待还" → "简余待还"）
+- 金额类数据**必须人工确认**，不可直接入库
+- 详细预处理配方 + 效果对比见 `references/tesseract-preprocessing.md`

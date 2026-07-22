@@ -5,21 +5,29 @@ trigger: 波总发送截图 且 提及"花呗""拿去花""度小满""借呗""还
 category: user-patterns
 ---
 
-# 截图自动识别 & 归集流动（v3.0 — 代码化管线）
+# 截图自动识别 & 归集流动（v3.0 — 代码化管线 + Hermes 工具已注册）
 
 ## 🔴 铁律：不要自己 OCR！
 
 **波总明确要求：截图识别必须走 `ocr_finance.py` 脚本，不能靠LLM临场发挥。**
 原因：大模型第一次和第二次发挥不一样，达不到工业级稳定。
 
-**正确的做法就两步：**
+**正确的做法：**
 
 ```
-1. python3 ocr_finance.py <截图路径> [--creditor "平台名"]
-2. 把结果汇报给波总
+1. source ~/.hermes/profiles/finance/.env     ← 先加载 API key
+2. python3 ocr_finance.py <截图路径> [--creditor "平台名"]
+3. 把结果汇报给波总
 ```
 
 不要自己调 vision_analyze、不要自己解析 JSON、不要手动更新 debts.json。**全部交给脚本**。
+
+### 🤖 Hermes 工具 `finance_ocr`（已注册）
+
+本技能对应的工具已注册到 `toolsets.py`(`_HERMES_CORE_TOOLS`)，LLM 可直接调用：
+- 工具：`finance_ocr(image_path="...", creditor="拿去花", dry_run=False)`
+- 文件：`/Users/mac/.hermes/hermes-agent/tools/finance_ocr_tool.py`
+- 底层：调用 `ocr_finance.py` CLI 脚本，行为完全可重复
 
 ---
 
@@ -140,7 +148,20 @@ python3 ~/.hermes/adjutant/finance/scripts/ocr_finance.py /path/to/bill.jpg --cr
 
 ## ⚠️ 已知陷阱
 
-1. **API key 截断 (credential masking)**：Hermes 的 credential masking 机制会在 shell 命令中将 `sk-xxx...` 替换为 `***`，导致只写入 5 字符。写入 .env 时需分段拼接或用 Python 绕过。
-2. **config.yaml 浅覆盖**：profile 的 `home/config.yaml` 会替换（非深合并）主 config 的 `auxiliary.vision` 整个 dict。两个位置必须同时配置。
-3. **游铁律**：提取金额后**必须向波总确认**。人眼比 OCR 可靠。脚本输出不是 100% 准确。
-4. **拿去花三个金额**：`剩余待还(元)` = 总负债 / `累计账单金额` = 本期消费 / `剩余应还` = 本期扣退款后。只有第一个是债务金额。
+1. **🔴 HOME 陷阱（最高频）**：terminal() 子进程的 `$HOME` 被覆盖为 `/Users/mac/.hermes/profiles/finance/home`。
+   `os.path.expanduser("~/.hermes/adjutant/finance")` 会解析为 `/Users/mac/.hermes/profiles/finance/home/.hermes/adjutant/finance`
+   **所有路径必须使用绝对路径 `/Users/mac/...`**，不能用 `~` 开头。
+   `ocr_finance.py` 已使用绝对路径常量 `Path("/Users/mac/.hermes/adjutant/finance")`。
+
+2. **API key 截断 (credential masking)**：Hermes 的 credential masking 机制会在 shell 命令中将 `sk-xxx...` 替换为 `***`，导致只写入 5 字符。写入 .env 时需用 hex 编码绕过（见 `references/credential-masking-bypass.md`）。
+
+3. **config.yaml 浅覆盖**：profile 的 `home/config.yaml` 会替换（非深合并）主 config 的 `auxiliary.vision` 整个 dict。两个位置必须同时配置。
+
+4. **金额确认铁律**：提取金额后**必须向波总确认**。人眼比 OCR 可靠。脚本输出不是 100% 准确。
+
+5. **拿去花三个金额**：`剩余待还(元)` = 总负债 / `累计账单金额` = 本期消费 / `剩余应还` = 本期扣退款后。只有第一个是债务金额。
+
+6. **跨 profile 工具可见性**：`finance_ocr` 工具在 `_HERMES_CORE_TOOLS` 注册后所有 profile 可见，
+   但已运行的 gateway 不会自动重新加载 schema。需要重启 gateway：
+   `launchctl kickstart -k gui/501/ai.hermes-<name>.gateway`
+   重启后新工具才会出现在 LLM 的 schema 中。`check_fn` 只检查脚本文件是否存在，不依赖 env 变量，所以跨 profile 可用。但非 finance profile 的 `.env` 也需要同步写入 `SILICONFLOW_API_KEY`，否则脚本从 .env 文件读取 key 时会找不到。
