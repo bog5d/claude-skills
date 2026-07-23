@@ -114,6 +114,13 @@ delegate_task(
 - 替换 `macos-computer-use` 截图-点击模式
 - macOS 需要 Python ≥ 3.12（homebrew），PEP 668 需要 `--break-system-packages`
 
+### Flint Chart（flint-chart-mcp）
+- 声明式图表生成 MCP 服务器 — Vega-Lite / ECharts / Chart.js 后端
+- 安装：`npm install -g flint-chart-mcp`（注意包名无 `@microsoft` 前缀）
+- API 陷阱：参数用 camelCase（`chartType` 非 `chart_type`），图表类型用 Title Case（`"Bar Chart"` 非 `"bar"`）
+- Chart.js 后端不支持 Heatmap，遇到该类型用 vega-lite 或 echarts
+- 详见 `references/flint-chart-mcp.md`
+
 ## Absorbed Sibling Skills
 
 | Former Skill | Now In |
