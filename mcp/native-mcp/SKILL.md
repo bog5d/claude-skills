@@ -202,6 +202,41 @@ If an MCP tool call fails, any credential-like patterns in the error message are
 - Bearer tokens
 - Generic `token=`, `key=`, `API_KEY=`, `password=`, `secret=` patterns
 
+## Pitfalls
+
+### Config path is profile-scoped, not global
+
+The skill references `~/.hermes/config.yaml`, but the actual config path is **profile-specific**: `~/.hermes/profiles/<profile>/config.yaml`. Always discover the real path with:
+
+```bash
+hermes config path
+```
+
+On multi-profile setups (her-m2, default, english-tutor), each profile has its own `config.yaml` and MCP servers must be configured per-profile.
+
+### npm package name ≠ expected scope
+
+When searching for npm-based MCP servers, do not assume a `@org/package-name` scope. Always search first:
+
+```bash
+npm search <keyword>
+```
+
+Example: Flint Chart MCP is published as `flint-chart-mcp` (no `@microsoft/` prefix). Trying `@microsoft/flint-chart-mcp` returns 404.
+
+### npm install -g may timeout at default 60s
+
+On slow networks, `npm install -g <pkg>` can exceed the default 60s timeout. Bump to 180s or more. Alternative: install locally and use `npx` with the local path.
+
+### Agent cannot edit config.yaml — use `hermes config set`
+
+Hermes blocks `patch`/`write_file`/`terminal` from modifying config files. The user must run:
+
+```bash
+hermes config set mcp_servers.<name>.command npx
+hermes config set mcp_servers.<name>.args '["-y", "flint-chart-mcp"]'
+```
+
 ## Troubleshooting
 
 ### "MCP SDK not available -- skipping MCP tool discovery"

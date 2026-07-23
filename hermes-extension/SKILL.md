@@ -42,6 +42,7 @@ Class-level umbrella for developing and extending Hermes Agent — adding tools,
 
 ## Common Pitfalls (Cross-Cutting)
 
+- **Cross-environment file paths**: When a session spans multiple environments or the agent was previously running under a different username, verify the current `$HOME` and `$USER` before writing files. Paths like `/Users/wepon/...` won't exist when the active user is `mac`. Always check `whoami` and `echo $HOME` before creating project directories. Use `~` for home-relative paths (`~/codebuddy/cheshire/`) — they survive user switches.
 - **Credential protection**: Hermes gateway locks `.env` and `config.yaml` at runtime. Use `terminal` to bypass write_file/patch restrictions, or stop the gateway before editing.
 - **Config file read-before-patch**: When a config.yaml is protected by the gateway, `patch` may fail with "last read with offset/limit pagination". **Always read the full file first** (`read_file` with no offset/limit, or `cat` via terminal) before attempting `patch`. Alternatively use `sed -i` via terminal.
 - **Multi-profile sync**: New tools with API keys need env vars in ALL active profile `.env` files.
