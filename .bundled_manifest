@@ -210,6 +210,7 @@ segment-anything-model:7f1317da421fb8eada27aeacdbb21d30
 self-improvement-mechanism:ef32f3c3b791c39537cea999b955e932
 serving-llms-vllm:92d66ae1f1112924634fcdcff2f86bc7
 shell-company-analysis:8c5001c949091ddb3ed35f571dd33ce5
+shell-control-acquisition:18439855a3e94c6000f6daaa08da352e
 simplify-code:ce60afb0693d241e54dcb4eb73f98e4b
 sketch:f8833126112824f6a916c69630cfd042
 skillopt-integration:9c2a9632bba2ac160eba6db24470eb4f
