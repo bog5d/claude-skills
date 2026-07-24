@@ -1,9 +1,9 @@
 {
   "last_report_path": "/Users/mac/.hermes/logs/curator/20260717-170412",
-  "last_run_at": "2026-07-17T17:04:12.235332+00:00",
+  "last_run_at": "2026-07-24T17:42:31.223603+00:00",
   "last_run_duration_seconds": 992.948987,
-  "last_run_summary": "auto: 46 marked stale, 1 reactivated; llm: ---\n\n## Consolidation pass complete\n\n### Summary of work\n\nThis was a sweeping umbrella-building consolidation pass across 247 agent-created skills, reducing the active skill surface dramatically through cluster-based merging. Every prefix c…\narchived 63 skill(s):\n  • adjutant-add-phase → adjutant-system\n  • adjutant-brain-dump → adjutant-system\n  • adjutant-memory-sync → adjutant-system\n  • anki-import-parser → game-engine-complete\n  • ascii-video → ascii-art\n  • auto-retrospective → three-layer-memory-system\n  • blogwatcher → arxiv\n  • bog-communication-patterns → adjutant-system\n  • claude-design → taste-anti-slop\n  • converge-bare-exceptions → software-development\n  … and 53 more\nfull report: hermes curator status\nkeep an umbrella stable: hermes curator pin adjutant-system",
+  "last_run_summary": "auto: 16 marked stale, 5 reactivated",
   "last_run_summary_shown_at": null,
   "paused": false,
-  "run_count": 8
+  "run_count": 9
 }

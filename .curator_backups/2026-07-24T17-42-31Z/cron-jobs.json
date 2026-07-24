@@ -154,21 +154,22 @@
       "schedule_display": "every 30m",
       "repeat": {
         "times": null,
-        "completed": 1517
+        "completed": 3158
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-15T09:02:18.916153+08:00",
-      "next_run_at": "2026-06-19T22:47:49.146143+08:00",
-      "last_run_at": "2026-06-19T22:17:49.146143+08:00",
+      "next_run_at": "2026-07-25T01:43:22.089394+08:00",
+      "last_run_at": "2026-07-25T01:13:22.089394+08:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
       "deliver": "local",
       "origin": null,
-      "no_agent": true
+      "no_agent": true,
+      "fire_claim": null
     },
     {
       "id": "04fed24cbca2",
@@ -259,15 +260,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 3559
+        "completed": 8344
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-23T10:26:41.339057+08:00",
-      "next_run_at": "2026-06-19T22:30:49.487428+08:00",
-      "last_run_at": "2026-06-19T22:20:49.487428+08:00",
+      "next_run_at": "2026-07-25T01:44:26.317077+08:00",
+      "last_run_at": "2026-07-25T01:34:26.317077+08:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -275,7 +276,8 @@
       "origin": null,
       "enabled_toolsets": null,
       "workdir": null,
-      "profile": null
+      "profile": null,
+      "fire_claim": null
     },
     {
       "id": "9e8df0035fa9",
@@ -296,20 +298,21 @@
       "schedule_display": "every 5m",
       "repeat": {
         "times": null,
-        "completed": 6610
+        "completed": 15766
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-24T23:58:11.695971+08:00",
-      "next_run_at": "2026-06-19T22:27:54.847030+08:00",
-      "last_run_at": "2026-06-19T22:22:54.847030+08:00",
+      "next_run_at": "2026-07-25T01:44:30.767963+08:00",
+      "last_run_at": "2026-07-25T01:39:30.767963+08:00",
       "last_status": "ok",
       "last_error": null,
       "deliver": "local",
       "origin": null,
-      "last_delivery_error": null
+      "last_delivery_error": null,
+      "fire_claim": null
     },
     {
       "id": "bc721a9176e7",
@@ -330,20 +333,21 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 3334
+        "completed": 8109
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-24T23:58:11.696102+08:00",
-      "next_run_at": "2026-06-19T22:30:54.559853+08:00",
-      "last_run_at": "2026-06-19T22:20:54.559853+08:00",
-      "last_status": "ok",
-      "last_error": null,
+      "next_run_at": "2026-07-25T01:44:26.154574+08:00",
+      "last_run_at": "2026-07-25T01:34:26.154574+08:00",
+      "last_status": "error",
+      "last_error": "Script exited with code 1",
       "deliver": "local",
       "origin": null,
-      "last_delivery_error": null
+      "last_delivery_error": null,
+      "fire_claim": null
     },
     {
       "id": "85ba4bf2c1a9",
@@ -398,20 +402,21 @@
       "schedule_display": "0 3 * * *",
       "repeat": {
         "times": null,
-        "completed": 24
+        "completed": 59
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-05-24T23:58:11.696117+08:00",
-      "next_run_at": "2026-06-20T03:00:00+08:00",
-      "last_run_at": "2026-06-19T03:00:36.487209+08:00",
+      "next_run_at": "2026-07-25T03:00:00+08:00",
+      "last_run_at": "2026-07-24T03:00:03.051111+08:00",
       "last_status": "ok",
       "last_error": null,
       "deliver": "local",
       "origin": null,
-      "last_delivery_error": null
+      "last_delivery_error": null,
+      "fire_claim": null
     },
     {
       "id": "1fa49ed0087e",
@@ -590,7 +595,179 @@
       "profile": "her-m2",
       "updated_at": "2026-06-19T19:19:18.835462+08:00",
       "disabled_reason": "past one-time prompt job disabled during no-agent cron hardening"
+    },
+    {
+      "id": "a0c4622ba5c5",
+      "name": "DeepSeek\u6bcf\u65e5\u4f59\u989d\u8ffd\u8e2a",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "ds_balance_tracker.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 0 * * *",
+        "display": "0 0 * * *"
+      },
+      "schedule_display": "0 0 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 30
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-25T07:22:31.467606+08:00",
+      "next_run_at": "2026-07-26T00:00:00+08:00",
+      "last_run_at": "2026-07-25T00:01:01.113011+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "fire_claim": null
+    },
+    {
+      "id": "05a3e44e8031",
+      "name": "DeepSeek\u4f59\u989d\u6bcf\u5c0f\u65f6\u8f6e\u8be2",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "ds_cost_recon.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */4 * * *",
+        "display": "0 */4 * * *"
+      },
+      "schedule_display": "0 */4 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 193
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-26T14:05:06.787570+08:00",
+      "next_run_at": "2026-07-25T04:00:00+08:00",
+      "last_run_at": "2026-07-25T00:01:01.840408+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "fire_claim": null
+    },
+    {
+      "id": "c18f45b55200",
+      "name": "DeepSeek\u6bcf\u65e5\u6210\u672c\u5bf9\u8d26",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "ds_daily_report.sh",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 9 * * *",
+        "display": "0 9 * * *"
+      },
+      "schedule_display": "0 9 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 28
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-26T14:05:09.790646+08:00",
+      "next_run_at": "2026-07-25T09:00:00+08:00",
+      "last_run_at": "2026-07-24T09:00:58.595300+08:00",
+      "last_status": "error",
+      "last_error": "Script exited with code 1\nstderr:\nTraceback (most recent call last):\n  File \"/Users/mac/.hermes/scripts/ds_cost_recon.py\", line 231, in <module>\n    daily_report()\n  File \"/Users/mac/.hermes/scripts/ds_cost_recon.py\", line 221, in daily_report\n    recent_avg = sum(spends[-3:]) / 3 if spends else 0\n                                         ^^^^^^\nUnboundLocalError: cannot access local variable 'spends' where it is not associated with a value\nstdout:\n==================================================\n\ud83d\udccb DeepSeek \u6210\u672c\u65e5\u62a5 \u2014 2026-07-24\n==================================================\n\ud83d\udcb0 \u5f53\u524d\u4f59\u989d: \u00a542.65\n\ud83d\udcc9 \u672c\u6708\u7d2f\u8ba1\u6d88\u8017: \u00a516.16\n\u23f0 \u4eca\u65e5\u6ce2\u52a8: \u00a542.90 \u2192 \u00a542.65 (2\u6b21\u91c7\u6837)",
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "fire_claim": null
+    },
+    {
+      "id": "1200f19d5c8c",
+      "name": "\u8c22\u5a01\u90ae\u4ef6\u56de\u590d\u76d1\u63a7",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "check_ustc_reply.sh",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 60,
+        "display": "every 60m"
+      },
+      "schedule_display": "every 60m",
+      "repeat": {
+        "times": null,
+        "completed": 273
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-07-13T13:07:22.483301+08:00",
+      "next_run_at": "2026-07-25T02:37:30.271891+08:00",
+      "last_run_at": "2026-07-25T01:37:30.271891+08:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "telegram",
+        "chat_id": "8447296166",
+        "chat_name": "\u4e2d\u672c \u7b28\u7b28",
+        "thread_id": null
+      },
+      "enabled_toolsets": null,
+      "workdir": null,
+      "profile": null
     }
   ],
-  "updated_at": "2026-06-19T22:22:54.847135+08:00"
+  "updated_at": "2026-07-25T01:39:30.768072+08:00"
 }
