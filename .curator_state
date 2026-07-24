@@ -1,8 +1,8 @@
 {
-  "last_report_path": "/Users/mac/.hermes/logs/curator/20260717-170412",
+  "last_report_path": "/Users/mac/.hermes/logs/curator/20260724-174231",
   "last_run_at": "2026-07-24T17:42:31.223603+00:00",
-  "last_run_duration_seconds": 992.948987,
-  "last_run_summary": "auto: 16 marked stale, 5 reactivated",
+  "last_run_duration_seconds": 2673.700635,
+  "last_run_summary": "auto: 16 marked stale, 5 reactivated; llm: ## Consolidation pass complete\n\n**Processed 26 clusters across 250 skills → 95 consolidated (archived with absorption).**\n\n### Human summary\n\n| Cluster | Umbrella | Absorbed |\n|---------|----------|----------|\n| **github** | `github` | gith…\narchived 42 skill(s):\n  • aider-expert → cursor-default-executor\n  • apple-design → taste-anti-slop\n  • ascii-video → ascii-art\n  • claude-code → cursor-default-executor\n  • codex → cursor-default-executor\n  • cross-profile-skills-sync → multi-profile-setup\n  • cursor-acp-integration → cursor-default-executor\n  • debt-screenshot-auto-update → finance-hub\n  • deepseek-cache-optimization → hermes-infrastructure\n  • desktop-screenshot-telegram → telegram-file-delivery\n  … and 32 more\nfull report: hermes curator status\nkeep an umbrella stable: hermes curator pin ai-qujing-video",
   "last_run_summary_shown_at": null,
   "paused": false,
   "run_count": 9
