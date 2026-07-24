@@ -35,6 +35,7 @@ This umbrella absorbed the following GitHub-specific skills as labeled subsectio
 | github-issues | §Issue 管理 |
 | github-pr-workflow | §PR 工作流 |
 | github-repo-management | §仓库管理 |
+| git-precheck | `references/git-precheck.md` |
 
 ---
 

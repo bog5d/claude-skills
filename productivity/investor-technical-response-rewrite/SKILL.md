@@ -96,6 +96,11 @@ trigger: "用户要求'重写机构答复材料'、'改写给投资人的技术�
 
 ## 相关技能
 
-- `institutional-qa-generation` — 从原始资料生成问答口径（本技能重写已有材料）
 - `formal-document-generator` — 如需输出 Word/PDF 正式文档
 - `criteria-driven-evaluation` — 如需按投资机构评分标准评估材料
+
+## Absorbed Skills
+
+| Former Skill | Now In |
+|-------------|--------|
+| institutional-qa-generation | `references/institutional-qa-generation.md` |

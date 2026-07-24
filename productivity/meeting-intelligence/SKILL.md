@@ -96,6 +96,12 @@ JOIN meetings m ON s.meeting_id = m.id
 WHERE s.content LIKE '%借壳%';
 ```
 
+## Absorbed Skills
+
+| Former Skill | Now In |
+|-------------|--------|
+| meeting-transcript-archive | `references/meeting-transcript-archive.md` |
+
 ## Pitfalls
 
 - **大文本保存**：Telegram 消息中的超长转写文字必须完整写入文件，不能只写头部/摘要！本次 session 曾把会议3的完整转写写成1091字节的元数据头部，导致入库脚本读到0段。
