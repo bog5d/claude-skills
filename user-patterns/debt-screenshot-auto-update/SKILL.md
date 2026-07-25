@@ -108,6 +108,28 @@ python3 -c "import os; print(f'Key长度: {len(os.environ[\"SILICONFLOW_API_KEY\
 
 ---
 
+## ⚠️ 关键防呆："余额页" vs "还款记录页"
+
+**`ocr_finance.py` 现已支持两种截图类型，行为完全不同：**
+
+| 截图类型 | OCR page_type | 行为 |
+|---------|--------------|------|
+| **余额概览页** | `"balance"` | 用 remaining_amount 更新 debts.json，差额 = 还款金额 |
+| **还款记录页** | `"history"` | 提取 latest_payment_amount 记录单笔交易，不更新 debts.json |
+
+**🛑 已知血坑（2026-07-25 踩到并修复）：**
+
+旧版 OCR 只有一种逻辑：看到余额变化就 `diff = old - new` 当作一笔还款。但余额页的差额可能累积了多笔历史还款，不是一笔。例：波总发来一张度小满余额页 ¥16,278→¥1,489，OCR 记了一笔 ¥14,788 的还款——实际最新分期还款只有 ¥3,532。
+
+**修复：** prompt 增加 `page_type` + `latest_payment_amount` + `latest_payment_date` 字段。历史页直接提取单笔金额，不计算累积差额。
+
+**波总纠正后的操作模板：**
+1. 波总说"不是 14000，是 3000多"
+2. 说明第一张截图是余额概览页（误作单笔还款），第二张才是准确的还款记录页
+3. 先发第二张图跑 OCR 验证数据
+4. 手动修 transactions.json 里那条错误的巨大金额记录（debts.json 余额通常是对的不用动）
+5. cp 同步 + git push
+
 ## ⛔ 管线 B：消费账单截图（微信/支付宝）
 
 仅当波总明确说"这是账单/消费记录"时才走此路径。否则默认走管线 A。

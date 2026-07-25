@@ -431,7 +431,7 @@ python3 finance/scripts/generate_starfire.py
 - **🔥 env 变量从 terminal() 穿不透（2026-07-22 翻车）**：`SILICONFLOW_API_KEY` 在 gateway 进程中有，但 `terminal()` 子进程上下文里拿不到。`echo $SILICONFLOW_API_KEY` 返回空，`os.environ.get()` 返回 None。解决方案优先级：① `source ~/.hermes/profiles/finance/.env` 后再调用 → ② `execute_code` 继承网关环境 → ③ 直接传 key 进命令字符串 → ④ 问波总要 key。详见 `debt-screenshot-auto-update` 技能的 `references/siliconflow-vision-call.md`。
 - **📸 支付宝截图 OCR** — SiliconFlow (Qwen3-VL-32B) 对复杂布局识别明显优于 Apple Vision 和 Tesseract，但支付宝账单仍有一定难度。三引擎都失败时让波总口述
 - **截图可以同时更新债务和消费**——先判断截图类型（平台还款页 vs 微信/支付宝账单），走对应管线
-- **⚠️ 垫付逻辑方向（🛑 2026-07-06 翻车）** — 债主A帮波总垫付给债主B时：**A的债权增加**（amount += 垫付额），不是减少。因为A多掏了钱。正确公式：妈妈原¥135,100 + 垫付二爸¥10K = ¥145,100。不要写成¥135,100 - ¥10K = ¥125,100 ❌
+- **⚠️ 垫付逻辑方向（🛑 2026-07-06 翻车）** — 债主A帮波总垫付给债主B时：**A的债权增加**（amount += 垫付额），不是减少。因为A多掏了钱。正确公式：妈妈原¥135,100 + 垫付二爸¥10K = ¥145,100。不要写成¥135,100 - ¥10K = ¥125,100 ❌\n- **⚠️ OCR 双页面类型铁律（🛑 2026-07-25 踩坑）** — `ocr_finance.py` 现在同时支持"余额概览页"(balance)和"还款记录页"(history)。**余额页的金额变化可能是多笔还款累积的结果，不是单笔还款。** 如果波总纠正金额（如"不是14000是3000多"），说明误将余额页差额当成了单笔还款。修复：只修 transactions.json，不动 debts.json（余额通常是正确的）。详见 `debt-screenshot-auto-update` 技能的"关键防呆"章节。
 - **⚠️ 原始合同金额 vs 当前余额** — 平台债可能有合同总额和当前余额两个概念。用 `original_amount` 字段记录合同总额（如工行贷¥96,000），`amount` 记录当前余额（如¥68,000）。进度计算基于 `amount` vs baseline，与 `original_amount` 无关。
 - **⚠️ 数据编辑后必须让波总确认数字 — 生成HTML后发给他看** — 改完数据就 push 是掩耳盗铃。必须：改数据 → cp 同步 → diff 确认 → 生成 HTML → **发给波总确认** → 他确认后再 git push。如果他说不对立即重新审计，不要说"修好了"。
 

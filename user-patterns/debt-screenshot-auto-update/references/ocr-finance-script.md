@@ -4,35 +4,44 @@
 
 主脚本位于：`/Users/mac/.hermes/adjutant/finance/scripts/ocr_finance.py`
 
-不入 skill 目录（太大，且是独立脚本需要被 Hermes 工具引用）。本文件仅为指向性参考。
-
 ## 调用方式
 
 ```bash
-python3 /Users/mac/.hermes/adjutant/finance/scripts/ocr_finance.py <图片路径> [--dry-run] [--creditor "平台名"]
+source ~/.hermes/profiles/finance/.env
+python3 ocr_finance.py <图片路径> [--dry-run] [--creditor "平台名"]
 ```
 
 ## 包含的 Hermes 工具
 
-```bash
-finance_ocr(image_path="...", creditor="拿去花", dry_run=False)
-```
+`finance_ocr(image_path="...", creditor="拿去花", dry_run=False)`
 
-工具文件：`/Users/mac/.hermes/hermes-agent/tools/finance_ocr_tool.py`
-注册位置：`/Users/mac/.hermes/hermes-agent/toolsets.py` → `_HERMES_CORE_TOOLS`
+## 7步流程
 
-## 7步流程（代码级稳定，无 LLM 发挥）
+| 步骤 | 功能 |
+|------|------|
+| 1 | API Key 自检 |
+| 2 | API 连通性测试 |
+| 3 | OCR 识别（Qwen3-VL） |
+| 4 | 债务匹配 |
+| 5 | 判断截图类型 + 更新 |
+| 6 | 同步 repo + 游戏化 |
+| 7 | Git push |
 
-| 步骤 | 功能 | 稳定手段 |
-|------|------|---------|
-| 1 | API Key 自检 | 环境变量 → .env 文件两级 fallback |
-| 2 | API 连通性测试 | 401/403 → 明确报错"余额不足请充值" |
-| 3 | OCR 识别 | 固定 prompt, temperature=0, 硬编码 endpoint+model |
-| 4 | 债务匹配 | 名字模糊匹配 → 金额兜底 |
-| 5 | 金额验证 + 更新 | >0 且 <¥100 万，原子写入(.tmp替换) |
-| 6 | 同步 repo + 游戏化 | shutil.copy2 + subprocess |
-| 7 | Git push | 全自动 add+commit+push |
+## 2026-07-25 重要修复：双截图类型支持
 
-## 2026-07-22 全链路验证结果
+**问题：** 旧版只有一种模式——读到 remaining_amount 就 `diff = old - new` 当还款。余额概览页显示的是多笔还款累积后的余额变化，diff 不是单笔还款。
 
-全部 7/7 步骤通过，Git push 成功。
+**修复：** OCR prompt 新增：
+- `page_type`: "balance" | "history" | "unknown"
+- `latest_payment_amount`: 最新一笔还款金额
+- `latest_payment_date`: 最新一笔还款日期
+
+**逻辑分支：**
+- `page_type == "history"`: 提取 `latest_payment_amount` 直接记录单笔交易
+  - 不同步更新 debts.json（除非同时有 remaining_amount）
+- `page_type == "balance"` 或 fallback: 走老逻辑用 remaining_amount 更新余额
+
+**注意：** 历史页 OCR 可能失败（复杂表格布局），千问VL偶尔返回空。此时：
+1. 先试 --dry-run 预览
+2. 不行就用 tesseract 垫底
+3. 再不行让波总口述
