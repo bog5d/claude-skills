@@ -349,7 +349,80 @@ prompt="你刚因 <原因> 重启。之前在做 <任务>。请查 memory 系统
 ### 健康巡检
 - Cron：每 6 小时检测 Gateway（job `3a23bebc959b`），宕机告警
 
-## 测试验证
+### 退役 / 完全移除（Decommission）
+
+### 触发条件
+
+考虑完全移除 tdai 当满足 **任一**：
+- `curl -s localhost:8420/health` 正常但所有 recall/search 测试返回 0 结果（无实用价值）
+- 日志持续膨胀（>50MB/周）但 warmup/embedding 一直失败
+- 需要释放磁盘（典型：~1.2GB 数据 + ~92MB 日志）
+- 用户明确要求清理"异常消耗"
+
+### 诊断：异常消耗分析
+
+判断一个服务是否属于"异常消耗"：
+
+| 维度 | 正常 | 异常 | tdai 典型值 |
+|------|------|------|------------|
+| CPU | <5% idle | >30% 持续 | 0%（不消耗） |
+| MEM | <200MB RSS | >500MB RSS | 36MB（可忽略） |
+| **磁盘数据** | <100MB | >500MB | 1.2GB（✅ 异常） |
+| **日志膨胀** | <10MB/月 | >50MB/月 | 92MB/8天（✅ 严重） |
+| **API 费用** | 有产出 | 零产出仍消耗 | 无回调（DEEPSEEK 在 env 但 LLM 被禁用） |
+| **功能产出** | 搜索有命中 | 搜索永远 0 结果 | 0 结果（✅ 异常） |
+
+→ **核心发现**：CPU/MEM 健康 ≠ 服务健康。tdai 的低资源消耗掩盖了无功能产出的事实。磁盘膨胀（日志 92MB + 数据 1.2GB）和零搜索命中才是真正的"异常"。
+
+### 退役流程
+
+```bash
+# ⚠️ 前置条件：确认 Hermes 不依赖 tdai
+# 检查 config.yaml 中的 memory.provider
+grep -A3 'memory:' ~/.hermes/config.yaml
+# 如果 memory.provider = memory_tencentdb → 先改成 mem0 或其他 provider
+# 否则 Hermes 会报 provider not found，建议先切：
+
+# 可选：快速备份到外部存储（ExFAT 小文件极慢，大文件 tar 更好）
+# 注意：ExFAT 备份 1.2GB 小文件可能超时 -> 跳过备份也可接受（数据已证实无用）
+tar czf /Volumes/T7\ Shield/tdai-backup-$(date +%Y%m%d_%H%M%S).tar.gz \
+  -C ~ .memory-tencentdb .hermes/logs/tdai-gateway.log 2>/dev/null || \
+  echo "SKIP — backup failed (ExFAT slow), continuing anyway"
+
+# 1. 停止 launchd 服务
+launchctl bootout gui/501/ai.tdai.memory-gateway 2>/dev/null || true
+
+# 2. 删除 plist（防止下次登录自动启动）
+rm ~/Library/LaunchAgents/ai.tdai.memory-gateway.plist
+
+# 3. 删除数据目录（释放 ~1.2GB）
+rm -rf ~/.memory-tencentdb/
+
+# 4. 截断日志（释放 ~92MB）
+truncate -s 0 ~/.hermes/logs/tdai-gateway.log 2>/dev/null || \
+  : > ~/.hermes/logs/tdai-gateway.log
+
+# 5. ⚠️ 杀残留进程（关键步骤！launchctl bootout 后可能还有进程在跑）
+lsof -ti :8420 | xargs kill 2>/dev/null || true
+
+# 6. 验证完全清除
+echo "--- launchctl list ---"
+launchctl list | grep -i tdai || echo "CLEAN (no tdai in launchctl)"
+echo "--- port 8420 ---"
+lsof -i :8420 -P || echo "CLEAN (port 8420 free)"
+echo "--- data dir ---"
+ls -la ~/.memory-tencentdb/ 2>&1 || echo "CLEAN (data dir gone)"
+```
+
+### 退役陷阱
+
+1. **残留 Node 进程**：`launchctl bootout` 只移除 launchd 注册，不一定会杀掉已经在跑的 Node 进程。必须显式 `lsof -ti :8420 | xargs kill`。
+2. **ExFAT 备份极慢**：1.2GB + 数千小文件的备份在 ExFAT 上可能数分钟超时。如果 tar 的进度很慢，直接跳过（数据已证实无实用价值）。
+3. **配置残留**：`~/.hermes/.env` 中的 `DEEPSEEK_API_KEY` 是 Hermes 本身需要的（不是 tdai 独有），不要误删。
+4. **删除前确认依赖**：如果 Hermes config.yaml 中 `memory.provider: memory_tencentdb`，删 tdai 后 Hermes 会报 provider 不可用。应先用 `hermes config set memory.provider mem0` 切换。
+5. **SIGKILL 免杀**：本进程（Hermes Gateway）禁止执行 `launchctl bootout gui/501/ai.hermes.gateway*`、`kill` 等自杀操作。tdai 的 `ai.tdai.memory-gateway` 可安全操作。
+
+# 测试验证
 
 ```bash
 # 健康检查（关注 embeddingService 字段）
