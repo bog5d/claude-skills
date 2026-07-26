@@ -67,8 +67,11 @@ PY=/Users/mac/.hermes/hermes-agent/venv/bin/python3
 $PY ~/ppt-master/skills/ppt-master/scripts/pptx_to_svg.py <input.pptx> -o svg_output/
 
 # Step 2: SVG → PNG 预览（可选，用于 Telegram 查看）
+mkdir -p previews/png/
 for f in svg_output/*.svg; do
-  $PY -c "import cairosvg; cairosvg.svg2png(url='$f', write_to='${f%.svg}.png')"
+  out="previews/png/$(basename "$f" .svg).png"
+  $PY -c "import cairosvg; cairosvg.svg2png(url='$f', write_to='$out')" && \
+    echo "✓ $out" || echo "✗ FAILED: $f"
 done
 
 # Step 3: 逐页修改（示例：替换第3页的文本）
@@ -183,9 +186,36 @@ $PY ~/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py <project>
 - 封面/概念页可以配图，卡片网格/表格页不配图
 - 图文的 y 间距至少留 40px（>卡片内部行间距），不能靠 10px 缝隙
 
-### 2. SVG 中 `&` 必须转义为 `&amp;`
-svg_to_pptx.py 会因 XML 解析错误（`not well-formed (invalid token)`）失败。中文标题中"总结 & 行动建议"的`&`是高频触发点。
-**修复：** `grep -n ' & ' svg_output/*.svg | grep -v '&amp;'` 查找后逐一替换。
+### 2. SVG 是严格 XML — HTML 命名实体全部非法
+
+**根因：** `svg_to_pptx.py` 和 `finalize_svg.py` 使用 `xml.etree.ElementTree` 解析 SVG。XML 只识别 **5 个预定义实体**：
+
+```
+&amp;   &lt;   &gt;   &quot;   &apos;
+```
+
+**HTML 命名实体（`&yen;` `&nbsp;` `&mdash;` `&copy;` `&bull;` `&raquo;` 等）全部触发 `ParseError: undefined entity`，svg_to_pptx 直接崩溃。**
+
+**两种表现：**
+- `&` 字符（如"总结 & 行动建议"）→ `not well-formed (invalid token)`
+- HTML 命名实体（如 `&yen;516万`）→ `undefined entity`
+
+**修复：**
+```bash
+# 检查所有命名实体（排除 5 个合法 XML 实体）
+grep -o '&[a-zA-Z]\{2,\};' svg_output/*.svg | grep -v -E '&(amp|lt|gt|quot|apos);' | sort -u
+
+# 批量替换（每种实体具体处理）
+sed -i '' 's/&yen;/\&#165;/g' svg_output/*.svg   # ¥ → XML 数值实体
+sed -i '' 's/&nbsp;/\&#160;/g' svg_output/*.svg  # 不换行空格
+sed -i '' 's/&mdash;/\&#8212;/g' svg_output/*.svg  # 长破折号
+# 通用：直接在生成脚本中用 Unicode 字符替代所有 HTML 命名实体
+```
+
+**预防（生成脚本中）：**
+- 不要用 `&yen;`、`&nbsp;` 等 HTML 命名实体 — **直接嵌入 Unicode 字符**（`¥`、`\u00A5`、` `）
+- f-string 中：`f'...¥{num}万...'` 而非 `f'...&yen;{num}万...'`
+- Python 生成 SVG 时，所有非 ASCII 符号一律用原始 Unicode 或 XML 数值实体（`&#165;`）
 
 ### 2b. Python生成SVG时禁止单字母变量名
 **踩坑实录**：用Python脚本批量生成SVG时，如果定义了`H()`函数但变量`H=720`也在作用域内，`f'viewBox="0 0 {W} {H}"'`会输出`<function H at 0x...>`而非`720`。

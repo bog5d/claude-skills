@@ -1407,14 +1407,14 @@
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.189602+00:00",
     "created_by": null,
-    "last_patched_at": "2026-07-26T06:40:24.708388+00:00",
-    "last_used_at": "2026-07-26T06:38:52.533687+00:00",
-    "last_viewed_at": "2026-07-26T06:38:52.531820+00:00",
-    "patch_count": 4,
+    "last_patched_at": "2026-07-26T07:05:23.047490+00:00",
+    "last_used_at": "2026-07-26T07:04:18.534526+00:00",
+    "last_viewed_at": "2026-07-26T07:04:18.532925+00:00",
+    "patch_count": 7,
     "pinned": false,
     "state": "active",
-    "use_count": 6,
-    "view_count": 6
+    "use_count": 8,
+    "view_count": 8
   },
   "pretext": {
     "archived_at": null,
