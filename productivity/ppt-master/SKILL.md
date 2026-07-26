@@ -113,6 +113,25 @@ $PY ~/ppt-master/skills/ppt-master/scripts/pptx_to_svg.py output.pptx -o svg_ver
 
 如需 PDF 最终交付，需先 `brew install --cask libreoffice`。
 
+### 批量 SVG→PNG 的正确写法（防坑版）
+
+```bash
+# 创建输出目录（必须！cairosvg 的 write_to 不自动创建父目录）
+mkdir -p previews/png/
+
+# 逐页转换，带失败检测
+for f in previews/svg/slide_*.svg; do
+  out="previews/png/$(basename "$f" .svg).png"
+  $PY -c "import cairosvg; cairosvg.svg2png(url='$f', write_to='$out')" && \
+    echo "✓ $out" || echo "✗ FAILED: $f"
+done
+```
+
+关键点：
+1. **`mkdir -p` 先跑** — cairosvg 的 `write_to` 不会自动创建父目录，缺则静默失败
+2. **不要 inline `write_to='${f%.svg}.png'`** — 会写到 SVG 所在目录，沦为临时文件
+3. **`&& echo` 检测** — cairosvg 异常时返回非零退出码，不加检测则 for 循环无感知继续走
+
 ## 常用命令
 
 ```bash
@@ -186,6 +205,23 @@ Meson 需要 3.10+。必须用 venv Python 3.11。
 
 ### 6. finalize_svg 必须先于 svg_to_pptx
 否则圆角矩形不会被转换为 Path 元素，PowerPoint 渲染异常。
+
+### 7. cairosvg.svg2png() 静默写入失败（CAIRO_STATUS_WRITE_ERROR）
+
+**症状**：逐页转换时每行都输出 "done"，`ls png/` 却找不到文件。bash `for` 循环不捕获 cairosvg 异常。
+
+**根因**：`write_to` 指定的路径的**父目录不存在**。cairosvg 底层调用 `cairo_surface_write_to_png()` 失败但不抛 Python 异常供循环捕获 —— 只返回非零退出码，而 Shell 循环 `for f in ...; do cmd "$f"; done` 默认不检测退出码。
+
+**修复**：
+1. **先创建输出目录**：`mkdir -p previews/png/`
+2. **每行加检测**：`&& echo "✓ $out" || echo "✗ $f failed"` — 让失败可见
+3. 不要用 `write_to='${f%.svg}.png'` 写到 SVG 目录，同一目录混进临时 PNG 会污染后续操作
+
+### 8. 预览 PNG 尺寸与预期不符
+cairosvg 默认输出分辨率由 SVG 的 viewBox 决定。如需特定分辨率（如 Telegram 缩略图），传 `scale=0.5` 等参数
+```python
+cairosvg.svg2png(url='slide.svg', write_to='out.png', scale=0.5)
+```
 
 ## AI 生图配置（硅基流动）
 
