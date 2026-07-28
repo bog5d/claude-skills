@@ -183,32 +183,6 @@ current.
   falls back between mirrors (overpass-api.de → overpass.kumi.systems)
 - `distance` and `directions` use `--to` flag for the destination (not positional)
 - If a zip code alone gives ambiguous results globally, include country/state
-- **OSM hotel data in China rarely includes room-type details** (bed sizes,
-  family rooms, twin/double config). The `nearby` command finds hotel names
-  and locations reliably, but to answer questions like "which hotel has two
-  1.5m beds" you MUST follow up with targeted `web_search` + browser on the
-  hotel's official site or booking platform. See workflow below.
-
-## Workflow: Hotel Search with Room-Type Requirements
-
-When the user asks for hotels near a place with specific room needs
-(e.g., "family of 4, twin beds ≥1.5m, one room"):
-
-1. **Geocode + nearby** — one-shot to get the candidate list
-   ```bash
-   python3 $MAPS search "上海紫竹国际大厦"   # → lat, lon
-   python3 $MAPS nearby LAT LON hotel --radius 2000 --limit 15
-   ```
-2. **Sort by proximity** — pick the 3-5 closest that look promising
-   (upscale hotels are more likely to have family rooms and non-standard beds)
-3. **Supplement with web_search** — OSM has zero room-config data for
-   Chinese hotels. Search each candidate for room-type details:
-   `"<hotel name>" 家庭房 OR 亲子房 OR 双床 床宽 房型`
-4. **Browser to official site** if web_search results are vague. Hotel
-   booking sites (携程, Agoda) often block `web_extract`; use browser
-   snapshots from the hotel's own website instead.
-5. **Synthesize** — present the best-fit rooms with distances, not a full
-   dump of all 15 candidates.
 
 ## Verification
 

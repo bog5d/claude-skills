@@ -84,17 +84,10 @@ message.send.backend.auth.type = "password"
 message.send.backend.auth.cmd = "pass show google/app-password"
 
 # Gmail folder mapping. Without these, save-to-Sent fails after
-# SMTP delivery succeeds and `himalaya template send` exits non-zero.
-# Any caller that retries on that error will re-run SMTP — duplicate
+# SMTP delivery succeeds (Gmail's Sent folder is `[Gmail]/Sent Mail`,
+# not `Sent`), and `himalaya message send` exits non-zero. Any
+# caller that retries on that error will re-run SMTP — duplicate
 # emails to recipients. Always include this block for Gmail.
-#
-# ⚠️ Folder names depend on Gmail UI language. Always run
-# `himalaya folder list` first to see the actual server-side names.
-# Common variants:
-#   English:  [Gmail]/Sent Mail, [Gmail]/Drafts, [Gmail]/Trash
-#   Chinese:  [Gmail]/已发邮件, [Gmail]/草稿, [Gmail]/已删除邮件
-#   German:   [Gmail]/Gesendet, [Gmail]/Entwürfe, [Gmail]/Papierkorb
-#   French:   [Gmail]/Messages envoyés, [Gmail]/Brouillons, [Gmail]/Corbeille
 folder.aliases.inbox = "INBOX"
 folder.aliases.sent = "[Gmail]/Sent Mail"
 folder.aliases.drafts = "[Gmail]/Drafts"
@@ -160,14 +153,12 @@ trash = "Trash"
 > `[accounts.NAME.folder.alias]` (singular). v1.2.0 silently
 > ignores that sub-section — TOML parses without error, but the
 > alias resolver never reads it. Every lookup then falls through
-> to the canonical name. On Gmail (where `sent` could be
-> `[Gmail]/Sent Mail`, `[Gmail]/已发邮件`, etc. depending on UI
-> language) this means save-to-Sent fails *after* SMTP delivery
-> succeeds, and `himalaya template send` exits non-zero.
+> to the canonical name. On Gmail (where `sent` is actually
+> `[Gmail]/Sent Mail`) this means save-to-Sent fails *after* SMTP
+> delivery succeeds, and `himalaya message send` exits non-zero.
 > Any caller (agent, script, user) that retries on that error
-> code will re-run the send — producing duplicate emails to
-> recipients. Always use `folder.aliases.X` (plural) AND verify
-> server folder names with `himalaya folder list`.
+> code will re-run the send — including SMTP — producing duplicate
+> emails to recipients. Always use `folder.aliases.X` (plural).
 
 ## Multiple Accounts
 

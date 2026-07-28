@@ -1,7 +1,7 @@
 ---
 name: design-md
 description: Author/validate/export Google's DESIGN.md token spec files.
-version: 1.0.0
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -35,10 +35,6 @@ For purely visual inspiration or layout examples, use `popular-web-designs`
 instead. For *process and taste* when designing a one-off HTML artifact
 from scratch (prototype, deck, landing page, component lab), use
 `claude-design`. This skill is for the *formal spec file* itself.
-
-For a real-world worked example with a complex dark-theme system (24 colors,
-12 type scales, 27 components, 4-file delivery package), see
-`references/cangjie-fos-example.md`.
 
 ## File anatomy
 
@@ -102,7 +98,7 @@ Public Sans for everything except small all-caps labels...
 
 | Type | Format | Example |
 |------|--------|---------|
-| Color | `#` + hex (sRGB) | `"#1A1C1E"` |
+| Color | any CSS color (hex, `rgb()`, `oklch()`, named) | `"#1A1C1E"`, `"oklch(62% 0.18 250)"` |
 | Dimension | number + unit (`px`, `em`, `rem`) | `48px`, `-0.02em` |
 | Token reference | `{path.to.token}` | `{colors.primary}` |
 | Typography | object with `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `fontFeature`, `fontVariation` | see above |
@@ -114,8 +110,10 @@ pressed) are **separate component entries** with related key names
 
 ## Canonical section order
 
-Sections are optional, but present ones MUST appear in this order. Duplicate
-headings reject the file.
+Sections are optional, but present ones should appear in this order. The
+linter flags out-of-order sections (`section-order`, warning) and duplicate
+headings — consumers per the spec reject duplicates, so fix both before
+returning the file.
 
 1. Overview (alias: Brand & Style)
 2. Colors
@@ -154,8 +152,11 @@ npx -y @google/design.md lint DESIGN.md
 # Compare two versions, fail on regression (exit 1 = regression)
 npx -y @google/design.md diff DESIGN.md DESIGN-v2.md
 
-# Export to Tailwind theme JSON
-npx -y @google/design.md export --format tailwind DESIGN.md > tailwind.theme.json
+# Export to Tailwind v3 theme JSON (`tailwind` is a back-compat alias)
+npx -y @google/design.md export --format json-tailwind DESIGN.md > tailwind.theme.json
+
+# Export to a Tailwind v4 CSS @theme block (--color-*, --text-*, --radius-*, ...)
+npx -y @google/design.md export --format css-tailwind DESIGN.md > theme.css
 
 # Export to W3C DTCG (Design Tokens Format Module) JSON
 npx -y @google/design.md export --format dtcg DESIGN.md > tokens.json
@@ -164,73 +165,52 @@ npx -y @google/design.md export --format dtcg DESIGN.md > tokens.json
 npx -y @google/design.md spec --rules-only --format json
 ```
 
-All commands accept `-` for stdin. `lint` returns exit 1 on errors. Use the
-`--format json` flag and parse the output if you need to report findings
-structurally.
+All commands accept `-` for stdin. `lint` returns exit 1 on errors (warnings
+alone exit 0). `export` exits 0 on a successful export regardless of lint
+findings in the source — run `lint` separately to gate on those. Output is
+JSON by default; parse it if you need to report findings structurally.
 
-### Lint rule reference (what the 7 rules catch)
+On Windows, the `design.md` bin name can collide with the `.md` file
+association (silent no-op or the file opens in an editor). Use the dot-free
+alias: `npx -y -p @google/design.md designmd lint DESIGN.md`.
+
+### Lint rule reference (the 9 rules, as of CLI 0.3.0)
 
 - `broken-ref` (error) — `{colors.missing}` points at a non-existent token
-- `duplicate-section` (error) — same `## Heading` appears twice
-- `invalid-color`, `invalid-dimension`, `invalid-typography` (error)
-- `wcag-contrast` (warning/info) — component `textColor` vs `backgroundColor`
-  ratio against WCAG AA (4.5:1) and AAA (7:1)
-- `unknown-component-property` (warning) — outside the whitelist above
+- `contrast-ratio` (warning) — component `textColor` vs `backgroundColor`
+  below WCAG AA (4.5:1)
+- `missing-primary` (warning) — colors defined but no `primary` token
+- `missing-typography` (warning) — colors defined but no typography tokens
+- `orphaned-tokens` (warning) — color tokens never referenced by a component
+- `section-order` (warning) — sections out of the canonical order
+- `unknown-key` (warning) — top-level YAML key that looks like a typo of a
+  schema key (`colours:` → `colors:`); custom extension keys stay silent
+- `token-summary`, `missing-sections` (info) — counts and absent optional
+  sections
 
 When the user cares about accessibility, call this out explicitly in your
 summary — WCAG findings are the most load-bearing reason to use the CLI.
 
-## Workflow: dual export (Tailwind + CSS Variables)
-
-If the project is NOT exclusively Tailwind-based, generate **both** exports:
-the Tailwind `tailwind.theme.json` (for Tailwind-based tools) AND a native CSS
-variables file (for vanilla HTML/CSS skills like `guizang-ppt`, `reveal-ppt`,
-`architecture-diagram`, `sketch`). The CSS file resolves all token references
-to literal values so it's self-contained.
-
-```bash
-# Tailwind (as documented)
-npx -y @google/design.md export --format tailwind DESIGN.md > tailwind.theme.json
-
-# CSS Variables — manual generation from the YAML tokens
-# Output shape: :root { --color-primary: #xxx; --color-secondary: #xxx; ... }
-# Resolve ALL token references to literal hex/px values.
-```
-
-A typical companion file is `<project>-theme.css` with sections for colors,
-typography, spacing, rounded, and component-level variables. Every token in
-the DESIGN.md YAML front matter gets a `--` prefixed CSS variable. Token
-references like `{colors.plasma}` are resolved to the literal hex value.
-
-For a complete delivery, also write a `design-system-demo.html` that renders
-every component in a visual gallery. See `references/cangjie-fos-example.md`
-for a real-world 4-file package (DESIGN.md + tailwind.theme.json +
-cangjie-theme.css + design-system-demo.html).
-
 ## Pitfalls
 
-- **Purple/violet/indigo primary colors often fail WCAG AA on white.**
-  `#7b5cff` on white = 4.36:1 (under AA 4.5:1). The Tailwind default
-  `indigo-500` (#6366f1) is 4.18:1 — also fails. When choosing a primary
-  color in the purple-blue range, pre-check contrast against both white
-  text-on-color AND color text-on-dark-background. Darken by 5-8% luminance
-  to pass (e.g. `#7b5cff` → `#5a3fd4`). The lint CLI catches this but
-  only for component pairs, not for the color definition itself — check
-  early before building out 27 components.
 - **Don't nest component variants.** `button-primary.hover` is wrong;
   `button-primary-hover` as a sibling key is right.
 - **Hex colors must be quoted strings.** YAML will otherwise choke on `#` or
   truncate values like `#1A1C1E` oddly.
 - **Negative dimensions need quotes too.** `letterSpacing: -0.02em` parses as
   a YAML flow — write `letterSpacing: "-0.02em"`.
-- **Section order is enforced.** If the user gives you prose in a random order,
-  reorder it to match the canonical list before saving.
-- **`version: alpha` is the current spec version** (as of Apr 2026). The spec
-  is marked alpha — watch for breaking changes.
+- **Section order matters even though the linter only warns.** If the user
+  gives you prose in a random order, reorder it to match the canonical list
+  before saving — spec-compliant consumers expect it.
+- **Typography sub-property typos are silently dropped.** As of CLI 0.3.0 a
+  typo like `fontwight:` produces no finding and the value vanishes from
+  exports — double-check sub-property names against the schema
+  (`fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`,
+  `fontFeature`, `fontVariation`).
+- **`version: alpha` is the current spec version** (as of Jul 2026, CLI
+  0.3.0). The spec is marked alpha — watch for breaking changes.
 - **Token references resolve by dotted path.** `{colors.primary}` works;
   `{primary}` does not.
-- **When patching a DESIGN.md, re-read the full file first.** Partial reads
-  (offset/limit) produce stale `old_string` context that won't match.
 
 ## Spec source of truth
 

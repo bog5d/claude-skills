@@ -88,33 +88,16 @@ folder.aliases.drafts = "Drafts"
 folder.aliases.trash = "Trash"
 ```
 
-> **⚠️ CRITICAL: IMAP save failure ≠ SMTP send failure.** On Gmail,
-> SMTP delivery happens *before* the IMAP save-to-Sent step. If
-> himalaya exits non-zero with `cannot add IMAP message: … Folder
-> doesn't exist`, the email has almost certainly been delivered —
-> only the local Sent-folder copy failed. **Do NOT retry the send.**
-> Retrying produces a duplicate email to every recipient. Instead,
-> verify delivery by listing the sent folder with the correct alias:
-> `himalaya envelope list --folder "[Gmail]/已发邮件" --page-size 1`.
->
 > **Heads up on the alias syntax.** Pre-v1.2.0 docs used a
 > `[accounts.NAME.folder.alias]` sub-section (singular `alias`).
 > v1.2.0 silently ignores that form — TOML parses fine, but the
 > alias resolver never reads it, so every lookup falls through to
 > the canonical name. On Gmail this means save-to-Sent fails *after*
-> SMTP delivery succeeds, and `himalaya template send` exits non-zero.
+> SMTP delivery succeeds, and `himalaya message send` exits non-zero.
 > Any caller (agent, script, user) that retries on that exit code
-> will re-run the entire send — producing duplicate emails. Always
-> use `folder.aliases.X` (plural, dotted keys, directly under
-> `[accounts.NAME]`).
->
-> **Gmail folder names depend on UI language.** If the Gmail account
-> uses Chinese UI, the sent folder is `[Gmail]/已发邮件`, NOT
-> `[Gmail]/Sent Mail`. Set the alias accordingly:
-> `folder.aliases.sent = "[Gmail]/已发邮件"`. Always verify the
-> actual server-side names with `himalaya folder list` before setting
-> aliases — different language settings produce different folder names
-> (e.g. German: `[Gmail]/Gesendet`, French: `[Gmail]/Messages envoyés`).
+> will re-run the entire send — including SMTP — producing duplicate
+> emails to recipients. Always use `folder.aliases.X` (plural, dotted
+> keys, directly under `[accounts.NAME]`).
 
 ## Hermes Integration Notes
 
@@ -230,16 +213,16 @@ Note: `himalaya message write` without piped input opens `$EDITOR`. This works w
 
 ### Move/Copy Emails
 
-Move to folder:
+Move to folder (target folder comes first, then the message ID):
 
 ```bash
-himalaya message move 42 "Archive"
+himalaya message move "Archive" 42
 ```
 
-Copy to folder:
+Copy to folder (target folder comes first, then the message ID):
 
 ```bash
-himalaya message copy 42 "Important"
+himalaya message copy "Important" 42
 ```
 
 ### Delete an Email
@@ -287,7 +270,7 @@ himalaya attachment download 42
 Save to specific directory:
 
 ```bash
-himalaya attachment download 42 --dir ~/Downloads
+himalaya attachment download 42 --downloads-dir ~/Downloads
 ```
 
 ## Output Formats
@@ -319,20 +302,3 @@ RUST_LOG=trace RUST_BACKTRACE=1 himalaya envelope list
 - Message IDs are relative to the current folder; re-list after folder changes.
 - For composing rich emails with attachments, use MML syntax (see `references/message-composition.md`).
 - Store passwords securely using `pass`, system keyring, or a command that outputs the password.
-
-## ⚠️ Gmail + Homebrew 限制
-
-**Homebrew 版 Himalaya 不支持 `oauth2` + `keyring` feature**，因此 Gmail OAuth2 授权路径不可用。
-
-### 替代方案：App Password（推荐）
-
-1. Google Account → 开启两步验证
-2. https://myaccount.google.com/apppasswords → 创建 App Password
-3. 存 macOS Keychain: `security add-generic-password -s "himalaya-gmail-app-password" -a "wangbo8805@gmail.com" -w "<password>"`
-4. config.toml 用 `backend.auth.cmd = "security find-generic-password -w -s himalaya-gmail-app-password -a wangbo8805@gmail.com"`
-
-详见 `references/gmail-app-password-setup.md`
-
-### QQ邮箱
-
-QQ邮箱也不支持标准 OAuth2 IMAP，同样用 App Password（16位授权码）方式。

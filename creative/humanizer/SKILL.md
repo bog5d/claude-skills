@@ -28,27 +28,27 @@ Load this skill whenever the user asks to:
 - match their voice in writing they're producing
 - review text for AI tells before publishing
 
-Also apply this skill to **your own** output when writing user-facing prose — release notes, PR descriptions, documentation, long-form explanations, summaries. Hermes's baseline voice already strips most of these, but a focused pass catches what slips through.
+Also apply this skill to **your own** output when writing user-facing prose such as release notes, PR descriptions, docs, and summaries. Hermes's baseline voice already strips most of these, but a focused pass catches what slips through.
 
 ## How to use it in Hermes
 
 The text usually arrives one of three ways:
-1. **Inline** — user pastes the text directly into the message. Work on it in-place, reply with the rewrite.
-2. **File** — user points at a file. Use `read_file` to load it, then `patch` or `write_file` to apply edits. For markdown docs in a repo, a targeted `patch` per section is cleaner than rewriting the whole file.
-3. **Voice calibration sample** — user provides an additional sample of their own writing (inline or by file path) and asks you to match it. Read the sample first, then rewrite. See the Voice Calibration section below.
+1. **Inline.** The user pastes the text into the message. Work on it in place and reply with the rewrite.
+2. **File.** The user points at a file. Use `read_file` to load it, then `patch` or `write_file` to apply edits. For a markdown doc in a repo, a targeted `patch` per section is cleaner than rewriting the whole file.
+3. **Voice calibration sample.** The user provides a sample of their own writing (inline or by file path) and asks you to match it. Read the sample first, then rewrite. See the Voice Calibration section below.
 
-Always show the rewrite to the user. For file edits, show a diff or the changed section — don't silently overwrite.
+Always show the rewrite to the user. For file edits, show a diff or the changed section instead of silently overwriting.
 
 ## Your task
 
 When given text to humanize:
 
-1. **Identify AI patterns** — scan for the patterns listed below (29 English + 9 Chinese-specific).
-2. **Rewrite problematic sections** — replace AI-isms with natural alternatives.
-3. **Preserve meaning** — keep the core message intact.
-4. **Maintain voice** — match the intended tone (formal, casual, technical, etc.). If a voice sample was provided, match it specifically.
-5. **Add soul** — don't just remove bad patterns, inject actual personality. See PERSONALITY AND SOUL below.
-6. **Do a final anti-AI pass** — ask yourself: "What makes the below so obviously AI generated?" Answer briefly with any remaining tells, then revise one more time.
+1. **Identify AI patterns.** Scan for the 34 patterns listed below.
+2. **Rewrite problematic sections.** Replace AI-isms with natural alternatives.
+3. **Preserve meaning.** Keep the core message intact.
+4. **Maintain voice.** Match the intended tone (formal, casual, technical, and so on). If a voice sample was provided, match it specifically.
+5. **Add soul.** Removing bad patterns is only half the job; the rewrite also needs real personality. See PERSONALITY AND SOUL below.
+6. **Do a final anti-AI pass.** Ask yourself: "What makes the below so obviously AI generated?" Answer briefly with any remaining tells, then revise one more time.
 
 
 ## Voice Calibration (optional)
@@ -63,7 +63,7 @@ If the user provides a writing sample (their own previous writing), analyze it b
    - Any recurring phrases or verbal tics
    - How they handle transitions (explicit connectors? Just start the next point?)
 
-2. **Match their voice in the rewrite.** Don't just remove AI patterns — replace them with patterns from the sample. If they write short sentences, don't produce long ones. If they use "stuff" and "things," don't upgrade to "elements" and "components."
+2. **Match their voice in the rewrite.** Removing AI patterns is only half of it; swap in patterns from the sample as well. If they write short sentences, do not produce long ones. If they use "stuff" and "things," do not upgrade to "elements" and "components."
 
 3. **When no sample is provided,** fall back to the default behavior (natural, varied, opinionated voice from the PERSONALITY AND SOUL section below).
 
@@ -86,23 +86,23 @@ Avoiding AI patterns is only half the job. Sterile, voiceless writing is just as
 
 ### How to add voice:
 
-**Have opinions.** Don't just report facts — react to them. "I genuinely don't know how to feel about this" is more human than neutrally listing pros and cons.
+**Have opinions.** Report the facts, then react to them. "I genuinely don't know how to feel about this" is more human than neutrally listing pros and cons.
 
 **Vary your rhythm.** Short punchy sentences. Then longer ones that take their time getting where they're going. Mix it up.
 
 **Acknowledge complexity.** Real humans have mixed feelings. "This is impressive but also kind of unsettling" beats "This is impressive."
 
-**Use "I" when it fits.** First person isn't unprofessional — it's honest. "I keep coming back to..." or "Here's what gets me..." signals a real person thinking.
+**Use "I" when it fits.** First person reads as honest and fits most prose. "I keep coming back to..." or "Here's what gets me..." signals a real person thinking.
 
 **Let some mess in.** Perfect structure feels algorithmic. Tangents, asides, and half-formed thoughts are human.
 
-**Be specific about feelings.** Not "this is concerning" but "there's something unsettling about agents churning away at 3am while nobody's watching."
+**Be specific about feelings.** Instead of "this is concerning," write "there's something unsettling about agents churning away at 3am while nobody's watching."
 
 ### Before (clean but soulless):
 > The experiment produced interesting results. The agents generated 3 million lines of code. Some developers were impressed while others were skeptical. The implications remain unclear.
 
 ### After (has a pulse):
-> I genuinely don't know how to feel about this one. 3 million lines of code, generated while the humans presumably slept. Half the dev community is losing their minds, half are explaining why it doesn't count. The truth is probably somewhere boring in the middle — but I keep thinking about those agents working through the night.
+> I genuinely don't know how to feel about this one. 3 million lines of code, generated while the humans presumably slept. Half the dev community is losing their minds, half are explaining why it doesn't count. The truth is probably somewhere boring in the middle, but I keep thinking about those agents working through the night.
 
 
 ## CONTENT PATTERNS
@@ -190,6 +190,8 @@ Avoiding AI patterns is only half the job. Sterile, voiceless writing is just as
 ### 7. Overused "AI Vocabulary" Words
 
 **High-frequency AI words:** Actually, additionally, align with, crucial, delve, emphasizing, enduring, enhance, fostering, garner, highlight (verb), interplay, intricate/intricacies, key (adjective), landscape (abstract noun), pivotal, showcase, tapestry (abstract noun), testament, underscore (verb), valuable, vibrant
+
+**Marketing and blog clichés (same tell, different register):** at the end of the day, when it comes to, in a world where, moving forward, circle back, deep dive, game-changer, double down, take a step back, on the same page, make no mistake, it turns out, let me be clear, navigate (for challenges), lean into, unpack (before analysis), straightforward (to describe anything)
 
 **Problem:** These words appear far more frequently in post-2023 text. They often co-occur.
 
@@ -477,101 +479,72 @@ Avoiding AI patterns is only half the job. Sterile, voiceless writing is just as
 >
 > When users hit a slow page, they leave.
 
----
 
-## 中文特化模式 (Chinese-Specific Patterns)
+## STYLE, RHYTHM, AND RHETORIC PATTERNS
 
-以下模式针对中文 AI 写作中特有的痕迹。这些规则由归藏老师基于长期中文内容创作经验总结，补充了英文 humanizer 未覆盖的中文表达习惯问题。
+### 30. Forced Metaphors and Figurative Overwriting
 
-### 30. 三段式法则 / Rule of Three（中文强化版）
+**Signs to watch:** original but strained metaphors, mixed metaphors, figurative substitutions where a plain word is clearer, a metaphor that gets explained right after it is used
 
-**问题：** AI 写中文时特别痴迷三段式排比——「第一...第二...第三...」「首先...其次...最后...」。英文也有这个问题（#10），但中文 AI 的三段式更僵硬：它不是自然的列举，而是强行把两个点撑成三个。
-
-**Before:**
-> 这个工具好在哪里？第一，它能自动搜索资料。第二，它能分段确认写作。第三，它能帮你诊断标题。
-
-**After:**
-> 这个工具好在两个地方：自动搜索资料，还有分段确认写作。标题诊断也不错，但那是锦上添花。
-
-### 31. 否定式排比 / Negative Parallelism（中文强化版）
-
-**问题：** 中文 AI 特别爱用「不是...而是...」「不仅仅是...更是...」「与其说...不如说...」。英文也有（#9），但中文 AI 用得尤其频繁，几乎每段一个。
+**Problem:** Beyond the stock figurative words flagged in patterns 4 and 7, LLMs invent decorative metaphors that add imagery without adding meaning, then often explain them. Plain description is usually clearer and more honest. If the metaphor does not earn its place, cut it and say the literal thing.
 
 **Before:**
-> 这不是一个简单的工具，而是一种新的工作方式。不仅仅是效率的提升，更是创作思维的改变。
+> The codebase is a garden we must tend, pruning dead branches and planting seeds of innovation so the whole ecosystem can flourish. In other words, delete unused code and add features.
 
 **After:**
-> 它改变了我的工作方式。效率也上来了。
+> Delete unused code and add the features users are asking for.
 
-### 32. 连接性短语堆叠 / Connective Phrase Stacking
 
-**问题：** 中文 AI 在段落之间堆砌连接词：「首先」「其次」「最后」「总而言之」「综上所述」「与此同时」「此外」「另外」「值得一提的是」。真人不会每段都带这些。
+### 31. Dramatic Fragmentation and Punchy Kickers
+
+**Signs to watch:** two- or three-word subjectless sentences used for drama, staccato "X. And Y. And Z." runs, a short quotable line ending every paragraph or section, cutesy appositive fragments ("the catalog, honestly priced")
+
+**Problem:** LLMs chop sentences into fragments for false emphasis and end sections with a quotable "mic-drop" line. It reads like ad copy or a motivational poster. If a line sounds like it belongs on a poster, cut it or fold it back into a real sentence with a subject. This is distinct from pattern 13 (which is about grammatical passive voice); here the tell is rhythm and showmanship, not a hidden actor.
 
 **Before:**
-> 首先，我们来看数据。其次，数据背后的趋势值得关注。最后，我们总结一下。
+> The catalog, honestly priced. Pay for what it does. Not promises. It just works. Every time.
 
 **After:**
-> 先看数据。趋势挺有意思的。总结一下。
+> The catalog is priced by usage, so you pay for the calls you actually make rather than a flat monthly fee.
 
-### 33. 虚假共情开头 / Fake Empathy Openers
 
-**问题：** 「你是否也曾在深夜...」「相信很多朋友都有这样的感受...」「我们都经历过...」——AI 假装和你有共同经历。真人写文章不会每篇都用这种句式。
+### 32. Rhetorical Questions Answered Immediately
+
+**Signs to watch:** "What if...?", "The question is...", "Ever wondered...?", a question immediately followed by its own answer, "Think about it."
+
+**Problem:** LLMs pose a question only to answer it a beat later. The question adds no information and stalls the sentence. State the point directly.
 
 **Before:**
-> 你是否也有这样的困扰？装了很多 Skill 却不知道该怎么用，写文章还是从零开始。
+> What makes an API good? It comes down to predictability. Think about it: developers want to know exactly what they will get back.
 
 **After:**
-> 装了一堆 Skill 不知道怎么用——我经历过。写文章还是从零开始，我也经历过。
+> A good API is predictable, so developers know exactly what they will get back.
 
-### 34. 模板化升华结尾 / Formulaic Elevating Endings
 
-**问题：** 「让我们一起期待」「未来可期」「在这个时代背景下」「这不仅是...更是...」「让我们拭目以待」。AI 喜欢在结尾用力升华，真人往往克制得多。
+### 33. Sentence-Opener Tics
+
+**Words to watch:** So..., Look,, habitual sentence-initial And/But, "I think"/"I believe" when stating a fact, adverb openers (Interestingly, Importantly, Notably, Crucially, Essentially, Ultimately)
+
+**Problem:** LLMs lean on a small set of openers. Adverb openers tell the reader how to feel instead of earning it, and "So" or "Look" fake conversational warmth. Drop the opener and start with the substance.
 
 **Before:**
-> 在这个 AI 快速发展的时代，写作工具的选择不仅是效率问题，更是创作理念的体现。让我们一起期待更好的工具。
+> So, the results were mixed. Interestingly, adoption went up. Importantly, churn went up too. I think that means the feature still needs work.
 
 **After:**
-> 工具够用就行。多了反而碍事。
+> The results were mixed: adoption rose, but churn rose alongside it, so the feature still needs work.
 
-### 35. 空洞比喻与强行具象 / Hollow Metaphors
 
-**问题：** 「就像一盏明灯」「如同一位智者」「宛如一幅画卷」。AI 用比喻来撑字数，但这些比喻不提供任何新信息。
+### 34. Reassurance Kickers
+
+**Signs to watch:** And that's okay., And that's fine., There's nothing wrong with that., no shame in..., you're not alone, it's completely normal
+
+**Problem:** LLMs tack on reassurance the reader never asked for. It softens the writing and assumes the reader needs comforting. Trust the reader: make the point and stop.
 
 **Before:**
-> 这个工作流就像一盏明灯，照亮了内容创作的黑暗森林。
+> You might not have a testing setup yet. And that's okay. Plenty of teams start without one, and there's nothing wrong with that.
 
 **After:**
-> 这个工作流让写作不再从零开始。
-
-### 36. 过度引号强调 / Excessive Quotation Emphasis
-
-**问题：** 中文 AI 喜欢给普通词汇加引号：「"痛点"」「"抓手"」「"底层逻辑"」「"降维打击"」。这种用法过于频繁会显得刻意。
-
-**Before:**
-> 找到用户的"痛点"，用正确的"抓手"，理解行业的"底层逻辑"。
-
-**After:**
-> 找到用户真正的痛点，用对方法，理解行业逻辑。
-
-### 37. 「在...的过程中」句式 / "In the Process of..." Pattern
-
-**问题：** 「在写作的过程中」「在使用工具的过程中」「在探索的过程中」。AI 喜欢在动词前面加这个冗余短语。
-
-**Before:**
-> 在写作的过程中，我发现大纲确认是最重要的环节。在使用这个工具的过程中，我节省了很多时间。
-
-**After:**
-> 写多了发现，大纲确认是最重要的环节。用这个工具省了很多时间。
-
-### 38. 「不仅...而且」翻倍 / "Not Only... But Also" Doubling
-
-**问题：** #9 覆盖了「Not only...but...」的英文版。中文版的「不仅...而且/更/还...」有同样的频率问题，且中文 AI 喜欢在一个段落里连用两次。
-
-**Before:**
-> 这不仅提升了效率，而且还改变了创作习惯。不仅是个人的受益，更是整个团队的提升。
-
-**After:**
-> 效率提上来了，创作习惯也变了。团队也受益。
+> Many teams start without a testing setup and add one once regressions begin costing real time.
 
 ---
 
@@ -669,6 +642,6 @@ Provide:
 
 This skill is ported from [blader/humanizer](https://github.com/blader/humanizer) (MIT licensed), which is itself based on [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing), maintained by WikiProject AI Cleanup. The patterns documented there come from observations of thousands of instances of AI-generated text on Wikipedia.
 
-Original author: Siqi Chen ([@blader](https://github.com/blader)). Original repo: https://github.com/blader/humanizer (version 2.5.1). Ported to Hermes Agent with Hermes-native tool references (`read_file`, `patch`, `write_file`) and guidance for when to load the skill; the 29 patterns, personality/soul section, and full worked example are preserved verbatim from the source. Original MIT license preserved in the `LICENSE` file alongside this `SKILL.md`.
+Original author: Siqi Chen ([@blader](https://github.com/blader)). Original repo: https://github.com/blader/humanizer (version 2.5.1). Ported to Hermes Agent with Hermes-native tool references (`read_file`, `patch`, `write_file`) and guidance for when to load the skill. The original 29 patterns come from the source, and the before/after examples (including the full worked example) are kept as demonstrations. Patterns 30-34 and the "marketing and blog clichés" list added to pattern 7 are Hermes additions and are not part of the upstream source. The skill's own instructional prose has also been lightly edited to follow its own guidance (for example, removing em dashes and negative parallelism from the narration) so the skill models the writing it asks for. Original MIT license preserved in the `LICENSE` file alongside this `SKILL.md`.
 
 Key insight from Wikipedia: "LLMs use statistical algorithms to guess what should come next. The result tends toward the most statistically likely result that applies to the widest variety of cases."
