@@ -277,13 +277,13 @@
     "created_at": "2026-07-24T17:42:32.319509+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_used_at": "2026-07-29T15:01:39.101612+00:00",
+    "last_viewed_at": "2026-07-29T15:01:39.099624+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "cangjie-fos-project": {
     "archived_at": null,
@@ -308,6 +308,19 @@
     "patch_count": 0,
     "pinned": false,
     "state": "stale",
+    "use_count": 0,
+    "view_count": 0
+  },
+  "clash-verge-management": {
+    "archived_at": null,
+    "created_at": "2026-07-29T15:02:56.860300+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-07-29T15:03:05.823395+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
     "use_count": 0,
     "view_count": 0
   },
@@ -1070,13 +1083,13 @@
     "created_at": "2026-07-24T17:42:32.462524+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-07-24T18:02:03.456345+00:00",
-    "last_viewed_at": "2026-07-24T18:02:03.451791+00:00",
+    "last_used_at": "2026-07-29T15:02:03.121034+00:00",
+    "last_viewed_at": "2026-07-29T15:02:03.119367+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 3,
+    "view_count": 3
   },
   "manim-video": {
     "archived_at": null,
