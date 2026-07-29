@@ -315,14 +315,14 @@
     "archived_at": null,
     "created_at": "2026-07-29T15:02:56.860300+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-07-29T15:03:05.823395+00:00",
-    "last_used_at": null,
-    "last_viewed_at": null,
-    "patch_count": 1,
+    "last_patched_at": "2026-07-29T15:26:58.398747+00:00",
+    "last_used_at": "2026-07-29T15:27:05.125642+00:00",
+    "last_viewed_at": "2026-07-29T15:27:05.123788+00:00",
+    "patch_count": 4,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 3,
+    "view_count": 3
   },
   "claude-design": {
     "archived_at": null,
