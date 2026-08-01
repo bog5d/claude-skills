@@ -1455,6 +1455,19 @@
     "use_count": 0,
     "view_count": 0
   },
+  "project-cairn": {
+    "archived_at": null,
+    "created_at": "2026-08-01T05:11:51.848160+00:00",
+    "created_by": null,
+    "last_patched_at": "2026-08-01T05:11:51.848181+00:00",
+    "last_used_at": "2026-08-01T05:13:18.286046+00:00",
+    "last_viewed_at": "2026-08-01T05:13:18.283869+00:00",
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "proxy-connectivity-diagnostics": {
     "archived_at": null,
     "created_at": "2026-07-29T14:50:02.804424+00:00",
