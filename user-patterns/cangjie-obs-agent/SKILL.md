@@ -93,9 +93,18 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 4. 下一步提醒
 5. 提交结果或"尚未入库"的明确状态
 
+## 参考文件
+
+- `references/table-image-rendering.md` — 中文表格 → PNG 图片渲染配方（波总偏好表格出图，禁止 markdown 源码）
+- `references/telegram-phone-control-diagnosis.md` — 用户手机 Telegram 遥控通道诊断（代理解析/pairing 授权/getUpdates 冲突陷阱）
+
 ## 陷阱
 
 - **不要靠 Hermes memory / mem0 获取任务状态**——会过期；以仓库为准。
 - 旧 hermes-adjutant（status.json）与 Cangjie_OBS_Notes 是两个不同事实源，别混。用户 2026-08-10 明确指定后者为长期记忆/人脉事实源。
 - 过期日程不能自动标完成，先与用户核对实际结果（CURRENT_STATE 有专门待核对清单）。
 - `TELEGRAM_ALLOWED_USERS=501` 是 macOS UID 陷阱，与 Telegram ID（9~10 位）不可混；波总 ID `8447296166` 在 pairing store 授权（见 hermes 侧资料）。
+- **用户要"人脉表/归档表/总表/故障表"时，先读仓库约定格式再输出**：`人脉管理/README.md` 的 8 字段总表（姓名/角色/职业/地区/行业/影响力/亲密度/黄金人脉圈）+ `交接手记/SCHEMA.md` §3 全息背景卡。不要自创字段或结构。参考 `references/table-image-rendering.md`。
+- **话题切换检测**：用户说"我已经不说X了/你没理解"时，立即丢弃旧话题锚点重新确认需求。真实案例（2026-08-10）：把"人脉故障表"误当成刚聊的雅典娜案工具表，实际用户要的是仓库里约定的人脉归档总表。不要因为当前聊天上下文有热点话题就臆断用户指代。
+- **人脉档案必须登记进总表**：新建/更新 `人脉管理/<姓名>.md` 后检查 `人脉管理/README.md` 总表行 + 统计（总人数/密友/好友）同步。历史缺口：何福荣/刘锐/郑小康 3 份档案存在但未进总表，2026-08-10 已补录。
+- **validate_repo.py 报错先判断是否本次引入**：`git stash` 后重跑，错误数不变 = 历史遗留（如 obs-wiki/ 旧 API key 存档产生 109 个 ERROR），不阻塞提交；确认 `grep -c <自己改的文件>` 为 0 后再 commit。
