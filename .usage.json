@@ -43,13 +43,15 @@
     "created_at": "2026-07-28T15:21:12.975071+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-01T04:47:13.050892+00:00",
-    "last_viewed_at": "2026-08-01T04:47:13.049087+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-10T14:51:13.771078+00:00",
+    "last_viewed_at": "2026-08-10T14:51:13.769540+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 3,
+    "view_count": 3
   },
   "adjutant-system": {
     "archived_at": null,
@@ -298,6 +300,21 @@
     "use_count": 2,
     "view_count": 2
   },
+  "cangjie-obs-agent": {
+    "archived_at": null,
+    "created_at": "2026-08-10T15:13:12.310680+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-10T15:13:26.594232+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-10T15:13:22.433504+00:00",
+    "last_viewed_at": "2026-08-10T15:13:22.432116+00:00",
+    "patch_count": 1,
+    "patch_generation": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "chinese-ipo-research": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.027641+00:00",
@@ -316,13 +333,15 @@
     "created_at": "2026-07-29T15:02:56.860300+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-07-29T15:26:58.398747+00:00",
-    "last_used_at": "2026-07-29T15:27:05.125642+00:00",
-    "last_viewed_at": "2026-07-29T15:27:05.123788+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-10T15:10:31.479358+00:00",
+    "last_viewed_at": "2026-08-10T15:10:31.476506+00:00",
     "patch_count": 4,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 3,
-    "view_count": 3
+    "use_count": 5,
+    "view_count": 5
   },
   "claude-design": {
     "archived_at": null,
@@ -836,13 +855,15 @@
     "created_at": "2026-06-03T16:04:31.353475+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-07-24T17:51:12.004557+00:00",
-    "last_viewed_at": "2026-07-24T17:51:11.999842+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-10T14:55:59.320107+00:00",
+    "last_viewed_at": "2026-08-10T14:55:59.318663+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 47,
-    "view_count": 4
+    "use_count": 49,
+    "view_count": 6
   },
   "hermes-extension": {
     "archived_at": null,
@@ -862,13 +883,30 @@
     "created_at": "2026-07-10T16:45:34.996907+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-07-24T17:52:24.340216+00:00",
-    "last_viewed_at": "2026-07-24T17:52:24.337145+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-10T15:11:38.440300+00:00",
+    "last_viewed_at": "2026-08-10T15:11:38.438919+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 3,
-    "view_count": 3
+    "use_count": 4,
+    "view_count": 4
+  },
+  "hermes-service-troubleshooting": {
+    "archived_at": null,
+    "created_at": "2026-08-10T15:10:31.475111+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-10T15:10:47.300845+00:00",
+    "last_viewed_at": "2026-08-10T15:10:47.299379+00:00",
+    "patch_count": 0,
+    "patch_generation": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 2,
+    "view_count": 2
   },
   "hero-recruiter": {
     "archived_at": null,
