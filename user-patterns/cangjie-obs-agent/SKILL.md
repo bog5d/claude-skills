@@ -63,6 +63,8 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 7. **回链**：正式记录写 `source_id`；台账列全 `derived`。
 8. **校验提交**：`python 系统检查/validate_repo.py` 通过后 `git commit + push`。
 
+清洗稿与拆解卡的具体字段/表格/标注语法（说话人映射表列、frontmatter、`[confirmed_fact｜KK]` 等标注、台账/待办/INDEX 行格式、校验与提交检查清单）见 `references/recording-intake-formats.md`——录音转写入库时先读该文件，格式与仓库模板对齐再落笔。
+
 ## 知识边界标签
 
 - `KK` 已确认已理解 / `KU` 已知问题答案不明 / `UU` 未知之未知候选（必须标置信度+验证办法，不得写成事实）。
@@ -95,6 +97,7 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 
 ## 参考文件
 
+- `references/recording-intake-formats.md` — 录音转写入库具体格式速查（clean.md/拆解卡/台账/待办/INDEX 字段与 `[confirmed_fact｜KK]` 标注语法、validate 与提交检查清单）
 - `references/table-image-rendering.md` — 中文表格 → PNG 图片渲染配方（波总偏好表格出图，禁止 markdown 源码）
 - `references/telegram-phone-control-diagnosis.md` — 用户手机 Telegram 遥控通道诊断（代理解析/pairing 授权/getUpdates 冲突陷阱）
 
@@ -107,4 +110,4 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - **用户要"人脉表/归档表/总表/故障表"时，先读仓库约定格式再输出**：`人脉管理/README.md` 的 8 字段总表（姓名/角色/职业/地区/行业/影响力/亲密度/黄金人脉圈）+ `交接手记/SCHEMA.md` §3 全息背景卡。不要自创字段或结构。参考 `references/table-image-rendering.md`。
 - **话题切换检测**：用户说"我已经不说X了/你没理解"时，立即丢弃旧话题锚点重新确认需求。真实案例（2026-08-10）：把"人脉故障表"误当成刚聊的雅典娜案工具表，实际用户要的是仓库里约定的人脉归档总表。不要因为当前聊天上下文有热点话题就臆断用户指代。
 - **人脉档案必须登记进总表**：新建/更新 `人脉管理/<姓名>.md` 后检查 `人脉管理/README.md` 总表行 + 统计（总人数/密友/好友）同步。历史缺口：何福荣/刘锐/郑小康 3 份档案存在但未进总表，2026-08-10 已补录。
-- **validate_repo.py 报错先判断是否本次引入**：`git stash` 后重跑，错误数不变 = 历史遗留（如 obs-wiki/ 旧 API key 存档产生 109 个 ERROR），不阻塞提交；确认 `grep -c <自己改的文件>` 为 0 后再 commit。
+- **validate_repo.py 报错先判断是否本次引入**：已知历史遗留 = `obs-wiki/`（含 API key 存档）与 `2026年/` 旧目录约 109 个 ERROR + obs-wiki/raw 缓存 utf-8 解码错误，不阻塞提交。本次引入判定用定向 grep 而非 stash（新文件未跟踪时 stash 无效）：`python3 系统检查/validate_repo.py 2>&1 | grep -E "<本次文件名>"` 无输出，且对每个报错文件跑 `git status --short -- <报错文件>` 无匹配 = 全部历史遗留。**`git add -A` 前先确认未跟踪新增文件里没有密钥/敏感文件会被扫入**（2026-08-11 run 中密钥文件已被跟踪故安全；新增文件一律人工过目再 add）。完整检查清单见 `references/recording-intake-formats.md` §7。

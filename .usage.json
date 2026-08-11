@@ -53,6 +53,19 @@
     "use_count": 4,
     "view_count": 4
   },
+  "adjutant-brain-dump": {
+    "archived_at": null,
+    "created_at": "2026-08-11T01:58:19.812791+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-08-11T01:58:19.815256+00:00",
+    "last_viewed_at": "2026-08-11T01:58:19.812795+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "adjutant-system": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.005436+00:00",
@@ -304,16 +317,16 @@
     "archived_at": null,
     "created_at": "2026-08-10T15:13:12.310680+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-10T15:47:22.539550+00:00",
+    "last_patched_at": "2026-08-11T01:59:14.327127+00:00",
     "last_reused_patch_generation": 1,
-    "last_used_at": "2026-08-10T15:45:43.670023+00:00",
-    "last_viewed_at": "2026-08-10T15:45:43.667949+00:00",
-    "patch_count": 5,
+    "last_used_at": "2026-08-11T01:59:05.221367+00:00",
+    "last_viewed_at": "2026-08-11T01:59:05.219639+00:00",
+    "patch_count": 9,
     "patch_generation": 5,
     "pinned": false,
     "state": "active",
-    "use_count": 3,
-    "view_count": 3
+    "use_count": 5,
+    "view_count": 5
   },
   "chinese-ipo-research": {
     "archived_at": null,
