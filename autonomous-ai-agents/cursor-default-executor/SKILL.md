@@ -110,6 +110,25 @@ delegate_task(
 
 ---
 
+## 录音/长内容处理调度（2026-08-11 波总约定）
+
+**波总发来录音/长口述/会议转写需要处理时，Hermes 作为总调度，优先派遣 Cursor CLI 执行全部完成动作**（转写提炼、副官拆解、同步仓库）。
+
+原因（波总明确）：Cursor 订阅月额度大量未用完，直接调 DeepSeek 计费。用 Cursor CLI 测试论证可行性。
+
+### 处理流程
+1. 收到录音/长内容 → 标注 `🔴 [Cursor 执行中] delegating to cursor-agent...`
+2. `delegate_task(goal="处理录音: 原始稿→清洗稿→副官拆解→同步仓库", acp_command="cursor-agent", acp_args=["--acp", "--stdio"])`
+3. 传入仓库路径：`~/AI_Workspaces/Cangjie_OBS_Notes`（先读 交接手记/START_HERE.md）
+4. Cursor 完成 → 标注 `🔴 [Cursor 输出]` + 耗时
+5. Hermes 收到后**必须验证**：检查 source_id 是否生成、台账是否更新、validate_repo.py 是否通过、git push 是否成功（子代理自报不可信，主代理验证侧效应）
+6. 若 Cursor 不可用/失败 → 降级 Hermes 原生，标注 `🟢 [Hermes 原生]`
+
+### 调度注意事项
+- Cursor 输出是"完成动作"（写文件、git push），Hermes 负责校验和汇报
+- 录音文件位置与处理权限需在 goal 中写明绝对路径
+- 处理回执按仓库协议：写入了什么、存疑什么、下一步
+
 ## 跨 AI 同步
 
 此铁律已写入：
