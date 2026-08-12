@@ -102,6 +102,7 @@ for prof in ['her-m2','default','english-tutor','finance']:
 - 用户在 Telegram 发送截图/聊天记录图片
 - `vision_analyze` 自动路由到 `auxiliary.vision` 模型
 - 主模型（DeepSeek）不支持 vision
+- **PDF 文档（议程/邀请函/扫描件）→ 走 `pdf-image-extraction` 技能**（三步法：get_text → 渲染页面 → 千问 VL）
 
 ## 本地 OCR（Qwen-VL-Max 不可用时的降级方案）
 
