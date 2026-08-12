@@ -86,6 +86,9 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 
 - 明确事实先沉淀；姓名/说话人/日期/金额/身份/合规结论有歧义 → 标待确认。
 - 一次最多追问 1—3 个最关键问题，不给代表性原话只问"说话人1是谁"是差评。
+- **说话人确认闭环（用户原话要求 2026-08-12）**：批量确认未识别说话人时，逐人列出「推测身份 + 依据 + 原话摘录」再问是谁——"跟我确认的时候，一定要说他说了什么话"。模板与实战案例见 `references/speaker-confirmation.md`。
+- **对话内直接称呼是高置信度说话人证据**：确认顺序＝直接称呼 > 自称单位 > 内容特征。例：波总喊"江总"问投屏 → 下一句应答者=江总；对方称"王总"且答问全是泽天融资/实缴细节 → 即波总。被喊姓氏（"张总"）也能锁姓，再与已知人名（张雨竹等）交叉核对。
+- 用户附带的 AI 摘要（"以上由AI大模型生成，可能包含不准确的信息"）只作参考，入库标"可能不准确"，不得当事实。
 - 用户纠正后保留变更痕迹，搜索并同步所有受影响文件。
 
 ## 安全铁律
@@ -113,6 +116,7 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - `references/entity-index-evolution.md` — 实体索引+认知演化模块格式与维护（entities/relations/conflicts/evolution 字段与 ID 规则、初版全量扫描流程、每日增量规则、跨文件 ID 校验）
 - `references/table-image-rendering.md` — 中文表格 → PNG 图片渲染配方（波总偏好表格出图，禁止 markdown 源码）
 - `references/telegram-phone-control-diagnosis.md` — 用户手机 Telegram 遥控通道诊断（代理解析/pairing 授权/getUpdates 冲突陷阱）
+- `references/speaker-confirmation.md` — 说话人身份确认闭环（逐人原话摘录模板 + 对话内直接称呼证据法 + 确认后全模块回写清单 + SRC-20260812-001 实战案例）
 
 ## 陷阱
 
@@ -131,3 +135,5 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - **`_raw.md` 可能是未跟踪文件**：原始稿存在磁盘 ≠ 已在 git 里；提交前 `git status --short` 检查，未跟踪的 `_raw.md` 属本次任务文件一并 `git add -A`，不要以为它早已入库。
 - **实体 ID 跨文件一致性（实体索引模块）**：relations.md/conflicts.md 引用的实体 ID（ORG-xxx 等）必须先存在于 entities.md。教训（2026-08-11 初版）：relations 初稿引用了未建卡的 ORG-023*/ORG-077*，被迫回补 ORG-076/077/078。写完 relations 后跑 `grep -oE '(PER|ORG|PRJ|FIN|MET|PLC)-[0-9]{3}' relations.md | sort -u` 与 entities.md 同法输出做 diff，零差集才提交。
 - **表格行去重（实体索引模块）**：给 relations.md 追加行前先 grep 该行主键（如 `PER-012 刘锐`）是否已存在，避免 patch 后出现重复行（2026-08-11 实测出现一次，需回删）。
+- **patch 工具引号转义失败（escape-drift）**：old_string/new_string 含 `\"` 字面量时报 "Escape-drift detected" 拒绝匹配。仓库 md 大量含引号，patch 时去掉反斜杠转义，或改用无引号锚点（如只锚标题行 `## 使用规则`）；仍失败就用 python3 逐文件 read+replace+write（本仓库多 AI 并发下该路径已验证最可靠）。
+- **`_raw.md` 必须满足 validate schema**：frontmatter 缺 `source_format/confidentiality/raw_integrity`、`type` 不是 `voice_transcript`、正文缺 `## 原始转写` 标题都会报"缺少原始素材字段"（2026-08-12 实测）。按 `references/recording-intake-formats.md` §0 模板落盘。

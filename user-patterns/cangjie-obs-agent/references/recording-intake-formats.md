@@ -2,6 +2,25 @@
 
 波总录音/口述转写入 Cangjie_OBS_Notes 时各产出文件的确切字段与标注语法。以本文件 + 仓库 `原始素材/模板/录音清洗稿模板.md` 为准。
 
+## 0. 原始稿 `*_raw.md`（validate_repo.py 强制 schema，2026-08-12 踩坑校准）
+
+frontmatter 字段缺一不可，缺了 validate 报 `缺少原始素材字段: source_format, confidentiality, raw_integrity`；`type`/`status` 取值也有校验：
+
+```yaml
+---
+source_id: SRC-YYYYMMDD-NNN
+type: voice_transcript        # 不是 raw_transcript
+status: received              # 不是 raw
+event_date: YYYY-MM-DD
+received_at: YYYY-MM-DD Asia/Shanghai
+source_format: pasted_asr     # 或 voice_recording / screenshot_ocr 等
+confidentiality: private
+raw_integrity: complete
+---
+```
+
+正文结构：`# 标题（原始转写）` → `## 场景`（时间/地点/已知参与人/用户补充）→ `## 原始转写`（逐字正文）。用户附带的 AI 摘要放 `## 原始转写` 开头引用块，标注"可能不准确，仅作参考"。正文逐字保留 ASR 不修正；用户确认/纠正只进 frontmatter 场景段与清洗稿，raw 正文不动。落盘前按此模板写，别等 validate 报错再改。
+
 ## 1. 清洗稿 `*_clean.md`
 
 frontmatter：
