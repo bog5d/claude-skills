@@ -354,6 +354,19 @@
     "use_count": 0,
     "view_count": 0
   },
+  "chinese-pdf-report-generation": {
+    "archived_at": null,
+    "created_at": "2026-08-13T09:35:48.474485+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-13T09:35:58.475159+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
   "clash-verge-management": {
     "archived_at": null,
     "created_at": "2026-07-29T15:02:56.860300+00:00",
@@ -1771,13 +1784,13 @@
     "created_at": "2026-07-22T02:59:15.940446+00:00",
     "created_by": null,
     "last_patched_at": "2026-07-22T08:45:01.064144+00:00",
-    "last_used_at": "2026-08-13T08:00:56.735759+00:00",
-    "last_viewed_at": "2026-08-13T08:00:56.732835+00:00",
+    "last_used_at": "2026-08-13T09:21:20.778360+00:00",
+    "last_viewed_at": "2026-08-13T09:21:20.776668+00:00",
     "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 9,
-    "view_count": 9
+    "use_count": 10,
+    "view_count": 10
   },
   "shell-control-acquisition": {
     "archived_at": null,
