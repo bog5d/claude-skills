@@ -37,6 +37,7 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 ```
 - 远端有新提交 → 重新读取相关文件再合并；**禁止强推、禁止旧文件覆盖新文件**。
 - 每次提交只含本次任务相关文件，commit 写清来源日期和处理内容。
+- **分叉（"左 右"非 0 0）用 rebase 收敛，别用 --ff-only 硬拉**：2026-08-14 实测本地 1 条未推送提交（人脉卡更新）+ 远端 30 条（Windows/OBS 同步）分叉，`git pull --ff-only` 报 `Diverging branches can't be fast-forwarded`。处理：`git rebase origin/main`（零冲突）→ `git push origin main` 推回本地独有提交 → 验证回到 "0 0"。自动拉取 cron（`~/.hermes/scripts/pull_obs_notes.sh`）已升级为 `git pull --rebase --autostash` + 检测到本地独有提交时自动回推，不再报错。
 
 ## Step 2: 按序读取交接文件（必须按序）
 
@@ -127,6 +128,7 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - **用户要"人脉表/归档表/总表/故障表"时，先读仓库约定格式再输出**：`人脉管理/README.md` 的 8 字段总表（姓名/角色/职业/地区/行业/影响力/亲密度/黄金人脉圈）+ `交接手记/SCHEMA.md` §3 全息背景卡。不要自创字段或结构。参考 `references/table-image-rendering.md`。
 - **话题切换检测**：用户说"我已经不说X了/你没理解"时，立即丢弃旧话题锚点重新确认需求。真实案例（2026-08-10）：把"人脉故障表"误当成刚聊的雅典娜案工具表，实际用户要的是仓库里约定的人脉归档总表。不要因为当前聊天上下文有热点话题就臆断用户指代。
 - **人脉档案必须登记进总表**：新建/更新 `人脉管理/<姓名>.md` 后检查 `人脉管理/README.md` 总表行 + 统计（总人数/密友/好友）同步。历史缺口：何福荣/刘锐/郑小康 3 份档案存在但未进总表，2026-08-10 已补录。
+- **人脉卡全息字段缺失会被 validate 拦**：全息背景卡表格字段缺一不可（含 `爱好`，未知填 `—（待补充）`），缺了报 `缺少全息字段: <字段名>`（2026-08-14 实测新建刘主任卡漏 `爱好`）。格式见 `references/recording-intake-formats.md` §6A。
 - **validate_repo.py 报错先判断是否本次引入**：已知历史遗留 = `obs-wiki/`（含 API key 存档）与 `2026年/` 旧目录约 109 个 ERROR + obs-wiki/raw 缓存 utf-8 解码错误，不阻塞提交。本次引入判定用定向 grep 而非 stash（新文件未跟踪时 stash 无效）：`python3 系统检查/validate_repo.py 2>&1 | grep -E "<本次文件名>"` 无输出，且对每个报错文件跑 `git status --short -- <报错文件>` 无匹配 = 全部历史遗留。**`git add -A` 前先确认未跟踪新增文件里没有密钥/敏感文件会被扫入**（2026-08-11 run 中密钥文件已被跟踪故安全；新增文件一律人工过目再 add）。完整检查清单见 `references/recording-intake-formats.md` §7。
 - **用户更正人名/数字/事实 → 全模块传播协议**：用户纠正后（如 2026-08-11 尹建文→尹嘉雯），搜索全库所有出现处（`grep -rn "旧名" --include="*.md" .`），同步改：clean 稿、副官拆解卡、人脉卡、OPEN 待办、工作日志、CURRENT_STATE、处理台账（通常 6-8 个文件）；**`_raw.md` 正文保留原始 ASR 不动**（溯源链完整），只在 frontmatter 场景段加"用户更正"说明行；解除相关 `[待确认]` 标记并注明"用户已确认"。批量替换用 python3 脚本（逐文件 read+replace+write）比 patch 工具可靠，改完 `grep -rn "旧名"` 验证无残留（raw 正文例外，预期保留）再 commit+push。
 - **同日多素材必须交叉核对数字**：同一天处理第二份 source 前，先读同日已处理的拆解卡/清洗稿（如 SRC-20260811-002 处理前读 SRC-20260811-001），逐项比对金额/估值/年度口径；冲突处**不静默取其一**，双口径并列写进新拆解卡的未知扫描（ai_inference+置信度）与台账/CURRENT_STATE 待确认项。实测冲突（2026-08-11）：投前 5.5亿+3500万=投后 5.85亿 自洽 vs 001 卡"投前 5.45亿"；"去年营收 8400万" vs 001 卡"2025 营收 1.2亿"；今年净利 3300万 vs "2000多万~3000万"。另注意：自洽口径（5.5+0.35=5.85）可以标"自洽、疑为另一卡 ASR 误"，但仍是待确认。
@@ -137,3 +139,4 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - **表格行去重（实体索引模块）**：给 relations.md 追加行前先 grep 该行主键（如 `PER-012 刘锐`）是否已存在，避免 patch 后出现重复行（2026-08-11 实测出现一次，需回删）。
 - **patch 工具引号转义失败（escape-drift）**：old_string/new_string 含 `\"` 字面量时报 "Escape-drift detected" 拒绝匹配。仓库 md 大量含引号，patch 时去掉反斜杠转义，或改用无引号锚点（如只锚标题行 `## 使用规则`）；仍失败就用 python3 逐文件 read+replace+write（本仓库多 AI 并发下该路径已验证最可靠）。
 - **`_raw.md` 必须满足 validate schema**：frontmatter 缺 `source_format/confidentiality/raw_integrity`、`type` 不是 `voice_transcript`、正文缺 `## 原始转写` 标题都会报"缺少原始素材字段"（2026-08-12 实测）。按 `references/recording-intake-formats.md` §0 模板落盘。
+- **拆解卡章节标题是 validate 逐字匹配的固定字符串**：必须用阿拉伯数字编号 `## 1. 新增信息` / `## 2. 新增认知` / `## 3. 行业谈资` / `## 4. 待研究课题` / `## 5. 未知扫描` / `## 6. 行动与回链`（一个都不能少、不能改成中文序号"一、"或加副标题），frontmatter 必须含 `type: adjutant_digest`、`event_date`、`processed_at`，否则报"缺少副官拆解字段/type 应为 adjutant_digest/缺少章节"（2026-08-14 实测用中文序号一次报 6 个错，被迫整卡重写）。同理 `_raw.md` 需 `## 场景` + `## 原始转写` 两级标题、`_clean.md` 需 `## 参与人与说话人映射`/`## 事实、观点与推测`/`## 处理去向`——全部按 `references/recording-intake-formats.md` §0-2 模板先对齐再落笔，别等 validate 报错再改。
