@@ -4,13 +4,13 @@
     "created_at": "2026-06-05T12:53:11.998757+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-26T06:32:29.627206+00:00",
-    "last_used_at": "2026-06-26T06:32:17.019673+00:00",
-    "last_viewed_at": "2026-06-26T06:32:17.018034+00:00",
+    "last_used_at": "2026-08-15T15:35:21.160111+00:00",
+    "last_viewed_at": "2026-08-15T15:35:21.158422+00:00",
     "patch_count": 4,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 5,
+    "view_count": 5
   },
   "Hermes Integration Assessment": {
     "archived_at": null,
@@ -1042,14 +1042,14 @@
     "archived_at": null,
     "created_at": "2026-08-15T15:21:53.164888+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-15T15:22:05.502523+00:00",
-    "last_used_at": "2026-08-15T15:22:02.843053+00:00",
-    "last_viewed_at": "2026-08-15T15:22:02.841276+00:00",
-    "patch_count": 2,
+    "last_patched_at": "2026-08-15T15:45:18.675010+00:00",
+    "last_used_at": "2026-08-15T15:44:34.405468+00:00",
+    "last_viewed_at": "2026-08-15T15:44:34.403725+00:00",
+    "patch_count": 5,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "image-super-resolution": {
     "archived_at": null,
