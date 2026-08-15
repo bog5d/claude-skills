@@ -1038,6 +1038,19 @@
     "use_count": 0,
     "view_count": 0
   },
+  "image-pdf-to-markdown": {
+    "archived_at": null,
+    "created_at": "2026-08-15T15:21:53.164888+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-15T15:22:05.502523+00:00",
+    "last_used_at": "2026-08-15T15:22:02.843053+00:00",
+    "last_viewed_at": "2026-08-15T15:22:02.841276+00:00",
+    "patch_count": 2,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "image-super-resolution": {
     "archived_at": null,
     "created_at": "2026-06-12T13:38:18.813402+00:00",
@@ -1381,26 +1394,26 @@
     "created_at": "2026-06-05T12:53:12.160414+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-06-23T07:39:25.908335+00:00",
-    "last_viewed_at": "2026-06-23T07:39:25.906389+00:00",
+    "last_used_at": "2026-08-15T15:19:27.742659+00:00",
+    "last_viewed_at": "2026-08-15T15:19:27.740764+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "stale",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 3,
+    "view_count": 3
   },
   "ocr-screenshot-extraction": {
     "archived_at": null,
     "created_at": "2026-06-05T08:50:38.386968+00:00",
     "created_by": null,
     "last_patched_at": "2026-08-12T16:53:26.448857+00:00",
-    "last_used_at": "2026-08-12T16:52:57.788584+00:00",
-    "last_viewed_at": "2026-08-12T16:52:57.743018+00:00",
+    "last_used_at": "2026-08-15T15:20:34.860009+00:00",
+    "last_viewed_at": "2026-08-15T15:20:34.857046+00:00",
     "patch_count": 2,
     "pinned": false,
     "state": "active",
-    "use_count": 9,
-    "view_count": 9
+    "use_count": 10,
+    "view_count": 10
   },
   "officecli-agent-native-office": {
     "archived_at": null,
@@ -1453,6 +1466,19 @@
     "state": "stale",
     "use_count": 0,
     "view_count": 0
+  },
+  "pdf-image-extraction": {
+    "archived_at": null,
+    "created_at": "2026-08-15T15:20:34.855487+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-08-15T15:20:34.858472+00:00",
+    "last_viewed_at": "2026-08-15T15:20:34.855495+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
   },
   "pdf-structured-editing": {
     "archived_at": null,
