@@ -92,6 +92,7 @@ python3 ~/aider_workspace/bridge_cmd.py "任务描述" --cwd /path/to/project
 - 归档、建卡、实体索引/relations/README/台账/日志更新
 - 待办迁移、批量文件操作、脚本编写
 - 仓库结构类操作（validate、commit、push 之外的机械动作）
+- **图片识别/OCR/截图转录/文档解析（2026-08-15 波总明确）**：所有需要"看图片/看扫描件/提取图中文字/表格"的任务，默认派 Cursor。Cursor 的模型（Claude Opus/Sonnet 4 等）是**原生多模态**，直接传图片路径（或把 PDF 渲染成 PNG 后传路径）让 Cursor 自己看，精度远高于 tesseract，也不需要千问VL/Apple Vision OCR 中转。**千问VL / Apple Vision OCR / tesseract 仅作 Cursor 不可用时的降级链。**
 
 ### 走 Hermes 原生的任务（仅以下情况）
 - Cursor CLI 不可用（进程启动失败、认证过期、API 额度耗尽）
