@@ -57,27 +57,27 @@
     "created_by": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-11T05:32:03.662798+00:00",
-    "last_viewed_at": "2026-08-11T05:32:03.659837+00:00",
+    "last_used_at": "2026-08-15T08:46:23.420930+00:00",
+    "last_viewed_at": "2026-08-15T08:46:23.417614+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 5,
-    "view_count": 5
+    "use_count": 6,
+    "view_count": 6
   },
   "adjutant-brain-dump": {
     "archived_at": null,
     "created_at": "2026-08-11T01:58:19.812791+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-12T13:22:22.655606+00:00",
-    "last_viewed_at": "2026-08-12T13:22:22.652848+00:00",
+    "last_used_at": "2026-08-15T08:46:23.422393+00:00",
+    "last_viewed_at": "2026-08-15T08:46:23.419615+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 5,
+    "view_count": 5
   },
   "adjutant-system": {
     "archived_at": null,
