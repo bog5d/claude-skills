@@ -50,6 +50,7 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 7. `日程管理/UPCOMING.md`
 8. `待办管理/OPEN.md`
 9. 本次任务相关的人脉档案、日志、原始素材和知识卡；**同一天已处理过的拆解卡/清洗稿必读**（同日多素材数字交叉核对，防信息冲突，见陷阱节）
+10. **人脉相关任务另读（V2 规范，2026-08-15 启用）**：`人脉管理/人脉管理V2方法论.md`（八维字段/6视图/互动日志/引荐闭环）→ `人脉管理/AI强制维护协议.md`（互动后强制动作）→ `人脉管理/README.md`（总表+V2导航）。速查见 `references/renmai-v2-spec.md`。
 
 回答"今天/接下来见谁"时：时间地点 → 人物背景 → 上次聊了什么 → 双方承诺 → 未完成事项 → 本次注意事项（按 `跨AI协作协议.md` 的检索顺序）。
 
@@ -120,6 +121,7 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - `references/table-image-rendering.md` — 中文表格 → PNG 图片渲染配方（波总偏好表格出图，禁止 markdown 源码）
 - `references/telegram-phone-control-diagnosis.md` — 用户手机 Telegram 遥控通道诊断（代理解析/pairing 授权/getUpdates 冲突陷阱）
 - `references/speaker-confirmation.md` — 说话人身份确认闭环（逐人原话摘录模板 + 对话内直接称呼证据法 + 确认后全模块回写清单 + SRC-20260812-001 实战案例）
+- `references/renmai-v2-spec.md` — 人脉管理 V2 规范速查（八维字段/6视图/互动日志/引荐闭环/迁移状态/课程映射）
 
 ## 陷阱
 
@@ -143,3 +145,6 @@ ls -la .git/*.lock 2>/dev/null || echo "无锁文件，无进行中的写入"
 - **patch 工具引号转义失败（escape-drift）**：old_string/new_string 含 `\"` 字面量时报 "Escape-drift detected" 拒绝匹配。仓库 md 大量含引号，patch 时去掉反斜杠转义，或改用无引号锚点（如只锚标题行 `## 使用规则`）；仍失败就用 python3 逐文件 read+replace+write（本仓库多 AI 并发下该路径已验证最可靠）。
 - **`_raw.md` 必须满足 validate schema**：frontmatter 缺 `source_format/confidentiality/raw_integrity`、`type` 不是 `voice_transcript`、正文缺 `## 原始转写` 标题都会报"缺少原始素材字段"（2026-08-12 实测）。按 `references/recording-intake-formats.md` §0 模板落盘。
 - **拆解卡章节标题是 validate 逐字匹配的固定字符串**：必须用阿拉伯数字编号 `## 1. 新增信息` / `## 2. 新增认知` / `## 3. 行业谈资` / `## 4. 待研究课题` / `## 5. 未知扫描` / `## 6. 行动与回链`（一个都不能少、不能改成中文序号"一、"或加副标题），frontmatter 必须含 `type: adjutant_digest`、`event_date`、`processed_at`，否则报"缺少副官拆解字段/type 应为 adjutant_digest/缺少章节"（2026-08-14 实测用中文序号一次报 6 个错，被迫整卡重写）。同理 `_raw.md` 需 `## 场景` + `## 原始转写` 两级标题、`_clean.md` 需 `## 参与人与说话人映射`/`## 事实、观点与推测`/`## 处理去向`——全部按 `references/recording-intake-formats.md` §0-2 模板先对齐再落笔，别等 validate 报错再改。
+- **派 Cursor 执行的可用方式（2026-08-16 实测）**：`delegate_task(acp_command=cursor-agent)` 旧写法在当前 schema **不存在**（acp_command/acp_args 参数无效），实测可用的是终端直调：`cd <仓库> && cursor-agent -p --yolo "$(cat /tmp/prompt.md)"`（background=true + notify_on_complete=true）。prompt 文件给全上下文（绝对路径命令+精确 patch 说明+校验+提交+回执要求），已定稿内容注明只落位不改写；大任务 2-8 分钟；完成后必须亲自验证（git log/validate/文件落位）。见 skill `cursor-default-executor`（bundled，不可改，其旧调用描述已过时）。
+- **接手其他 AI（Codex 等）沙盒未完成的工作（2026-08-15 实战）**：Codex 沙盒无法认证私有仓库时，会把产物留在「持久文件区」=`~/.hermes/cache/documents/`（如 `人脉课程全量整理.md`），会话 rollout 在 `~/.codex/sessions/` 但沙盒内会话可能不落盘。接手流程：①`git status` + `git log` 确认仓库侧到底缺什么（对方汇报的「已完成」可能只在 Notion/沙盒，GitHub 侧一条提交都没有）；②用 mdfind/find 定位产物（搜课程名/素材名而非泛搜，全盘 find 会超时）；③Hermes 出设计稿到 /tmp/（内容设计是监工职责），再派 Cursor 落位+validate+commit+push——本机 git remote URL 自带凭据，push 私有仓库无障碍（Codex 不行是本机可）。未提交内容必须明确「尚未入库」。
+- **非转写类素材（课程/文档/PDF 提取文本）入库**：type 可用 `course_material` 等（validate 只查字段存在性，不查枚举值），但 validate 强制 raw 必有 clean 稿+拆解卡+台账+INDEX 登记，与录音素材同等对待。raw 结构照旧：frontmatter 8 字段 + `## 场景`（说明来源/用途）+ `## 原始转写`（原文全量）；clean 稿的「说话人映射」节改为「参与者/来源映射」（讲师/整理者），事实分层照用 `[confirmed_fact｜课程原文]` 等标注。95K 级大文件直接 `cat 头部 frontmatter + 原文 > _raw.md` 拼接，不要重写。
