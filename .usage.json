@@ -343,16 +343,16 @@
     "archived_at": null,
     "created_at": "2026-08-10T15:13:12.310680+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-16T05:30:22.521462+00:00",
+    "last_patched_at": "2026-08-16T07:29:01.469839+00:00",
     "last_reused_patch_generation": 1,
-    "last_used_at": "2026-08-16T06:09:06.625998+00:00",
-    "last_viewed_at": "2026-08-16T06:09:06.624307+00:00",
-    "patch_count": 42,
+    "last_used_at": "2026-08-16T07:28:21.771532+00:00",
+    "last_viewed_at": "2026-08-16T07:28:21.769867+00:00",
+    "patch_count": 44,
     "patch_generation": 5,
     "pinned": false,
     "state": "active",
-    "use_count": 32,
-    "view_count": 32
+    "use_count": 33,
+    "view_count": 33
   },
   "chinese-ipo-research": {
     "archived_at": null,
@@ -483,6 +483,19 @@
     "patch_count": 0,
     "pinned": false,
     "state": "stale",
+    "use_count": 0,
+    "view_count": 0
+  },
+  "company-registration-planning": {
+    "archived_at": null,
+    "created_at": "2026-08-16T07:29:26.268498+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-16T07:29:37.569427+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
     "use_count": 0,
     "view_count": 0
   },
