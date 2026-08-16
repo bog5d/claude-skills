@@ -53,6 +53,8 @@ HTTP 403 Forbidden
 
 - CDP URL 有时效，长任务前先确认会话还活着（getTargets 能返回）。
 - 下载前缀（prefix）约 5 分钟时效：拦截响应体方案不受影响（响应体在会话内流式返回），但多次重试失败后应重新点击"浏览器下载"刷新签名。
-- `Fetch.getResponseBody` 对超大文件（>几十 MB）可能失败；小文件（<1MB）稳定。超大文件改用 `Page.setDownloadBehavior` + 容器文件导出（依赖云浏览器平台能力）。
+- `Fetch.getResponseBody` 对超大文件（>几十 MB）可能失败；小文件（<1MB）稳定。超大文件改用 `Page.setDownloadBehavior` + 容器文件导出（依赖云浏览器平台能力）。**实测 110KB zip 稳定，且 `websockets.connect(CDP_URL, max_size=300*1024*1024)` 必须设大，否则大文件 base64 帧直接断开。**
+- **点击"浏览器下载"后第一个被 Fetch 拦截的往往是统计请求**（如 `matomo.php`，`getResponseBody` 返回 0 bytes）——忽略它，继续等下一个请求（真正的 CDN 下载请求 body 字节数=文件大小）。也可用 `Network.responseReceived` 的 status==200 + URL 含 CDN 域来识别真下载。
 - websockets 库：`import websockets`（异步）；CDP 消息循环要处理 `id` 匹配 + 事件（无 id 的消息是事件），用 `sessionId` 区分。
 - 变量命名别用 `CDP` 当类名同时当 URL 常量（`urllib.parse.urlparse` 报 `type object has no attribute 'decode'`）。
+- **IP 绑定判定扩展**：不仅 curl 403，本机任何非浏览器会话的下载尝试（带 cookie/UA 也无效）都 403——直接走 Fetch 拦截，不要浪费轮次试 cookie 方案。
