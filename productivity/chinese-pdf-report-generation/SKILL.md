@@ -44,7 +44,31 @@ EMOJI_MAP = {
 - `table`：深色表头 + 隔行变色 + 单格背景色标记（绿=OK/黄=WARN/红=HIGH）
 - `multi_cell` 后需 `set_x(l_margin)` 复位光标（fpdf2 的 multi_cell 会把 x 留在文本末尾）
 
+## 波总汇报场景：Word+PDF 双份，先交付不问格式
+
+波总要"汇报材料/成果梳理/报告"时——**立即产出 .docx + .pdf 双份并 MEDIA: 发出，不要以"需要我整理成 XX 吗？"结尾**。2026-08-17 实测教训：问了格式确认 → 波总"你发出了吗 我没好到" → 补做。格式铁律已定：外发=Word+PDF 双份。正确收尾是"已发出+文件路径+提醒口径待确认项"，不是征求格式意见。
+
+同构双份生成（一套 SECTIONS 数据 → docx + pdf 同内容）：
+- Word：`python-docx`，中文字体必须 `rFonts.set(qn("w:eastAsia"), "STHeiti")` 否则中文回退默认字体
+- PDF：fpdf2 + `/System/Library/Fonts/STHeiti Medium.ttc`（同一脚本内两套渲染）
+- 生成目录直接放 `~/.hermes/cache/documents/<主题>/`（Telegram MEDIA 白名单），不要生成后另问放哪
+- 模板：`templates/docx_pdf_dual_report.py`（2026-08-17 验证可跑）
+
 ## 交付前验证（必做）
+
+pymupdf 未装时的降级验证（fpdf2 输出结构抽查）：
+
+```bash
+python3 -c "
+data = open('报告.pdf','rb').read()
+print('PDF头:', data[:8])                    # 预期 b'%PDF-'
+print('页数:', data.count(b'/Type /Page') - data.count(b'/Type /Pages'))
+print('含文本流:', b'BT' in data)
+"
+```
+
+- fpdf2 输出 `morx NOT subset / feat NOT subset` 警告是**无害的**（字形表未子集化提示），不影响渲染，不用处理
+- 双份生成后 `ls -la` 确认两个文件都在白名单目录，再 MEDIA: 双发
 
 用 pymupdf 抽查，确认无漏页/乱码/字体缺字：
 

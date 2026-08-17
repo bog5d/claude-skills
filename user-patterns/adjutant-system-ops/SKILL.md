@@ -33,6 +33,21 @@ git log origin/main --oneline -2                        # 看引擎是否已自�
 - 两种情况下任务都不受影响（status.json 是单一事实源），但需向波总说明飞书侧有延迟
 - 飞书打勾 ≠ 副官完成：from-feishu 是轮转轮询，回流有延迟
 
+## 认知演化 evolution.md 补登（拆解卡→索引，周期性欠账）
+
+Cangjie_OBS_Notes 的 `知识库/认知演化/evolution.md` 常滞后于拆解卡（cron 日报会提示"自 X 日未增量登记"）。补登标准流程（2026-08-17 实测 55 条）：
+
+1. **定位欠账区间**：读 evolution.md 找最后登记的 INS-YYYYMMDD-NNN 与最后章节日期；`ls 知识库/副官拆解/YYYY/MM/` 列出该日期后所有 SRC 卡
+2. **批量提取"新增认知"段落**：
+   ```bash
+   awk '/新增认知|新增洞察|新认知/{found=1} found{print}' SRC-*.md
+   ```
+   只收"一句话认知"类条目；说话人身份确认（ai_inference）归实体索引不归 evolution
+3. **编号顺排**：`INS-YYYYMMDD-NNN` 按登记日连续（如欠 8/12-8/16 的账 → INS-20260812-001 起），跨素材统一顺排
+4. **插入位置**：新章节插在最后一个内容章节之后、**"## X、维护说明"之前**（patch 锚点用 `## 六、维护说明` 这类标题，替换为"新内容+原标题"）；维护说明必须是文件最后
+5. **波总口述修正**：对话中波总对认知的确认/修正 → 追加到对应 INS 的"修正历史"，格式 `- 2026-08-17 波总确认：...`；旧表述不删
+6. **校验提交**：`python3 系统检查/validate_repo.py` 报的密钥扫描类 ERROR（obs-wiki/raw/sources 历史文件）是**仓库既有问题**，与本次修改无关，看是否新增即可；然后 commit + push
+
 ## 陷阱
 - **macOS 无 GNU `timeout`**：`timeout 60 python3 ...` 报 `command not found`；直接跑 python3，或装 coreutils 用 `gtimeout`
 - **execute_code 在审批/cron 模式被阻止**：DB 写入用 `terminal + python3 heredoc`（详见 adjutant-brain-dump 流程）

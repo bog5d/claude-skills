@@ -96,14 +96,14 @@
     "archived_at": null,
     "created_at": "2026-08-15T08:52:00.153878+00:00",
     "created_by": "agent",
-    "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
-    "patch_count": 0,
+    "last_patched_at": "2026-08-17T01:51:37.705979+00:00",
+    "last_used_at": "2026-08-17T01:51:31.463853+00:00",
+    "last_viewed_at": "2026-08-17T01:51:31.462146+00:00",
+    "patch_count": 1,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 2,
+    "view_count": 2
   },
   "agent-evening-diary-cron": {
     "archived_at": null,
@@ -371,14 +371,14 @@
     "archived_at": null,
     "created_at": "2026-08-13T09:35:48.474485+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-13T09:35:58.475159+00:00",
-    "last_used_at": null,
-    "last_viewed_at": null,
-    "patch_count": 1,
+    "last_patched_at": "2026-08-17T01:51:18.171834+00:00",
+    "last_used_at": "2026-08-17T01:51:00.905653+00:00",
+    "last_viewed_at": "2026-08-17T01:51:00.903818+00:00",
+    "patch_count": 3,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 2,
+    "view_count": 2
   },
   "clash-verge-management": {
     "archived_at": null,
