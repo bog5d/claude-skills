@@ -7,25 +7,26 @@ trigger: user sends screenshot, vision_analyze fails, model doesn't support visi
 
 # OCR Screenshot Extraction
 
-## 🚨 执行顺序铁律（最高优先级）
+## 🚨 执行顺序铁律（最高优先级，2026-08-19 与 Cursor 铁律统一）
 
-**收到中文文字图片的流程必须严格遵守以下顺序，一步不许跳：**
+**收到图片任务的第一步永远是：派 Cursor（原生多模态，精度最高）。只有 Cursor 不可用时才走下面的千问链路。**
 
 ```
-步骤1：直接调用 vision_analyze（走 auxiliary.vision → Qwen-VL）
-步骤2：如果 vision_analyze 返回 401/403/超时 → 确认 API key 状态
-步骤3：如果 API key 确认不可用 → 尝试 Firecrawl parse（云端 OCR，中文精度高）
+步骤0：派 Cursor CLI（传图片绝对路径）→ 完成则标注 🔴 [Cursor 输出]
+步骤1（Cursor 不可用时）：直调硅基流动千问 API（auxiliary.vision = custom:siliconflow, Qwen/Qwen3-VL-32B-Instruct，base64 直调 https://api.siliconflow.cn/v1/chat/completions）
+步骤2：如果 API 401/403/超时 → 确认 API key 状态
+步骤3：如果 key 不可用 → Firecrawl parse（云端 OCR，中文精度高）
 步骤4：如果 Firecrawl MCP 未连接 → 告知用户「千问 key 失效 + Firecrawl 不可用」
 步骤5：仅在用户明确说「用本地 OCR」后降级到 Apple Vision / EasyOCR / Tesseract
 ```
 
-**绝对禁止的操作路径（每次违反都被波总骂）：**
-- ❌ 「先用 Tesseract 试试看能不能读出来」——中文几乎必乱码，纯浪费时间
-- ❌ 跑 3+ 次不同参数的 Tesseract 再切千问——在第一步就该用千问
-- ❌ 千问不可用时跳过 Firecrawl parse 直接降级到 Tesseract——Firecrawl 是波总专门注册的 OCR 工具
-- ❌ 在 skill 已经写明千问优先的情况下仍走老路径
+**🔴 绝对禁止（每次违反都被波总骂）：**
+- ❌ 直接采信 Telegram 消息里平台自动附带的内置描述文本（`[The user sent an image~ Here's what I can see: ...]`）——必须主动走步骤0/1
+- ❌ 跳过 Cursor 直接千问——Cursor 优先是第一条铁律
+- ❌ 跳过千问直接 Tesseract/Apple Vision——中文几乎必乱码
+- ❌ 小字/卡片/截图细节不放大就下结论——位置卡片等先裁剪 3× 放大再送千问精读，两轮结果不一致以放大精读为准
 
-> **波总铁律（2026-06-09，多次重申至 2026-07-22）**：图片文字识别默认用千问 VL。千问不可用时优先 Firecrawl parse（云端 OCR）。不要先尝试 Tesseract/Apple Vision。千问/Firecrawl 直接理解图片内容，无需 OCR 中间层，中文识别精度远超本地方案。
+> **波总铁律（2026-06-09 定，2026-07-22、2026-08-19 多次重申）**：执行优先级 = Cursor CLI → 硅基流动千问 → Firecrawl → 本地 OCR。内置识别是最后手段，不是默认路径。
 
 ## 🥇 首选路径：通义千问 Qwen-VL-Max（云端视觉，唯一推荐）
 
