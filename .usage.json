@@ -222,6 +222,19 @@
     "use_count": 1,
     "view_count": 1
   },
+  "ata-exam-portal-automation": {
+    "archived_at": null,
+    "created_at": "2026-08-18T11:29:29.503925+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-18T11:29:40.873855+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
   "audiocraft-audio-generation": {
     "archived_at": null,
     "created_at": "2026-06-05T12:53:12.018450+00:00",
@@ -828,14 +841,14 @@
     "archived_at": null,
     "created_at": "2026-08-18T03:01:58.430698+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-18T03:02:18.968332+00:00",
-    "last_used_at": null,
-    "last_viewed_at": null,
-    "patch_count": 1,
+    "last_patched_at": "2026-08-18T11:29:03.645099+00:00",
+    "last_used_at": "2026-08-18T11:28:50.955331+00:00",
+    "last_viewed_at": "2026-08-18T11:28:50.953506+00:00",
+    "patch_count": 2,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "gguf-quantization": {
     "archived_at": null,
