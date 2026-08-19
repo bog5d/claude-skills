@@ -356,16 +356,16 @@
     "archived_at": null,
     "created_at": "2026-08-10T15:13:12.310680+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-16T07:59:59.425102+00:00",
+    "last_patched_at": "2026-08-19T00:24:44.894238+00:00",
     "last_reused_patch_generation": 1,
-    "last_used_at": "2026-08-16T07:59:56.183640+00:00",
-    "last_viewed_at": "2026-08-16T07:59:56.181804+00:00",
-    "patch_count": 48,
+    "last_used_at": "2026-08-19T00:24:05.044839+00:00",
+    "last_viewed_at": "2026-08-19T00:24:05.043312+00:00",
+    "patch_count": 51,
     "patch_generation": 5,
     "pinned": false,
     "state": "active",
-    "use_count": 36,
-    "view_count": 36
+    "use_count": 37,
+    "view_count": 37
   },
   "chinese-ipo-research": {
     "archived_at": null,
@@ -385,13 +385,13 @@
     "created_at": "2026-08-13T09:35:48.474485+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-08-17T01:51:18.171834+00:00",
-    "last_used_at": "2026-08-17T01:51:00.905653+00:00",
-    "last_viewed_at": "2026-08-17T01:51:00.903818+00:00",
+    "last_used_at": "2026-08-19T00:27:48.675430+00:00",
+    "last_viewed_at": "2026-08-19T00:27:48.673790+00:00",
     "patch_count": 3,
     "pinned": false,
     "state": "active",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 4,
+    "view_count": 4
   },
   "clash-verge-management": {
     "archived_at": null,
@@ -816,13 +816,13 @@
     "created_at": "2026-07-24T17:42:32.369969+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_used_at": "2026-08-19T00:25:19.073206+00:00",
+    "last_viewed_at": "2026-08-19T00:25:19.069471+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "gbrain-installation": {
     "archived_at": null,
@@ -1186,26 +1186,26 @@
     "created_at": "2026-07-24T17:42:32.443752+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_used_at": "2026-08-19T00:20:33.433093+00:00",
+    "last_viewed_at": "2026-08-19T00:20:33.430125+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "investor-technical-response-rewrite": {
     "archived_at": null,
     "created_at": "2026-07-17T17:04:13.257271+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_used_at": "2026-08-19T00:20:33.434556+00:00",
+    "last_viewed_at": "2026-08-19T00:20:33.431680+00:00",
     "patch_count": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "jupyter-live-kernel": {
     "archived_at": null,
