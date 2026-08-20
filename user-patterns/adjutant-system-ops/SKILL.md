@@ -49,6 +49,7 @@ Cangjie_OBS_Notes 的 `知识库/认知演化/evolution.md` 常滞后于拆解�
 6. **校验提交**：`python3 系统检查/validate_repo.py` 报的密钥扫描类 ERROR（obs-wiki/raw/sources 历史文件）是**仓库既有问题**，与本次修改无关，看是否新增即可；然后 commit + push
 
 ## 陷阱
+- **兄弟 AI 并发建任务（2026-08-20 实测）**：status.json/DB 可能在两次操作之间被其他 AI/cron 更新（本会话 T100 由兄弟代理先建，几分钟前 max ID 还是 T099）。对策：每次插入前重新交叉比对 DB 与 status.json 的 max ID（不能沿用上次会话/上次命令的结论），追加 tasks 数组前重读文件，push 后 `git pull` 复查远端。建卡/行程重复写会双行，追加行前先 grep 目标行是否已含要写的内容。
 - **macOS 无 GNU `timeout`**：`timeout 60 python3 ...` 报 `command not found`；直接跑 python3，或装 coreutils 用 `gtimeout`
 - **execute_code 在审批/cron 模式被阻止**：DB 写入用 `terminal + python3 heredoc`（详见 adjutant-brain-dump 流程）
 - **git pull/写库可能被审批拦截**：被拒后不要盲目重试同一条命令；先向波总确认是否放行，确认后原样重跑通常成功
