@@ -107,6 +107,15 @@ def parse_markdown(md_text: str) -> list:
             blocks.append({"type": "quote", "content": " ".join(quote_lines)})
             continue
         
+        # 分隔线 (---)
+        if re.match(r'^-{3,}$', line):
+            if current_para:
+                blocks.append({"type": "paragraph", "content": " ".join(current_para)})
+                current_para = []
+            blocks.append({"type": "hr"})
+            i += 1
+            continue
+
         # Markdown 表格 (| col | col |)
         if line.startswith("|") and line.endswith("|"):
             if current_para:
@@ -222,6 +231,12 @@ def render_blocks(blocks: list, image_slots: list) -> str:
                 cells = "".join(f"<td>{cell}</td>" for cell in row)
                 rows_html.append(f"<tr>{cells}</tr>")
             html_parts.append(f'<table class="wechat-table">{"".join(rows_html)}</table>')
+        elif btype == "hr":
+            html_parts.append(
+                '<hr class="wechat-hr" '
+                'style="border:none;border-top:1px solid #e2ddd4;'
+                'margin:28px auto;width:60%">'
+            )
     
     return "\n".join(html_parts)
 

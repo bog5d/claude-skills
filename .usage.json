@@ -419,6 +419,19 @@
     "use_count": 4,
     "view_count": 4
   },
+  "clash-proxy-operations": {
+    "archived_at": null,
+    "created_at": "2026-08-22T03:48:58.302336+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-08-22T03:48:58.304052+00:00",
+    "last_viewed_at": "2026-08-22T03:48:58.302352+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
   "clash-verge-management": {
     "archived_at": null,
     "created_at": "2026-07-29T15:02:56.860300+00:00",
@@ -1079,14 +1092,14 @@
     "created_by": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-11T01:36:23.161431+00:00",
-    "last_viewed_at": "2026-08-11T01:36:23.158737+00:00",
+    "last_used_at": "2026-08-22T03:53:41.884991+00:00",
+    "last_viewed_at": "2026-08-22T03:53:41.883239+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 7,
-    "view_count": 7
+    "use_count": 10,
+    "view_count": 10
   },
   "hermes-memory-curation": {
     "archived_at": null,
@@ -1107,14 +1120,14 @@
     "created_by": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-10T15:46:10.905727+00:00",
-    "last_viewed_at": "2026-08-10T15:46:10.903534+00:00",
+    "last_used_at": "2026-08-22T03:47:59.665537+00:00",
+    "last_viewed_at": "2026-08-22T03:47:59.662805+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 5,
+    "view_count": 5
   },
   "hero-recruiter": {
     "archived_at": null,
@@ -2369,13 +2382,13 @@
     "created_at": "2026-07-07T12:17:32.522784+00:00",
     "created_by": null,
     "last_patched_at": "2026-07-22T05:04:49.463310+00:00",
-    "last_used_at": "2026-07-24T17:57:28.704076+00:00",
-    "last_viewed_at": "2026-07-24T17:57:28.697954+00:00",
+    "last_used_at": "2026-08-22T03:46:18.181228+00:00",
+    "last_viewed_at": "2026-08-22T03:46:18.178448+00:00",
     "patch_count": 18,
     "pinned": false,
     "state": "active",
-    "use_count": 10,
-    "view_count": 10
+    "use_count": 11,
+    "view_count": 11
   },
   "wechat-mini-program-agent": {
     "archived_at": null,
@@ -2389,6 +2402,32 @@
     "state": "active",
     "use_count": 1,
     "view_count": 1
+  },
+  "wechat-publish-direct": {
+    "archived_at": null,
+    "created_at": "2026-08-22T03:46:18.176776+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-08-22T03:46:18.179727+00:00",
+    "last_viewed_at": "2026-08-22T03:46:18.176783+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
+  "wechat-publish-pipeline": {
+    "archived_at": null,
+    "created_at": "2026-08-22T03:54:26.628724+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-22T03:54:35.897985+00:00",
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 1,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
   },
   "wechat-publisher-relay": {
     "archived_at": null,

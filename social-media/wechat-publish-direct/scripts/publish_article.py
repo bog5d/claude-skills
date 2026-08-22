@@ -416,6 +416,31 @@ def call_deepseek(article_text, appid, secret):
     return html.strip()
 
 
+def is_html_document(text: str) -> bool:
+    """判断输入是否为完整 HTML 文档（直通模式触发条件）。"""
+    stripped = text.lstrip().lower()
+    return stripped.startswith("<!doctype") or stripped.startswith("<html")
+
+
+def extract_body(html: str) -> str:
+    """提取 <body> 内容；无 body 标签则原样返回。"""
+    m = re.search(r"<body[^>]*>(.*?)</body>", html, re.S)
+    return m.group(1) if m else html
+
+
+def sanitize_html(html: str) -> str:
+    """清洗异常 Unicode：U+FFFC/U+FFFD/零宽字符。"""
+    return re.sub(r"[\ufffc\ufffd\u200b-\u200f\ufeff]", "", html)
+
+
+def strip_layout_image_blocks(html: str) -> str:
+    """直通模式：剥离排版引擎已插入的图片块（picsum 占位图 + caption），
+    由发布流程在解析后的新位置重新插入微信 CDN 图片。"""
+    html = re.sub(r'<div class="wechat-image-block">.*?</div>', "", html, flags=re.S)
+    html = re.sub(r"<img[^>]*>", "", html)
+    return html
+
+
 def parse_article_html(html):
     """
     解析排版后的 HTML，找到：
@@ -425,9 +450,9 @@ def parse_article_html(html):
     
     返回结构化数据，用于确定配图插入点。
     """
-    # 找到文章容器
+    # 找到文章容器（兼容 quality_layout 的 class 体系 与 DeepSeek 的 inline style 体系）
     container_match = re.search(
-        r'<div style="font-family:[^"]*">', html
+        r'<div(?:\s+class="wechat-article"|\s+style="font-family:[^"]*")[^>]*>', html
     )
     if not container_match:
         raise ValueError("Could not find article container div")
@@ -438,9 +463,13 @@ def parse_article_html(html):
     container_end_match = re.search(r'</div>\s*$', html)
     container_end = container_end_match.start() if container_end_match else len(html)
     
-    # 找到所有章标题（匹配 一、 或 一、标题内容 格式）
-    # DeepSeek 格式：<p style="...">一、 故事：标题</p>
-    chapter_pattern = r'<p style="font-size:18px;color:#888[^"]*">[一二三四五六七八九十]、?[^<]*</p>'
+    # 找到所有章标题（兼容两种格式）：
+    # quality_layout: <h2 class="wechat-section">一、标题</h2>
+    # DeepSeek: <p style="font-size:18px;color:#888...">一、标题</p>
+    chapter_pattern = (
+        r'<h2 class="wechat-section">[^<]*</h2>'
+        r'|<p style="font-size:18px;color:#888[^"]*">[一二三四五六七八九十]、?[^<]*</p>'
+    )
     chapters = list(re.finditer(chapter_pattern, html))
     
     # 找到所有段落
@@ -700,8 +729,15 @@ def publish_workflow(
                f"seeds={cover_seed} + {body_seeds}, "
                f"layout={layout_provider}, dry_run={dry_run}")
     
-    # ---- Step 1: 排版 ----
-    if layout_provider == "deterministic":
+    # ---- Step 0/1: 直通模式（输入已是完整 HTML）----
+    if is_html_document(article_md):
+        log("STEP 0", "检测到已排版 HTML → 直通模式")
+        html = extract_body(article_md)
+        html = strip_layout_image_blocks(html)
+        html = sanitize_html(html).strip()
+        log("STEP 1", f"直通模式: 提取 body {len(html)} chars, "
+                     f"已有图片 {len(re.findall(r'<img', html))} 张 (全部重插)")
+    elif layout_provider == "deterministic":
         log("STEP 1", "Rendering Markdown with deterministic layout engine...")
         html = markdown_to_wechat_html(article_md)
     elif layout_provider == "deepseek":
