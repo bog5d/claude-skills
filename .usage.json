@@ -131,6 +131,19 @@
     "use_count": 0,
     "view_count": 0
   },
+  "agent-exchange": {
+    "archived_at": null,
+    "created_at": "2026-08-22T16:44:59.591934+00:00",
+    "created_by": "agent",
+    "last_patched_at": null,
+    "last_used_at": null,
+    "last_viewed_at": null,
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 0,
+    "view_count": 0
+  },
   "ai-qujing-video": {
     "archived_at": null,
     "created_at": "2026-07-24T17:42:32.299087+00:00",
@@ -1939,14 +1952,14 @@
     "archived_at": null,
     "created_at": "2026-08-19T12:24:54.768402+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-20T14:29:10.700380+00:00",
-    "last_used_at": "2026-08-22T16:37:00.247782+00:00",
-    "last_viewed_at": "2026-08-22T16:37:00.246017+00:00",
-    "patch_count": 1,
+    "last_patched_at": "2026-08-22T16:44:58.377336+00:00",
+    "last_used_at": "2026-08-22T16:44:45.680474+00:00",
+    "last_viewed_at": "2026-08-22T16:44:45.678665+00:00",
+    "patch_count": 2,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 5,
+    "view_count": 5
   },
   "search-generate-separation": {
     "archived_at": null,
