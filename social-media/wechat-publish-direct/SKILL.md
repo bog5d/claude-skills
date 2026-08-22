@@ -291,9 +291,12 @@ python3 publish_article.py \
 | #5 图片 41005 | picsum 302 重定向没跟 | 2026-06-26 |
 | #6 配图 caption 跑偏 | quality_layout.py 硬编码农村关键词；默认改为 tech 主题 + 支持 --images 外置 JSON | 2026-07-07 |
 | #7 表格渲染失败 | 缺少 Markdown 表格解析 | 2026-07-07 |
-| #8 draft/update 47001 | API 格式错误阻塞；更新失败自动 fallback 到创建新草稿 | 2026-07-07 |
+| #8 draft/update 47001 | ~~API 格式错误阻塞；更新失败自动 fallback~~（2026-07-07 声称修复但代码未落地！）**2026-08-22 真修**：`draft/update` 的 `articles` 必须是【对象】（数组 → 47001 或静默不更新）；update 后 GET 回读验证 content 长度，未生效自动删旧重建 | 2026-08-22 |
 | #9 异常 Unicode 漏入草稿 | 无清洗步骤；新增 sanitize_html() 在发微信前 strip U+FFFC/U+FFFD/零宽字符 | 2026-07-07 |
-| #10 排版 HTML 被当 Markdown 渲染 | 输入 HTML 被 `markdown_to_wechat_html()` 当 MD 重渲染；新增直通模式：检测 `<!DOCTYPE`/`<html` → 提取 body → 跳过渲染直接创建草稿 | 2026-07-07 |
+| #10 排版 HTML 被当 Markdown 渲染 | ~~新增直通模式~~（2026-07-07 声称修复但代码里根本没有直通分支！）**2026-08-22 真修**：实现 `is_html_document()`/`extract_body()`/`sanitize_html()`/`strip_layout_image_blocks()`，`<!DOCTYPE`/`<html` 开头自动直通，跳过 Markdown 渲染 | 2026-08-22 |
+| #11 HTML 方言不兼容 | quality_layout（class 体系 `.wechat-article`/`.wechat-section`）与 publish 解析器（inline-style 体系）互不识别 → `ValueError: Could not find article container div`。已兼容两种格式 | 2026-08-22 |
+| #12 孤立 `</div>` 截断正文 | `strip_layout_image_blocks()` 非贪婪正则只删到 caption 闭合，残留孤立 `</div>`；微信解析器遇孤立闭合标签直接丢弃后续全部内容（草稿只剩 1/3，前端无报错）。正则改为 `.*?</div>\s*</div>` 连带外层闭合一起删 + 循环清理 + 删空段落 | 2026-08-22 |
+| #13 微信截断无感知 | 草稿被截断但 API 返回 errcode=0，GET 回读才暴露。**发布后必须 draft/get 验证全文关键词在位**（含最后一句）| 2026-08-22 |
 
 ## 📌 文章来源处理
 

@@ -435,9 +435,26 @@ def sanitize_html(html: str) -> str:
 
 def strip_layout_image_blocks(html: str) -> str:
     """直通模式：剥离排版引擎已插入的图片块（picsum 占位图 + caption），
-    由发布流程在解析后的新位置重新插入微信 CDN 图片。"""
-    html = re.sub(r'<div class="wechat-image-block">.*?</div>', "", html, flags=re.S)
+    由发布流程在解析后的新位置重新插入微信 CDN 图片。
+
+    图片块结构（quality_layout 输出）:
+        <div class="wechat-image-block">
+          <img ...>
+          <div class="wechat-image-caption">...</div>
+        </div>
+    注意：必须连带外层 </div> 一起删，非贪婪匹配会留下孤立 </div>
+    （微信解析器遇孤立闭合标签会截断正文）。
+    """
+    block_pattern = re.compile(
+        r'<div class="wechat-image-block">.*?</div>\s*</div>', re.S
+    )
+    prev = None
+    while prev != html:
+        prev = html
+        html = block_pattern.sub("", html)
     html = re.sub(r"<img[^>]*>", "", html)
+    # 清理剥离后残留的空段落（配图建议标记清理留下的空壳）
+    html = re.sub(r'<p class="wechat-paragraph">\s*</p>', "", html)
     return html
 
 
@@ -633,10 +650,12 @@ def create_draft(access_token, title, author, digest, content,
     if exists and existing_mid:
         # 更新已有草稿
         log("DRAFT", f"Found existing draft: {existing_mid[:20]}..., updating")
+        # 注意：draft/update 的 articles 是【对象】；draft/add 才是数组
+        # （用数组会报 47001 data format error，或静默不更新 content）
         payload = {
             "media_id": existing_mid,
             "index": 0,
-            "articles": [{
+            "articles": {
                 "title": title,
                 "author": author,
                 "digest": digest,
@@ -644,7 +663,7 @@ def create_draft(access_token, title, author, digest, content,
                 "thumb_media_id": thumb_media_id,
                 "need_open_comment": 1,
                 "only_fans_can_comment": 0,
-            }]
+            }
         }
         path = f"/cgi-bin/draft/update?access_token={access_token}"
         raw = _wechat_post(path,
@@ -654,7 +673,31 @@ def create_draft(access_token, title, author, digest, content,
         if result.get("errcode", 1) != 0:
             raise ValueError(f"Update draft failed: {result}")
         log("DRAFT", f"Draft updated: media_id={existing_mid[:20]}...")
-        return existing_mid
+
+        # 微信 draft/update 存在静默不更新 content 的坑（2026-08-22 实测：
+        # update 返回 errcode=0 但正文仍是旧截断内容）。
+        # 对策：update 后 GET 回读验证 content 长度，未生效则删旧重建。
+        try:
+            raw2 = _wechat_post(
+                f"/cgi-bin/draft/get?access_token={access_token}",
+                json.dumps({"media_id": existing_mid}).encode(),
+                {"Content-Type": "application/json"}, timeout=15)
+            saved = json.loads(raw2)["news_item"][0].get("content", "")
+            if len(saved) >= len(content) * 0.9:
+                log("DRAFT", f"Draft content verified: {len(saved)} chars ✓")
+                return existing_mid
+            log("DRAFT", f"update 未生效 (saved {len(saved)} vs sent {len(content)})"
+                         f"，降级为删除重建", "⚠")
+        except Exception as e:
+            log("DRAFT", f"update 验证异常: {e}，降级为删除重建", "⚠")
+
+        # 降级：删除旧草稿，走 add 路径
+        del_path = f"/cgi-bin/draft/delete?access_token={access_token}"
+        raw_del = _wechat_post(
+            del_path, json.dumps({"media_id": existing_mid}).encode(),
+            {"Content-Type": "application/json"}, timeout=15)
+        log("DRAFT", f"旧草稿已删除: {json.loads(raw_del)}")
+        # 继续走下方 add 分支
     
     # 不存在则新建
     path = f"/cgi-bin/draft/add?access_token={access_token}"
