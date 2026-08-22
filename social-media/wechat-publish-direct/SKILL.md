@@ -241,6 +241,22 @@ python3 publish_article.py \
 
 **验证**：检查日志 `[STEP 0] 检测到已排版 HTML → 直通模式` 是否出现。
 
+## 🛡️ 发布完整性检查机制（2026-08-22 固化，防截断事故复发）
+
+微信 API 返回 errcode=0 也可能静默截断正文（#12 事故：孤立 `</div>` 导致草稿只剩 1/3，无任何报错）。**发布脚本内置三层防线**：
+
+1. **发布前结构自检**：`validate_html_structure()` 用标签栈检查 div/blockquote/section/table/ul/ol/h1-h3 配对，孤立闭合标签立即报错（如 `多余的闭合 </div> (位置 N)`）
+2. **发布后回读验证**：`verify_draft_integrity()` 在 draft/add 或 draft/update 后 GET 回读，检查三项：
+   - content 长度 ≥ 发送长度 × 0.9（微信规范化允许 ±10%）
+   - 纯文本开头 20 字 / 结尾 20 字标记均在位（剥 HTML 标签后比对）
+   - 图片数 ≥ 发送数（兼容微信把 `src` 规范化为 `data-src`）
+3. **失败自动重建**：验证不过 → 删除草稿 → 重新 draft/add → 再验证 → 仍失败才报错退出
+
+**验证**：发布日志出现 `[STEP 7] 完整性验证通过 ✓ (NNNNN chars / N imgs / 头尾标记在位)`。
+
+**⚠️ 已知行为**：文章发表（群发）成功后，来源草稿会被微信自动移除——所以同标题重发会走新建（add）而非更新（update），属正常现象。
+
+
 ### cross-profile 文件修改静默失败
 
 **症状**：`patch` 工具对 `~/.hermes/profiles/her-m2/...` 路径返回 `success` 但文件未修改。

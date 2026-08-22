@@ -458,6 +458,65 @@ def strip_layout_image_blocks(html: str) -> str:
     return html
 
 
+def validate_html_structure(html: str) -> None:
+    """发布前 HTML 结构自检：标签配对（重点防孤立闭合标签）。
+
+    微信解析器遇无配对开标签的孤立 </div> 等闭合标签会直接丢弃
+    其后全部正文（2026-08-22 #12 截断事故根因）。用标签栈检查
+    成对标签是否闭合。img/br/hr 为空元素，p 允许不闭合，均不检查。
+    """
+    stack = []
+    for m in re.finditer(
+        r'<(/?)(div|blockquote|section|table|ul|ol|h1|h2|h3)\b[^>]*>', html
+    ):
+        closing, tag = m.group(1), m.group(2)
+        if not closing:
+            stack.append(tag)
+        else:
+            if not stack or stack[-1] != tag:
+                raise ValueError(
+                    f"HTML 结构异常: 多余的闭合 </{tag}> (位置 {m.start()})。"
+                    f"正文会被微信截断，请检查排版输出")
+            stack.pop()
+    if stack:
+        raise ValueError(f"HTML 结构异常: 未闭合标签 {stack}。请检查排版输出")
+
+
+def verify_draft_integrity(access_token, media_id, sent_content, title):
+    """发布后回读草稿，验证内容完整性（微信可能静默截断且 errcode=0）。
+
+    返回 (ok: bool, reason: str)
+    """
+    raw = _wechat_post(
+        f"/cgi-bin/draft/get?access_token={access_token}",
+        json.dumps({"media_id": media_id}).encode(),
+        {"Content-Type": "application/json"}, timeout=15)
+    saved = json.loads(raw)["news_item"][0].get("content", "")
+
+    # 1. 长度检查（微信规范化允许 ±10%）
+    if len(saved) < len(sent_content) * 0.9:
+        return False, f"内容截断: 回读 {len(saved)} < 发送 {len(sent_content)}"
+
+    # 2. 开头/结尾标记检查（纯文本前 20 / 后 20 字）
+    def visible_text(html):
+        return re.sub(r"\s+", "", re.sub(r"<[^>]+>", "", html))
+
+    sent_visible, saved_visible = visible_text(sent_content), visible_text(saved)
+    head_mark, tail_mark = sent_visible[:20], sent_visible[-20:]
+    if head_mark not in saved_visible:
+        return False, f"开头标记缺失: {head_mark[:12]}..."
+    if tail_mark not in saved_visible:
+        return False, f"结尾标记缺失: ...{tail_mark[-12:]}"
+
+    # 3. 图片数量检查（微信可能把 src 规范化为 data-src）
+    sent_imgs = len(re.findall(r"<img", sent_content))
+    saved_imgs = len(re.findall(r"<img[^>]*src=", saved))
+    if saved_imgs < sent_imgs:
+        return False, f"图片缺失: 回读 {saved_imgs} < 发送 {sent_imgs}"
+
+    return True, f"{len(saved)} chars / {saved_imgs} imgs / 头尾标记在位"
+
+
 def parse_article_html(html):
     """
     解析排版后的 HTML，找到：
@@ -789,6 +848,9 @@ def publish_workflow(
     else:
         raise ValueError(f"Unknown layout provider: {layout_provider}")
     
+    # 发布前结构自检（防孤立闭合标签导致微信截断）
+    validate_html_structure(html)
+
     # 验证：不应该有图片
     img_count_step1 = len(re.findall(r'<img', html))
     log("STEP 1", f"排版完成: {len(html)} chars, "
@@ -882,6 +944,24 @@ def publish_workflow(
             token, title, author, digest, html, cover_media_id
         )
         log("STEP 6", f"草稿创建成功: media_id={draft_media_id[:20]}...")
+
+        # ---- Step 7: 发布后完整性验证（防微信静默截断）----
+        log("STEP 7", "Verifying draft integrity (回读验证)...")
+        ok, reason = verify_draft_integrity(token, draft_media_id, html, title)
+        if not ok:
+            log("STEP 7", f"验证失败: {reason} → 删除重建重试", "⚠")
+            _wechat_post(
+                f"/cgi-bin/draft/delete?access_token={token}",
+                json.dumps({"media_id": draft_media_id}).encode(),
+                {"Content-Type": "application/json"}, timeout=15)
+            draft_media_id = create_draft(
+                token, title, author, digest, html, cover_media_id
+            )
+            ok, reason = verify_draft_integrity(token, draft_media_id, html, title)
+            if not ok:
+                raise ValueError(
+                    f"草稿创建成功但内容不完整（重试后仍失败）: {reason}")
+        log("STEP 7", f"完整性验证通过 ✓ ({reason})")
     
     return {
         "draft_media_id": draft_media_id,
@@ -894,6 +974,7 @@ def publish_workflow(
         "digest": digest,
         "layout_provider": layout_provider,
         "dry_run": dry_run,
+        "integrity_verified": (not dry_run),
     }
 
 
@@ -990,6 +1071,8 @@ def main():
         print(f"草稿 Media ID: {result['draft_media_id']}")
         print(f"HTML 大小: {result['html_length']} 字符")
         print(f"配图数量: {result['image_count']}")
+        if result.get('integrity_verified'):
+            print(f"完整性: 已回读验证 ✓")
         print(f"{'='*50}")
         
         # 保存最终 HTML
