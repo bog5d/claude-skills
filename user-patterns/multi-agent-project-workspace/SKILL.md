@@ -48,6 +48,7 @@ _LEDGER.md            ← 台账，谁动了什么
 - 拿不准的词标 `【？】`，并在文末集中列「待核实清单」
 - 说话人标签（说话人1/2）在ASR里经常错乱 → 按内容逻辑重新归属，整理稿开头给「参会角色推断表」
 - ASR同音错字高频映射表见 `references/asr-noise-glossary.md`（整理前先扫一遍能省一半猜谜时间）
+- 协议/合同审读与改版工作流（红旗清单、python-docx修订标记版技巧、波总谈判哲学）见 `references/agreement-revision-workflow.md`
 
 ## 接手协议（任何Agent，进场/退场各一件事）
 - 进场：读 `_RULES.md` 全文 + `_LEDGER.md` 尾部20行（最新状态）
