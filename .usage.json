@@ -644,26 +644,30 @@
     "created_at": "2026-08-16T06:09:03.539965+00:00",
     "created_by": "agent",
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T11:54:39.573212+00:00",
+    "last_viewed_at": "2026-08-24T11:54:39.570073+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "cron-audit": {
     "archived_at": null,
     "created_at": "2026-08-11T01:36:23.157302+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-11T01:36:23.160031+00:00",
-    "last_viewed_at": "2026-08-11T01:36:23.157309+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T11:55:05.522687+00:00",
+    "last_viewed_at": "2026-08-24T11:55:05.519466+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "cron-jobs": {
     "archived_at": null,
@@ -671,14 +675,14 @@
     "created_by": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-24T09:52:02.866401+00:00",
-    "last_viewed_at": "2026-08-24T09:52:02.864812+00:00",
+    "last_used_at": "2026-08-24T11:53:59.588554+00:00",
+    "last_viewed_at": "2026-08-24T11:53:59.585749+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 6,
-    "view_count": 6
+    "use_count": 7,
+    "view_count": 7
   },
   "cursor-default-executor": {
     "archived_at": null,
@@ -757,6 +761,21 @@
     "state": "active",
     "use_count": 0,
     "view_count": 0
+  },
+  "due-diligence-response": {
+    "archived_at": null,
+    "created_at": "2026-08-24T11:56:00.963340+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-08-24T11:56:28.046955+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T11:56:22.400337+00:00",
+    "last_viewed_at": "2026-08-24T11:56:22.398579+00:00",
+    "patch_count": 2,
+    "patch_generation": 2,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
   },
   "encrypted-excel-ddd-clean": {
     "archived_at": null,
@@ -841,13 +860,15 @@
     "created_at": "2026-08-19T03:31:26.542424+00:00",
     "created_by": null,
     "last_patched_at": "2026-08-19T03:31:26.542432+00:00",
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T11:54:39.571531+00:00",
+    "last_viewed_at": "2026-08-24T11:54:39.568274+00:00",
     "patch_count": 1,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "feishu-lark-cli-integration": {
     "archived_at": null,
@@ -1276,13 +1297,15 @@
     "created_at": "2026-07-24T17:42:32.443752+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-19T00:20:33.433093+00:00",
-    "last_viewed_at": "2026-08-19T00:20:33.430125+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T11:53:59.587088+00:00",
+    "last_viewed_at": "2026-08-24T11:53:59.584003+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "investor-technical-response-rewrite": {
     "archived_at": null,
@@ -2201,13 +2224,15 @@
     "created_at": "2026-07-24T17:42:32.586253+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T11:55:05.524252+00:00",
+    "last_viewed_at": "2026-08-24T11:55:05.521220+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "systematic-debugging": {
     "archived_at": null,
