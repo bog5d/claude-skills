@@ -4,13 +4,15 @@
     "created_at": "2026-06-05T12:53:11.998757+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-26T06:32:29.627206+00:00",
-    "last_used_at": "2026-08-16T06:07:52.041208+00:00",
-    "last_viewed_at": "2026-08-16T06:07:52.039724+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T09:50:09.194846+00:00",
+    "last_viewed_at": "2026-08-24T09:50:09.191931+00:00",
     "patch_count": 4,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 7,
-    "view_count": 7
+    "use_count": 8,
+    "view_count": 8
   },
   "Hermes Integration Assessment": {
     "archived_at": null,
@@ -139,14 +141,14 @@
     "created_by": "agent",
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-23T07:39:04.133754+00:00",
-    "last_viewed_at": "2026-08-23T07:39:04.131952+00:00",
+    "last_used_at": "2026-08-24T09:50:09.193308+00:00",
+    "last_viewed_at": "2026-08-24T09:50:09.189704+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "ai-qujing-video": {
     "archived_at": null,
@@ -668,13 +670,15 @@
     "created_at": "2026-06-24T23:22:13.844368+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-14T12:46:07.397142+00:00",
-    "last_viewed_at": "2026-08-14T12:46:07.393088+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-24T09:52:02.866401+00:00",
+    "last_viewed_at": "2026-08-24T09:52:02.864812+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 5,
-    "view_count": 5
+    "use_count": 6,
+    "view_count": 6
   },
   "cursor-default-executor": {
     "archived_at": null,
