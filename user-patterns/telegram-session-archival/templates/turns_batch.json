@@ -1,0 +1,10 @@
+[
+  {
+    "kind": "dialogue",
+    "agent": "hermes",
+    "channel": "telegram",
+    "at": "YYYY-MM-DDTHH:MM:SS+08:00",
+    "user": "（波总原文，保真不压缩）…",
+    "ai": "（实际发出的归档回复原文）…"
+  }
+]
