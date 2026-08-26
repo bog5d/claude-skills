@@ -114,9 +114,21 @@ r.font.color.rgb = RGBColor(180, 180, 180)
 
 ## Phase 3: 生成 PDF
 
-三条路径，按环境可用性和场景选择：
+四条路径，按保真度优先级选择：
 
-### 路径 A：Markdown → weasyprint（纯文本场景）
+### 路径 A（首选）：docx2pdf — LibreOffice headless（所见即所得）
+
+适用：已生成 DOCX 的正式外发文档。表格颜色、判断框底色、页眉页脚、页码域全保真。
+
+```bash
+docx2pdf 输入.docx [输出目录]   # wrapper：~/bin/docx2pdf（已内置 FONTCONFIG_FILE 修复）
+```
+
+⚠️ **macOS 中文字体坑（2026-08-27 实测）**：LO bundle 自带 fontconfig 但无 fonts.conf，headless 枚举不到系统字体 → PDF 中文全部空白（fallback 到希伯来字体 FrankRuhlHofshi）。必须设 `FONTCONFIG_FILE=/opt/homebrew/etc/fonts/fonts.conf`（brew fontconfig 配置含全部 macOS 字体目录）。`docx2pdf` wrapper 已内置此环境变量，裸跑 soffice 记得加。
+
+验证：PDF 内嵌字体应含 PingFangSC/STHeiti（`python3 -c "import fitz;d=fitz.open(x);print({f[3] for f in d[0].get_fonts()})"`），而不是只有 LinuxLibertineG。
+
+### 路径 B：DOCX → HTML → weasyprint（LO 不可用时的降级方案）
 
 适用：内容以文字为主、无复杂表格时。
 
@@ -236,6 +248,19 @@ weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略
 
 完整可运行的 fpdf2 结构化文档参考实现见 `references/fpdf2-structured-doc-pattern.py`。
 
+## Phase 3.5: 模板复用（高校成果转化项目讨论稿）
+
+`templates/tech_transfer_discussion_template.py` — 14 部分骨架（2026-08-26 磁电项目固化）：
+核心判断 / 四层壁垒 / 关键断点 / 三方向对比 / 一核一矛 / 公司化机制 / 团队设计 / 股权原则 /
+首轮资金 / 90天计划 / 12个月三"第一次" / 终局 / 合作启动方式 / 15问 + 附录A退出测算 + 附录B图片清单。
+
+适用：高校成果转化、教授创业、技术产业化方向性讨论（PRJ-030 电机、PRJ-031 飞车可直接套壳）。
+
+流程：复制模板 → 替换 CONFIG（标题/月份/输出路径）→ 按注释把 XXX 占位换成实际内容 →
+`python3 模板.py` 出 docx → `docx2pdf` 出 PDF。半小时出稿。
+
+`scripts/render_engine.py` 为通用引擎（内容与排版分离，CONFIG+CONTENT 协议），新文档类型可基于它自定义。
+
 ## Phase 4: 输出
 
 文件命名：`{方案名称}_{YYYYMMDD}.docx` / `.pdf`
@@ -250,7 +275,7 @@ weasyprint 会输出 CSS warnings（text-rendering, overflow-x 等），**忽略
 - **SyntaxError on Chinese quotes**: `\u201c明股实债\u201d` inside Python single-quoted strings WILL cause `SyntaxError: invalid syntax`. Use Unicode escapes `\u201c\u201d` or double-quote the outer string, or use the parts-list pattern.
 - **DO NOT use docx built-in heading styles** — they override font settings. Build headings manually with `add_paragraph()` + custom runs.
 - **`element.rPr.rFonts.set(qn('w:eastAsia'), ...)` is MANDATORY** — without it, Chinese text renders in default font on Windows, ruining the document for recipients.
-- **LibreOffice 不是唯一路径** — DOCX → PDF 可走 `pandoc docx → HTML → weasyprint` 路径（见 Phase 3 路径 B），无需安装 500MB 的 LibreOffice。
+- **LibreOffice 已装（2026-08-27）**：`docx2pdf` 为 PDF 首选（Phase 3 路径 A），weasyprint 保留为降级方案。macOS 下 soffice 必须带 `FONTCONFIG_FILE=/opt/homebrew/etc/fonts/fonts.conf`，否则中文全部空白（详见路径 A 坑说明）。
 - **pandoc CSS warnings are harmless** — `text-rendering`, `overflow-x`, `gap` warnings from weasyprint do not affect output quality.
 - **关键数字遗漏**：生成后人工检查一遍，确保所有估值/比例/利率都已加粗。
 - **内部稿有红色标记**：机密印章和底部防盗警示用红色，区别于外发稿的灰色声明。
