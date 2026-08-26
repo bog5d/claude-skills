@@ -89,14 +89,14 @@
     "created_by": "agent",
     "last_patched_at": "2026-08-21T09:16:18.003506+00:00",
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-23T07:39:19.934239+00:00",
-    "last_viewed_at": "2026-08-23T07:39:19.931768+00:00",
+    "last_used_at": "2026-08-26T01:02:09.286167+00:00",
+    "last_viewed_at": "2026-08-26T01:02:09.284325+00:00",
     "patch_count": 6,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 6,
+    "view_count": 6
   },
   "adjutant-system": {
     "archived_at": null,
