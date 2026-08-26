@@ -406,15 +406,15 @@
     "created_at": "2026-08-10T15:13:12.310680+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-08-20T14:34:40.332170+00:00",
-    "last_reused_patch_generation": 1,
-    "last_used_at": "2026-08-20T14:34:30.691629+00:00",
-    "last_viewed_at": "2026-08-20T14:34:30.689671+00:00",
+    "last_reused_patch_generation": 5,
+    "last_used_at": "2026-08-26T02:43:50.437916+00:00",
+    "last_viewed_at": "2026-08-26T02:43:50.436112+00:00",
     "patch_count": 56,
     "patch_generation": 5,
     "pinned": false,
     "state": "active",
-    "use_count": 43,
-    "view_count": 43
+    "use_count": 44,
+    "view_count": 44
   },
   "chinese-ai-humanizer": {
     "archived_at": null,
