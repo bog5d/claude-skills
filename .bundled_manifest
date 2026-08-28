@@ -42,6 +42,8 @@ cangjie-fos-project:92730e2a53c3d42e7a92926eb828158d
 cangjie-obs-agent:0fd6493b6bb19bcf30ba00d330fd0afd
 change-detection-watchdog:6f8980d3eed6dc634ecefd470b30b218
 china-a-share-data-collection:cfe635b1cc687d842e4cb6b0f0601c4d
+chinese-ai-humanizer:8e3f65c4bdb920e2dc6f967356dd3f73
+chinese-document-generation:7f44e892a17286dd9840d6505437e1e4
 chinese-ipo-research:8cb22e8e8535947f64d248c6b338856c
 chinese-pdf-report-generation:5933f5a2fd882883f2652679ee8d1b5f
 clash-proxy-operations:69fc31d4ac0101f8ad33d00b71908307
@@ -64,6 +66,7 @@ content-research-writer:41b81a3324c838e6a9fa2d7795c89bd3
 context-compression:15d6dd56a8c18548242a303512f87fe4
 context-compression-extend:1e247fef79f04867fe67c1f498ed298b
 context-compression-layer-upgrade:82f4d84af468b8f41c8d509f0dbb5962
+contract-neutralization:335f0da232b485afb7e53c92f422da83
 converge-bare-exceptions:3e1e30e785bd6fc0e1a05c575b1ca3c2
 corporate-due-diligence:fe05a04ca89197f59ff0e5b35cc6cc10
 criteria-driven-evaluation:3e59dba997e11ac39aa58cc44f85e66f
@@ -87,9 +90,11 @@ dogfood:712241a2cdd1f814f671cd650458ed87
 domain-intel:b8699d47516dfca6039488141f43931d
 dspy:64659f5eba8f127700fa931f58175f01
 duckduckgo-search:fe3938190ba743c156e9a7c7954e9a88
+due-diligence-response:0554e2d9306b4bebcd98a03b25fc9202
 editable-ppt-delivery:63c5c731e179e0e3f35fda5867adb2a9
 editable-pptx-delivery:ad858324c5552ac43c944c378edde7d4
 editable-pptx-qa:128e696301743f3a9ec94c9a55eca92e
+eli5:17e099a56903099da222ce44fc7cf376
 email-inbox-triage:454170991ce34a12d2b738d02e3f5ec5
 encrypted-excel-ddd-clean:72a5b4e35dc40dc904c9ad25b0610ae0
 english-tutor-engine:3480b3339f2840fca3e37d28d9d41d37
@@ -124,6 +129,7 @@ github-pr-workflow:48b6aceaae5333f6d3ed2d72f595331b
 github-repo-management:68130f66d5ec7d74dee3bfb1f60f1c54
 godmode:27f853c53d2a2ef38118a583a9dfb6c4
 google-workspace:5f448efe3d7035e45306a4f78340d3ef
+grill-me:ecbaead0e71f941701e1f879487fba31
 grillme:e06a420fa2c974ebe7d81fe5056a8f34
 grounded-citations:8d2d91a1ec89c05339110ad312e2036a
 grpo-rl-training:3465d05607abbb04d266c56c58cc5a1d
@@ -137,6 +143,7 @@ hermes-add-toolset:44a16918e8935391a9138eef4fd862fa
 hermes-agent:f0372cfd35b555115b57f75c95fc98e2
 hermes-agent-skill-authoring:7c945f027cbb639582a673bc29abcf23
 hermes-audit-report:a1464e86acc36fc9c7e22e81324895a1
+hermes-config-customization:c4c819beee672525365156a3d6527c23
 hermes-custom-provider:2f602d7ccea9f368704473259b13d3e2
 hermes-extension:f1bdad2b06ed7e1569bad3ab1952c491
 hermes-gateway-monitoring:dfccf04d3783a3d4f97b24158f7d0b37
@@ -193,6 +200,7 @@ minecraft-modpack-server:71e51465a1df193d7505ee47a91b6dbd
 minimalist-ui:f361134dcd964a65b9902aa9b4e85de8
 modal-serverless-gpu:957d93b8e4bf44fb229a0466df169f36
 monolith-to-package-while-active:b09536e7a64e15e122d96e07a2655acc
+multi-agent-project-workspace:6102865be04b35516322d35ffa0126a8
 multi-profile-setup:a44ec88a5e0f7ffe1b61eafca1da4efe
 nano-pdf:7cd6578384fca76ab3452f4438b8cf39
 native-mcp:46b72f7d76f87c4ed6a20f3bdd5da49e
@@ -217,6 +225,7 @@ pdf-to-pptx-image-transfer:93e04ac75ec53438f0da3ed966f654a0
 pdf-unlock:d82ceeb0ad17826d07f91da324a2ce42
 peft-fine-tuning:72f5c4becba0b358cb7baf8a983f7ec5
 personal-finance:00ba184924ab71256f6240398434ef09
+personal-wealth-os-project:236138c693a6d498696b21c73f39e4e9
 phase-planning-workflow:7021e68cb611664fa4533e56ae6c261d
 photo-slideshow-mv:871711fbb855897dcca4926c633ce9a7
 pinme-deployment:7963e01115dc2ca6348509ef0d23c63d
@@ -272,6 +281,7 @@ songwriting-and-ai-music:3be4030c70ead6ca8d5db04c7cbcc3b7
 spike:f8b8dc6f7b65c8fc9a832cb5bea1497e
 spotify:a0ffe21977c14dc8da5dca039de83b0f
 stable-diffusion-image-generation:4538853049abaf8c4810f3b9d958b4d3
+startup-bp-evaluation:6387c076752a04310fd3902322d1d0c0
 stirling-pdf-deployment:37cfcc6d51eb1e719210a6ba7f943d6c
 subagent-driven-development:2db54ebb5ff5dc720963884b848141b0
 subagent-file-delivery:1d2ae58b1603b72b3a39a1e95cb2d3f6
@@ -285,6 +295,7 @@ teams-meeting-pipeline:aa8327d5e998e8e4cfddcfaf5df7f7a0
 tech-project-evaluation:90960c958402430fca0e4bac22f793a9
 telegram-action-buttons:7448d317391a825cebeebaa441c0ef41
 telegram-file-delivery:16d23a40be28f7367c1e430891302978
+telegram-session-archival:26035c985758808e6c2dd9d80320e22a
 tencentdb-agent-memory-integration:8909788046db3c7b331364e1aee0ce6d
 test-driven-development:a67bd4cb658ed7c123b7440376d9302c
 three-layer-execution-wall:6965bb116784ed1250ac8599d9cee19b

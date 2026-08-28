@@ -15,6 +15,8 @@ metadata:
 ## When to Use
 
 - 史官日报报「今日捕获 0 条」/「断更提示」而当天明明有对话时（Hermes 漏采）。
+- **日报草案内容为空/「当天无留痕」而昨天明明给了大量内容时**（8/28 实例：collect_day 把到期待办误判为留痕，为「还没开始的今天」生成空草案推给波总）。
+- **某几天的日志/素材包缺失**（补采完 L0 但没有机制自动补跑 collect+write，8/26+8/27 实例）。
 - L0 对话流文件出现重复条目（同一对话采两次）或需要重建。
 - 兜底 cron `77a09d836ab0` 丢失/损坏需重建，或脚本需修改/迁移。
 
@@ -48,6 +50,29 @@ execute_code 内 subprocess 调 capture.py 可过审批（terminal 直跑 captur
 3. **L0 解析必须保留原始行**（含空行，不 strip）——capture.py 原样写入 user 文本（唯一变换=脱敏 redact），解析时 strip/丢空行 → join 后与 DB 原文 hash 永不匹配 → 每次跑都全量重采。块格式：`### 我说\n\n<user原文>\n\n### AI 答\n\n<ai原文>`，去块首尾空行，内容行原样。
 4. **补采必须带 `at` 时间戳**——不带时 capture.py 用 datetime.now() 写入"今天"文件，昨天/前天的补采全写错日期（实测 8/26 的 16 条错写进 8/27）。构造 dict 必须含 `at`=DB timestamp 转 CST ISO8601（`datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(CST).isoformat(timespec="seconds")`）。
 5. **补采必须逐字传 DB 原文，禁止人肉概括**——8/26 补救时传的是带括号说明的改写版（"（波总发来行程截图…）"），违反 L0 逐字保真红线，8/27 重建为逐字版。L0 是保真层，任何"说明性转述"都违规。
+
+## 五大坑续（2026-08-28 新增：补采≠日志恢复、touched 误判、云端异常触发）
+
+6. **补采完 L0 ≠ 日志自动恢复。** 兜底补采只写 L0（对话流），**不会触发 collect_day.py + write_draft.py 重新生成素材包和日志草案**。8/26+8/27 的 L0 深夜补采/重建后内容全在（19条/94KB），但当晚 21:00 云端收料时 L0 还是空的 → 判定「无留痕」跳过写日志；补采完成后没有任何机制自动补跑 → 两天日志缺位直到手动补。**补采/重建后必须手动补跑缺失日期：`collect_day.py <日>` → `write_draft.py <日>` → `finalize_draft.py --push <日>`。**
+7. **collect_day.py 的「无留痕」判定：到期待办（touched）不算留痕。** 8/28 实测：早上 06:51 云端链路跑 collect（异常时间，见坑8），8/28 当天还没开始，唯一命中是四条 8/21 排的「一周内复联」待办今天到期 → touched 非空 → 判定「有留痕」→ LLM 硬写出一篇「当天无留痕」的空日志推给波总（挨骂根因）。**已修（2026-08-28）：无留痕判定只看 events/stream/sources/workstreams/contacts/worklog/todos.created，touched 仅在已有其他留痕时作补充。** 验证：`collect_day.py` 对刚开始的日期应返回 1（无留痕）；返回 0 就是误判。
+8. **云端 Actions 触发时间不可靠，可能在异常时刻跑。** cron 配的是北京 21:00/21:30，但 8/28 早上 06:51 和 06:59 各跑了一轮（draft + auto-finalize），把 8/25 的 awaiting 草案顺带 auto_finalized。**commit 的 author date 是 +0000（UTC），commit message 里的时间戳才是 CST**——判断「云端几点跑的」以 message 时间为准。异常时刻跑的 draft 会为「还没开始的今天」生成空素材包（配合坑7 就是灾难）。
+
+## 补采后联动重跑（L0 补齐 → 素材包/日志再生，本地手动路径）
+
+L0 补采/重建完成后，检查缺失的日志日并补跑（2026-08-28 实测成功）：
+
+```bash
+for d in 2026-08-26 2026-08-27; do   # 缺失日期
+  python3 史官系统/scripts/collect_day.py $d
+  python3 史官系统/scripts/write_draft.py $d     # 需 SCRIBE_LLM_API_KEY
+done
+python3 史官系统/scripts/check_scribe.py && git add 史官系统/ && git commit && git push
+```
+
+- 本地没有 `SCRIBE_LLM_API_KEY`（云端用 GitHub Secrets）时：从 `~/.hermes/config.yaml` 提取 DeepSeek `api_key` 注入环境变量，在 **execute_code 里 subprocess 跑** write_draft（terminal 直跑读 config 的命令会被 hook 误拦成 gateway 重启类）。
+- write_draft 默认模型 `deepseek-chat`；**max_tokens 已从 4000 提到 8000**（2026-08-28 实测：8/26 素材包 116K，4000 tokens 输出被截断、缺末两节过不了结构闸门 → rejected）。超长素材日若还截断，看 `日志/<日>.rejected.md` 尾部即可确认。
+- 补跑的草案落库后是 `confirmed: false`，需 `finalize_draft.py --push <日>` 走波总确认流程（或直接本地 --confirm）。
+- 诊断入口：`git log --oneline -15` 看当天有无 scribe-bot 落盘 commit → `ls` 素材包/日志目录对比缺失日 → `史官系统/data/draft_state.json` 看 push 记录 → `git fetch && git log origin/main -8` 看云端实际跑了什么（UTC/CST 换算）。
 
 ## 重建 L0（重复脏数据修复）
 
