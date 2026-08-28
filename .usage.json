@@ -103,13 +103,15 @@
     "created_at": "2026-06-05T12:53:12.005436+00:00",
     "created_by": null,
     "last_patched_at": "2026-06-07T17:03:41.206298+00:00",
-    "last_used_at": "2026-08-11T05:34:34.141020+00:00",
-    "last_viewed_at": "2026-08-11T05:34:34.139540+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-28T01:26:23.575201+00:00",
+    "last_viewed_at": "2026-08-28T01:26:23.573441+00:00",
     "patch_count": 3,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 8,
-    "view_count": 8
+    "use_count": 9,
+    "view_count": 9
   },
   "adjutant-system-ops": {
     "archived_at": null,
@@ -477,13 +479,15 @@
     "created_at": "2026-08-22T03:48:58.302336+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-22T03:48:58.304052+00:00",
-    "last_viewed_at": "2026-08-22T03:48:58.302352+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-28T01:24:33.516278+00:00",
+    "last_viewed_at": "2026-08-28T01:24:33.514639+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "clash-verge-management": {
     "archived_at": null,
@@ -577,6 +581,21 @@
     "state": "active",
     "use_count": 0,
     "view_count": 0
+  },
+  "codex": {
+    "archived_at": null,
+    "created_at": "2026-08-28T01:25:48.832512+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-28T01:25:48.835313+00:00",
+    "last_viewed_at": "2026-08-28T01:25:48.832522+00:00",
+    "patch_count": 0,
+    "patch_generation": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
   },
   "comfyui": {
     "archived_at": null,
@@ -747,13 +766,15 @@
     "created_at": "2026-08-15T16:54:15.514131+00:00",
     "created_by": "agent",
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-28T01:21:41.323525+00:00",
+    "last_viewed_at": "2026-08-28T01:21:41.321433+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "design-md": {
     "archived_at": null,
@@ -1956,13 +1977,15 @@
     "created_at": "2026-07-29T14:50:02.804424+00:00",
     "created_by": "agent",
     "last_patched_at": "2026-07-29T14:50:10.297196+00:00",
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-28T01:22:20.588334+00:00",
+    "last_viewed_at": "2026-08-28T01:22:20.586310+00:00",
     "patch_count": 1,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "pub2gg-local": {
     "archived_at": null,
@@ -2098,16 +2121,16 @@
     "archived_at": null,
     "created_at": "2026-08-27T13:44:01.905127+00:00",
     "created_by": "agent",
-    "last_patched_at": "2026-08-28T00:06:51.214147+00:00",
-    "last_reused_patch_generation": 4,
-    "last_used_at": "2026-08-28T00:06:27.841803+00:00",
-    "last_viewed_at": "2026-08-28T00:06:27.839939+00:00",
-    "patch_count": 6,
-    "patch_generation": 6,
+    "last_patched_at": "2026-08-28T01:23:41.729236+00:00",
+    "last_reused_patch_generation": 6,
+    "last_used_at": "2026-08-28T01:21:19.426069+00:00",
+    "last_viewed_at": "2026-08-28T01:21:19.422461+00:00",
+    "patch_count": 8,
+    "patch_generation": 8,
     "pinned": false,
     "state": "active",
-    "use_count": 4,
-    "view_count": 4
+    "use_count": 5,
+    "view_count": 5
   },
   "scribe-system": {
     "archived_at": null,
