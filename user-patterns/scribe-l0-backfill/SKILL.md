@@ -104,3 +104,18 @@ L0"只追加不修改"红线针对正常写入；重复条目是错误数据，�
 2. 查兜底 cron 是否在（`cronjob list`）——被误删就重建（见上）。
 3. 查 `scribe_backfill.log` 最近记录。
 4. 手动补采（见上）→ 次日日报恢复正常。
+5. **「任务/提醒已过时仍会被执行」**：一次性提醒 cron（如「明天下午提醒发方案」）到点必响，不感知任务是否已完成（2026-08-28 波总确认系统无「对话→任务状态倒推」能力）。波总在会话里已完成的事，不会自动关掉关联的到期提醒——排查「过时提醒被推送」类抱怨时，先查 `~/.hermes/cron/jobs.json` 里的一次性 job 并清理。
+
+## Codex/外部 agent 进展核查（波总问「Codex 改得怎么样」时）
+
+证据链按顺序查，**不猜**：
+1. `process list` + `pgrep -fl "codex|cursor-agent"`——有没有活着的执行进程；
+2. `find ~/.codex/sessions -type f -mmin -180`——有没有新 session 文件；
+3. **`~/.codex/logs_2.sqlite`**（关键，session 文件常缺位）：`SELECT target, COUNT(*) FROM logs WHERE ts > strftime('%s','2026-08-28 00:00:00') GROUP BY target ORDER BY 2 DESC;`——全是 `websocket/server_api/custom_ca` 噪音=没干活；查 `target LIKE '%exec%' OR feedback_log_body LIKE '%apply_patch%'` =0 条即零实际改动；
+4. `find` 各工作仓库 `-mmin -N` 近 N 分钟改动 + `git log --since`——最终以文件系统/git 为准。
+
+网络病灶识别：循环报 `failed to refresh available models: timeout waiting for child process to exit`（每 ~3 分钟重试）+ curl 到 `chatgpt.com` 直连与走 Clash 代理（`-x http://127.0.0.1:7897`）均 `SSL_ERROR_SYSCALL` = 节点到 OpenAI CDN 握手不通（与 Cursor 8/25-26 断连同因，见记忆库 cursor 排障条目）。**此状况下 Codex 零进展是必然，汇报直说，别让它自己重试。**
+
+## git 提交统计陷阱（2026-08-28 实测）
+
+`git commit` 输出「3 files changed」≠ 只提交了 3 个文件——若部分 add 的文件内容与 HEAD 相同（如已被兄弟 cron commit 收录），它们不进本次 commit 也不报错。核对一律用 `git show HEAD --name-only` + `git status --short`，不要信 commit 摘要行。兄弟进程（cron 兜底、云端 Actions）可能与你在同一仓库并行提交——`git pull --rebase` 后再核对，别假设工作区只有自己。
