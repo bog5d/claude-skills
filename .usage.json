@@ -409,14 +409,14 @@
     "created_by": "agent",
     "last_patched_at": "2026-08-20T14:34:40.332170+00:00",
     "last_reused_patch_generation": 5,
-    "last_used_at": "2026-08-27T10:58:57.563897+00:00",
-    "last_viewed_at": "2026-08-27T10:58:57.562130+00:00",
+    "last_used_at": "2026-08-29T01:26:48.760589+00:00",
+    "last_viewed_at": "2026-08-29T01:26:48.757391+00:00",
     "patch_count": 56,
     "patch_generation": 5,
     "pinned": false,
     "state": "active",
-    "use_count": 46,
-    "view_count": 46
+    "use_count": 47,
+    "view_count": 47
   },
   "chinese-ai-humanizer": {
     "archived_at": null,
@@ -2499,14 +2499,14 @@
     "created_by": "agent",
     "last_patched_at": "2026-08-25T01:23:01.275816+00:00",
     "last_reused_patch_generation": 3,
-    "last_used_at": "2026-08-28T08:53:31.432290+00:00",
-    "last_viewed_at": "2026-08-28T08:53:31.430252+00:00",
+    "last_used_at": "2026-08-29T01:26:48.762327+00:00",
+    "last_viewed_at": "2026-08-29T01:26:48.759135+00:00",
     "patch_count": 3,
     "patch_generation": 3,
     "pinned": false,
     "state": "active",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 3,
+    "view_count": 3
   },
   "tencentdb-agent-memory-integration": {
     "archived_at": null,
