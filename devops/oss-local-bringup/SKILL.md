@@ -31,8 +31,14 @@ npm debug log（`~/.npm/_logs/<timestamp>-debug-0.log`）几千行，直接读�
 | 症状 | 根因 | 修复 | 状态 |
 |---|---|---|---|
 | better-sqlite3 ^11 编译失败：`no member named 'GetPrototype' in 'v8::Object'` 等 6 errors | Node 26 新 V8 移除旧 API，bs3 v11 未适配 | `npm pkg set dependencies.better-sqlite3="^12.4.1" && npm install` | ✅ 已验证编译通过 |
-| electron-rebuild 3.x 启动即炸：`require is not defined in ES module scope`（yargs 17.7.2） | Node 26 的 ESM/CJS 互操作对 yargs 17 的 exports 解析变化 | 候选A：切 Node 22 LTS 后 `rm -rf node_modules && npm install`；候选B：`npm pkg set devDependencies.@electron/rebuild="^4.0.1"` | ⚠️ 未验证，候选修复 |
+| electron-rebuild 3.x 启动即炸：`require is not defined in ES module scope`（yargs 17.7.2） | Node 26 的 ESM/CJS 互操作对 yargs 17 的 exports 解析变化 | 候选A（✅ 已验证）：切 Node 22 LTS（官方 tarball）后 `rm -rf node_modules package-lock.json && npm install`，845 包约 1 分钟全过；候选B 无需再用 | ✅ 已验证（munder-difflin 2026-08-30） |
 | node-pty ^1.0.0 编译 | — | 本机 Node 26 下直接编译通过（v1.1.0），无需处理 | ✅ |
+
+## Docker 类项目补充（2026-08-30 freellmapi 实测）
+
+- compose 项目若带 `env_file: .env` 而仓库只给 `.env.example`，先按 docs 生成 `.env`（含 `openssl rand -hex 32` 生成的 ENCRYPTION_KEY，`chmod 600`）再 `docker compose up -d`，否则容器起不来。
+- **ghcr.io 大镜像拉取会非常慢**（Docker Desktop 走系统代理 `http.docker.internal:3128`，17 分钟仍在 Pulling 属正常，`docker images` 显示 0 不代表卡死）。对策：`docker compose up -d` 用 `background=true` + `notify_on_complete=true` 挂后台，等通知期间并行干别的；前台 `docker pull` 摸进度会白吃 timeout。
+- compose 前台跑会触发"长驻进程"拦截：写文件类命令与 `docker compose up -d` 拆开，后者挂 background。
 
 ## 铁律
 - 视频二手信息必须先源头核实（仓库名、项目名、star 数）。
@@ -41,3 +47,4 @@ npm debug log（`~/.npm/_logs/<timestamp>-debug-0.log`）几千行，直接读�
 
 ## 延伸参考
 - `references/node26-native-modules.md` — 本次完整错误签名、日志片段与逐条修复命令。
+- `references/docker-ghcr-slowpull.md` — freellmapi 部署实录：.env 生成、ghcr 代理慢拉、后台等待模式。
