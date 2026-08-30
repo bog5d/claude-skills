@@ -145,14 +145,14 @@
     "created_by": "agent",
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-24T09:50:09.193308+00:00",
-    "last_viewed_at": "2026-08-24T09:50:09.189704+00:00",
+    "last_used_at": "2026-08-30T08:44:10.706467+00:00",
+    "last_viewed_at": "2026-08-30T08:44:10.704526+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 2,
-    "view_count": 2
+    "use_count": 3,
+    "view_count": 3
   },
   "ai-qujing-video": {
     "archived_at": null,
@@ -1611,13 +1611,15 @@
     "created_at": "2026-08-18T05:56:07.082725+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": "2026-08-18T05:56:07.084567+00:00",
-    "last_viewed_at": "2026-08-18T05:56:07.082733+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-30T08:29:46.279721+00:00",
+    "last_viewed_at": "2026-08-30T08:29:46.276371+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 1,
-    "view_count": 1
+    "use_count": 2,
+    "view_count": 2
   },
   "meeting-intelligence": {
     "archived_at": null,
@@ -2167,13 +2169,15 @@
     "created_at": "2026-07-24T17:42:32.555758+00:00",
     "created_by": null,
     "last_patched_at": null,
-    "last_used_at": null,
-    "last_viewed_at": null,
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-08-30T08:29:46.281425+00:00",
+    "last_viewed_at": "2026-08-30T08:29:46.278218+00:00",
     "patch_count": 0,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 0,
-    "view_count": 0
+    "use_count": 1,
+    "view_count": 1
   },
   "segment-anything-model": {
     "archived_at": null,
