@@ -529,14 +529,14 @@
     "created_by": "agent",
     "last_patched_at": "2026-07-29T15:26:58.398747+00:00",
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-25T05:54:34.152679+00:00",
-    "last_viewed_at": "2026-08-25T05:54:34.150779+00:00",
+    "last_used_at": "2026-09-01T15:11:00.715587+00:00",
+    "last_viewed_at": "2026-09-01T15:11:00.711628+00:00",
     "patch_count": 4,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 6,
-    "view_count": 6
+    "use_count": 7,
+    "view_count": 7
   },
   "claude-design": {
     "archived_at": null,
@@ -1317,14 +1317,14 @@
     "created_by": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-08-22T03:47:59.665537+00:00",
-    "last_viewed_at": "2026-08-22T03:47:59.662805+00:00",
+    "last_used_at": "2026-09-01T15:11:00.717821+00:00",
+    "last_viewed_at": "2026-09-01T15:11:00.713668+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 5,
-    "view_count": 5
+    "use_count": 6,
+    "view_count": 6
   },
   "hero-recruiter": {
     "archived_at": null,
@@ -1604,6 +1604,21 @@
     "state": "active",
     "use_count": 0,
     "view_count": 0
+  },
+  "macos-network-proxy-troubleshooting": {
+    "archived_at": null,
+    "created_at": "2026-09-01T15:12:29.859438+00:00",
+    "created_by": "agent",
+    "last_patched_at": "2026-09-01T15:13:40.967330+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-09-01T15:13:27.040138+00:00",
+    "last_viewed_at": "2026-09-01T15:13:27.038500+00:00",
+    "patch_count": 4,
+    "patch_generation": 4,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
   },
   "macos-tools": {
     "archived_at": null,
