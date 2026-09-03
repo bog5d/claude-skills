@@ -98,6 +98,16 @@ L0"只追加不修改"红线针对正常写入；重复条目是错误数据，�
 
 **采集边界**：脚本只采 default profile 的 `~/.hermes/state.db` 主会话。her-m2 等其它 profile 的会话（`~/.hermes/profiles/<name>/state.db`）不在史官采集范围——若要接需单独扩展脚本。
 
+## 判定树：波总问「史官日报/观察怎么没了」（2026-09-03 实测）
+
+「没收到」要先分三层定位，禁止直接下结论「系统挂了」：
+
+1. **cron 推送层**（日报每晚 21:15）：`grep "Job 'b9704db1af16'" ~/.hermes/logs/agent.log | grep delivered`——有 `delivered to telegram:8447296166` 行=Hermes 侧推送成功，波总没看到=TG 网络抖动吞消息（gateway.log 里 adapter 大量 RemoteProtocolError/ConnectError 重连是佐证），不是没生成。no_agent 产物原文在 `~/.hermes/cron/output/<job_id>/` 按时间戳落盘，可直接 cat 给波总补看。cron 执行状态另查 `~/.hermes/cron/executions.db`（executions 表，status=completed/failed）。
+2. **采集层**（日报内容薄/「捕获 1 条」）：git log 是否全是「cron 兜底」commit、主会话手工采集缺失——按标准补采流程处理。
+3. **云端生产线层**（观察/洞察/日志草案断更）：`git fetch && git log origin/main -10 -- 史官系统/` 看 scribe-bot 最后落盘 commit 日期——commit 停了=云端 Actions 停了（这是本地最可靠的判定 proxy，2026-09-03 实测：洞察/日志 8/30 起 scribe-bot 零 commit、draft_state 卡 awaiting=生产线停摆）。**不要试图用 gh CLI（未认证）或 curl GitHub API 查 Actions run status（长 curl 会撞审批门禁超时）**，git log 即可。修复 workflow/Secrets 需波总网页确认，本地只能补跑 collect_day+write_draft 兜底。
+
+另：日报里出现「哈希链验证 ❌ N errors」= check_scribe.py 验链失败，需修复链消除，别让警报连续几天跟着日报走。
+
 ## 排查路径（日报报 0 捕获时）
 
 1. 先查 `git log` 当天有没有 Hermes 采集 commit——没有=Hermes 漏采（主因，8/26+8/27 都是）。
