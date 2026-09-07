@@ -74,14 +74,14 @@
     "created_by": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-09-01T14:08:09.867988+00:00",
-    "last_viewed_at": "2026-09-01T14:08:09.865748+00:00",
+    "last_used_at": "2026-09-07T01:49:39.545905+00:00",
+    "last_viewed_at": "2026-09-07T01:49:39.544323+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 11,
-    "view_count": 11
+    "use_count": 12,
+    "view_count": 12
   },
   "adjutant-material-ingest": {
     "archived_at": null,
@@ -774,13 +774,15 @@
     "created_at": "2026-06-12T13:38:18.792648+00:00",
     "created_by": null,
     "last_patched_at": "2026-08-18T23:12:53.927793+00:00",
-    "last_used_at": "2026-08-20T14:33:03.092754+00:00",
-    "last_viewed_at": "2026-08-20T14:33:03.087827+00:00",
+    "last_reused_patch_generation": 0,
+    "last_used_at": "2026-09-07T01:46:30.674117+00:00",
+    "last_viewed_at": "2026-09-07T01:46:30.669057+00:00",
     "patch_count": 5,
+    "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 13,
-    "view_count": 13
+    "use_count": 14,
+    "view_count": 14
   },
   "debugging-hermes-tui-commands": {
     "archived_at": null,
